@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ATM With No PIN — Dhezz</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black: #0a0a0a;
+      --green: #00c853;
+      --green-dim: #007a33;
+      --felt: #0d2e1a;
+      --gold: #c9a84c;
+      --offwhite: #f0ece0;
+      --gray: #888;
+      --card-white: #fafaf5;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background-color: var(--black);
+      color: var(--offwhite);
+      font-family: 'DM Mono', monospace;
+      overflow-x: hidden;
+      cursor: crosshair;
+    }
+
+    /* ─── NOISE OVERLAY ─── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0.4;
+    }
+
+    /* ─── TICKER ─── */
+    .ticker-wrap {
+      background: var(--green);
+      color: var(--black);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      overflow: hidden;
+      white-space: nowrap;
+      padding: 6px 0;
+      position: sticky;
+      top: 0;
+      z-index: 99;
+    }
+    .ticker-track {
+      display: inline-block;
+      animation: ticker 30s linear infinite;
+    }
+    .ticker-track span { margin: 0 3rem; }
+    @keyframes ticker {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+
+    /* ─── NAV ─── */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.2rem 2.5rem;
+      border-bottom: 1px solid #1a1a1a;
+      position: relative;
+      z-index: 10;
+    }
+    .nav-logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.4rem;
+      letter-spacing: 0.15em;
+      color: var(--green);
+    }
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+    .nav-links a {
+      text-decoration: none;
+      color: var(--gray);
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--offwhite); }
+
+    /* ─── HERO ─── */
+    .hero {
+      min-height: 92vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-left {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 5rem 4rem 5rem 5rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .eyebrow {
+      font-size: 0.7rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 1.5rem;
+      opacity: 0;
+      animation: fadeUp 0.6s ease forwards 0.2s;
+    }
+
+    h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(4.5rem, 8vw, 8rem);
+      line-height: 0.9;
+      letter-spacing: 0.03em;
+      color: var(--offwhite);
+      opacity: 0;
+      animation: fadeUp 0.7s ease forwards 0.4s;
+    }
+    h1 .accent { color: var(--green); }
+    h1 .italic {
+      font-family: 'DM Serif Display', serif;
+      font-style: italic;
+      color: var(--gold);
+    }
+
+    .hero-sub {
+      margin-top: 2rem;
+      font-size: 0.85rem;
+      line-height: 1.8;
+      color: var(--gray);
+      max-width: 38ch;
+      opacity: 0;
+      animation: fadeUp 0.7s ease forwards 0.6s;
+    }
+    .hero-sub strong { color: var(--offwhite); }
+
+    .hero-cta {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2.5rem;
+      opacity: 0;
+      animation: fadeUp 0.7s ease forwards 0.8s;
+    }
+    .btn {
+      padding: 0.75rem 1.8rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: var(--green);
+      color: var(--black);
+      font-weight: 500;
+    }
+    .btn-primary:hover {
+      background: #00ff6a;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,200,83,0.3);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--offwhite);
+      border: 1px solid #2a2a2a;
+    }
+    .btn-ghost:hover { border-color: var(--offwhite); }
+
+    /* ─── HERO RIGHT — ATM VISUAL ─── */
+    .hero-right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      background: var(--felt);
+      overflow: hidden;
+    }
+
+    /* Felt texture */
+    .hero-right::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px),
+        radial-gradient(ellipse at center, #1a4a2e 0%, #0a2016 100%);
+    }
+
+    .atm-card {
+      position: relative;
+      z-index: 2;
+      width: 280px;
+      background: linear-gradient(135deg, #1c1c1c 0%, #2a2a2a 100%);
+      border-radius: 18px;
+      padding: 2rem;
+      box-shadow:
+        0 40px 80px rgba(0,0,0,0.6),
+        0 0 0 1px rgba(255,255,255,0.06),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+      animation: float 4s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(-2deg); }
+      50% { transform: translateY(-14px) rotate(-2deg); }
+    }
+    .card-chip {
+      width: 42px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--gold), #8a6a20);
+      border-radius: 5px;
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+    .card-chip::after {
+      content: '';
+      position: absolute;
+      inset: 6px;
+      border: 1px solid rgba(0,0,0,0.3);
+      border-radius: 2px;
+    }
+    .card-number {
+      font-family: 'DM Mono', monospace;
+      font-size: 1rem;
+      letter-spacing: 0.2em;
+      color: var(--offwhite);
+      margin-bottom: 1.5rem;
+      opacity: 0.9;
+    }
+    .card-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .card-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.2rem;
+      letter-spacing: 0.15em;
+      color: var(--offwhite);
+    }
+    .card-tagline {
+      font-size: 0.55rem;
+      letter-spacing: 0.1em;
+      color: var(--green);
+      text-transform: uppercase;
+    }
+    .no-pin-badge {
+      background: var(--green);
+      color: var(--black);
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      padding: 4px 8px;
+      border-radius: 3px;
+      text-transform: uppercase;
+    }
+
+    /* scatter cards behind */
+    .scatter-card {
+      position: absolute;
+      width: 120px;
+      height: 80px;
+      background: var(--card-white);
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.6rem;
+      font-weight: bold;
+    }
+    .sc1 { top: 15%; left: 8%; transform: rotate(-15deg); color: #cc2200; animation: float 5s ease-in-out infinite 0.5s; }
+    .sc2 { top: 20%; right: 10%; transform: rotate(12deg); color: #0a0a0a; animation: float 4.5s ease-in-out infinite 1s; }
+    .sc3 { bottom: 15%; left: 12%; transform: rotate(8deg); color: #cc2200; animation: float 5.5s ease-in-out infinite 0.2s; }
+    .sc4 { bottom: 20%; right: 8%; transform: rotate(-10deg); color: #0a0a0a; animation: float 4s ease-in-out infinite 0.8s; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── STATS BAR ─── */
+    .stats-bar {
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+    }
+    .stat {
+      padding: 2rem;
+      border-right: 1px solid #1a1a1a;
+      text-align: center;
+    }
+    .stat:last-child { border-right: none; }
+    .stat-num {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.8rem;
+      color: var(--green);
+      letter-spacing: 0.05em;
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--gray);
+      margin-top: 0.4rem;
+    }
+
+    /* ─── ABOUT ─── */
+    .about {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+    .about-text {
+      padding: 5rem;
+      border-right: 1px solid #1a1a1a;
+    }
+    .section-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 1.5rem;
+    }
+    h2 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(2rem, 3.5vw, 3rem);
+      line-height: 1.2;
+      color: var(--offwhite);
+      margin-bottom: 1.5rem;
+    }
+    h2 em { color: var(--gold); font-style: italic; }
+    .body-text {
+      font-size: 0.82rem;
+      line-height: 1.9;
+      color: #999;
+      max-width: 45ch;
+    }
+    .body-text + .body-text { margin-top: 1rem; }
+
+    .about-rules {
+      padding: 5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .rule {
+      padding: 1.5rem;
+      border: 1px solid #1e1e1e;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s;
+    }
+    .rule:hover { border-color: var(--green-dim); }
+    .rule::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--green);
+      transform: scaleY(0);
+      transition: transform 0.3s;
+      transform-origin: bottom;
+    }
+    .rule:hover::before { transform: scaleY(1); }
+    .rule-num {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      color: var(--green);
+      margin-bottom: 0.4rem;
+    }
+    .rule-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.1rem;
+      color: var(--offwhite);
+      margin-bottom: 0.4rem;
+    }
+    .rule-body { font-size: 0.75rem; color: var(--gray); line-height: 1.7; }
+
+    /* ─── SCHEDULE ─── */
+    .schedule { padding: 5rem; border-top: 1px solid #1a1a1a; }
+    .schedule-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 3rem;
+    }
+    .schedule-grid { display: grid; gap: 1px; background: #1a1a1a; }
+    .schedule-row {
+      display: grid;
+      grid-template-columns: 120px 1fr 120px 140px;
+      gap: 2rem;
+      padding: 1.5rem 2rem;
+      background: var(--black);
+      align-items: center;
+      transition: background 0.2s;
+    }
+    .schedule-row:hover { background: #0e0e0e; }
+    .schedule-row.header {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gray);
+      background: #080808;
+    }
+    .sched-date { font-family: 'DM Mono', monospace; font-size: 0.78rem; color: var(--green); }
+    .sched-venue { font-size: 0.82rem; color: var(--offwhite); }
+    .sched-game { font-size: 0.72rem; color: var(--gray); }
+    .sched-status {
+      display: inline-block;
+      padding: 4px 10px;
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border-radius: 2px;
+    }
+    .status-confirmed { background: rgba(0,200,83,0.15); color: var(--green); border: 1px solid var(--green-dim); }
+    .status-likely { background: rgba(201,168,76,0.12); color: var(--gold); border: 1px solid rgba(201,168,76,0.3); }
+    .status-tbd { background: #111; color: var(--gray); border: 1px solid #222; }
+    .no-schedule {
+      padding: 3rem;
+      text-align: center;
+      color: var(--gray);
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+      border: 1px dashed #222;
+    }
+
+    /* ─── HALL OF WINNERS ─── */
+    .hall { padding: 5rem; border-top: 1px solid #1a1a1a; background: #070707; }
+    .hall-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: #1a1a1a;
+      margin-top: 3rem;
+    }
+    .winner-card {
+      background: var(--black);
+      padding: 2rem;
+      transition: background 0.2s;
+    }
+    .winner-card:hover { background: #0d0d0d; }
+    .winner-rank {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 3rem;
+      color: #1a1a1a;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+    }
+    .winner-rank.gold { color: rgba(201,168,76,0.4); }
+    .winner-rank.silver { color: rgba(180,180,180,0.3); }
+    .winner-rank.bronze { color: rgba(140,90,50,0.3); }
+    .winner-name { font-family: 'DM Serif Display', serif; font-size: 1.3rem; color: var(--offwhite); }
+    .winner-amount { color: var(--green); font-size: 0.85rem; margin-top: 0.3rem; }
+    .winner-note { font-size: 0.7rem; color: var(--gray); margin-top: 0.5rem; line-height: 1.5; }
+    .hall-cta {
+      margin-top: 2rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--gray);
+    }
+
+    /* ─── FOLLOW ─── */
+    .follow {
+      padding: 5rem;
+      border-top: 1px solid #1a1a1a;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5rem;
+      align-items: center;
+    }
+    .follow h2 { margin-bottom: 1rem; }
+    .social-links { display: flex; flex-direction: column; gap: 1rem; }
+    .social-link {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      border: 1px solid #1e1e1e;
+      text-decoration: none;
+      color: var(--offwhite);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      transition: all 0.2s;
+    }
+    .social-link:hover {
+      border-color: var(--green);
+      color: var(--green);
+      transform: translateX(6px);
+    }
+    .social-icon { font-size: 1.1rem; width: 24px; }
+    .social-handle { margin-left: auto; color: var(--gray); font-size: 0.7rem; }
+
+    .tagline-block {
+      padding: 2.5rem;
+      border: 1px solid #1e1e1e;
+      position: relative;
+    }
+    .tagline-block::before {
+      content: '"';
+      position: absolute;
+      top: -1.5rem;
+      left: 1.5rem;
+      font-family: 'DM Serif Display', serif;
+      font-size: 5rem;
+      color: var(--green);
+      line-height: 1;
+    }
+    .tagline-text {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.5rem;
+      font-style: italic;
+      color: var(--offwhite);
+      line-height: 1.4;
+    }
+    .tagline-attr {
+      margin-top: 1rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--gray);
+    }
+
+    /* ─── FOOTER ─── */
+    footer {
+      border-top: 1px solid #1a1a1a;
+      padding: 2rem 4rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      color: #444;
+    }
+    .footer-logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1rem;
+      letter-spacing: 0.2em;
+      color: #333;
+    }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; min-height: auto; }
+      .hero-right { height: 380px; }
+      .hero-left { padding: 3rem 2rem; }
+      .stats-bar { grid-template-columns: repeat(2,1fr); }
+      .stat:nth-child(2) { border-right: none; }
+      .about { grid-template-columns: 1fr; }
+      .about-text { border-right: none; border-bottom: 1px solid #1a1a1a; padding: 3rem 2rem; }
+      .about-rules { padding: 3rem 2rem; }
+      .schedule { padding: 3rem 2rem; }
+      .schedule-row { grid-template-columns: 1fr 1fr; gap: 0.8rem; font-size: 0.75rem; }
+      .schedule-row.header { display: none; }
+      .hall { padding: 3rem 2rem; }
+      .hall-grid { grid-template-columns: 1fr; }
+      .follow { grid-template-columns: 1fr; gap: 2rem; padding: 3rem 2rem; }
+      nav { padding: 1rem 1.5rem; }
+      .nav-links { gap: 1rem; }
+      footer { flex-direction: column; gap: 0.5rem; text-align: center; padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TICKER -->
+  <div class="ticker-wrap">
+    <div class="ticker-track">
+      <span>🏧 ATM ONLINE — NO PIN REQUIRED</span>
+      <span>♠ DHEZZ IS IN THE BUILDING</span>
+      <span>💸 $2/$5 NLH — FOXWOODS & BEYOND</span>
+      <span>♦ EASY MONEY. JUST SIT DOWN.</span>
+      <span>🃏 MAKING BAD DECISIONS SINCE FOREVER</span>
+      <span>♣ NEXT SESSION: CHECK SCHEDULE BELOW</span>
+      <span>♥ PLEASE. TAKE MY CHIPS. I INSIST.</span>
+      <span>🏧 ATM ONLINE — NO PIN REQUIRED</span>
+      <span>♠ DHEZZ IS IN THE BUILDING</span>
+      <span>💸 $2/$5 NLH — FOXWOODS & BEYOND</span>
+      <span>♦ EASY MONEY. JUST SIT DOWN.</span>
+      <span>🃏 MAKING BAD DECISIONS SINCE FOREVER</span>
+      <span>♣ NEXT SESSION: CHECK SCHEDULE BELOW</span>
+      <span>♥ PLEASE. TAKE MY CHIPS. I INSIST.</span>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo">ATM / No PIN</div>
+    <ul class="nav-links">
+      <li><a href="#about">About</a></li>
+      <li><a href="#schedule">Find Me</a></li>
+      <li><a href="#hall">Hall of Winners</a></li>
+      <li><a href="#follow">Follow</a></li>
+    </ul>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-left">
+      <p class="eyebrow">Foxwoods &bull; $2/$5 NLH &bull; Est. Bad Decisions</p>
+      <h1>
+        THE ATM<br>
+        <span class="italic">with</span><br>
+        <span class="accent">no pin.</span>
+      </h1>
+      <p class="hero-sub">
+        Meet <strong>Dhezz</strong> — the most approachable wallet at your poker table.
+        No secret code. No daily limit. Just pull up a chair and start withdrawing.
+        <br><br>
+        Traveling the felt from Foxwoods to wherever bad decisions take him next.
+      </p>
+      <div class="hero-cta">
+        <a href="#schedule" class="btn btn-primary">Find the ATM 🏧</a>
+        <a href="#about" class="btn btn-ghost">Why tho?</a>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="scatter-card sc1">9♥</div>
+      <div class="scatter-card sc2">4♠</div>
+      <div class="scatter-card sc3">2♦</div>
+      <div class="scatter-card sc4">7♣</div>
+      <div class="atm-card">
+        <div class="card-chip"></div>
+        <div class="card-number">**** **** **** FREE</div>
+        <div class="card-bottom">
+          <div>
+            <div class="card-name">DHEZZ</div>
+            <div class="card-tagline">ATM WITH NO PIN™</div>
+          </div>
+          <div class="no-pin-badge">No PIN</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-num">$2/$5</div>
+      <div class="stat-label">Stakes of Choice</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">∞</div>
+      <div class="stat-label">Withdrawal Limit</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">0</div>
+      <div class="stat-label">PIN Required</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">100%</div>
+      <div class="stat-label">Good Vibes Guaranteed</div>
+    </div>
+  </div>
+
+  <!-- ABOUT -->
+  <section class="about" id="about">
+    <div class="about-text">
+      <p class="section-label">// About the ATM</p>
+      <h2>I play poker.<br>You <em>profit.</em></h2>
+      <p class="body-text">
+        There's a rare creature at the poker table — someone who makes the game fun, keeps the energy alive, and somehow still can't figure out why top pair no kicker isn't the nuts. That's Dhezz.
+      </p>
+      <p class="body-text">
+        Call him a fish, a whale, a live one — he calls himself an ATM with no PIN. He's not just okay with you winning his money. He's practically <em>encouraging</em> it.
+      </p>
+      <p class="body-text">
+        Find him at Foxwoods, various casino stops across the Northeast, and wherever the $2/$5 game is juiciest. He'll be the one making everyone laugh right before calling your all-in with bottom pair.
+      </p>
+    </div>
+    <div class="about-rules">
+      <p class="section-label">// House Rules</p>
+      <div class="rule">
+        <div class="rule-num">01</div>
+        <div class="rule-title">No PIN. No Problem.</div>
+        <div class="rule-body">Just sit down. The chips have already started moving in your direction. Think of it as contactless payment.</div>
+      </div>
+      <div class="rule">
+        <div class="rule-num">02</div>
+        <div class="rule-title">Good Times Included</div>
+        <div class="rule-body">Every session comes with commentary, self-deprecating analysis of every fold, and at least one hand history that will haunt you.</div>
+      </div>
+      <div class="rule">
+        <div class="rule-num">03</div>
+        <div class="rule-title">The Table Is Better With Dhezz</div>
+        <div class="rule-body">Ask anyone who's sat with him. The vibes are immaculate. The poker decisions, less so.</div>
+      </div>
+      <div class="rule">
+        <div class="rule-num">04</div>
+        <div class="rule-title">Results May Vary. Entertainment Won't.</div>
+        <div class="rule-body">He cannot guarantee you'll win money. He can guarantee you'll have a story to tell your poker group chat later.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCHEDULE -->
+  <section class="schedule" id="schedule">
+    <div class="schedule-header">
+      <div>
+        <p class="section-label">// ATM Deployment Schedule</p>
+        <h2>Find Me<br><em>at the Tables</em></h2>
+      </div>
+      <a href="#follow" class="btn btn-ghost" style="font-size:0.7rem;">Get Notified →</a>
+    </div>
+
+    <div class="schedule-grid">
+      <div class="schedule-row header">
+        <span>Date</span>
+        <span>Venue</span>
+        <span>Game</span>
+        <span>Status</span>
+      </div>
+      <div class="schedule-row">
+        <div class="sched-date">TBD</div>
+        <div class="sched-venue">Foxwoods Resort Casino<span style="display:block;font-size:0.68rem;color:#555;margin-top:2px;">Mashantucket, CT</span></div>
+        <div class="sched-game">$2/$5 NLH</div>
+        <div><span class="sched-status status-likely">Likely</span></div>
+      </div>
+      <div class="schedule-row">
+        <div class="sched-date">TBD</div>
+        <div class="sched-venue">Traveling<span style="display:block;font-size:0.68rem;color:#555;margin-top:2px;">Casino TBD</span></div>
+        <div class="sched-game">$2/$5 NLH</div>
+        <div><span class="sched-status status-tbd">TBD</span></div>
+      </div>
+    </div>
+    <div class="no-schedule" style="margin-top:1px;">
+      📡 &nbsp; Follow on social for real-time session announcements — "The ATM is open."
+    </div>
+  </section>
+
+  <!-- HALL OF WINNERS -->
+  <section class="hall" id="hall">
+    <p class="section-label">// Hall of Winners</p>
+    <h2>The Leaderboard of<br><em>Grateful Recipients</em></h2>
+    <div class="hall-grid">
+      <div class="winner-card">
+        <div class="winner-rank gold">01</div>
+        <div class="winner-name">Your Name Here</div>
+        <div class="winner-amount">Pending First Victim</div>
+        <div class="winner-note">The throne awaits. Foxwoods. $2/$5. You know what to do.</div>
+      </div>
+      <div class="winner-card">
+        <div class="winner-rank silver">02</div>
+        <div class="winner-name">Seat TBD</div>
+        <div class="winner-amount">—</div>
+        <div class="winner-note">Securing the runner-up spot has never been easier. Just call his 3-bet.</div>
+      </div>
+      <div class="winner-card">
+        <div class="winner-rank bronze">03</div>
+        <div class="winner-name">Future Friend</div>
+        <div class="winner-amount">—</div>
+        <div class="winner-note">Third place is still a victory. Come find the ATM.</div>
+      </div>
+    </div>
+    <div class="hall-cta">
+      🏆 &nbsp; Won a big pot off Dhezz? DM him on social to claim your spot on the leaderboard.
+    </div>
+  </section>
+
+  <!-- FOLLOW -->
+  <section class="follow" id="follow">
+    <div>
+      <p class="section-label">// Follow the Fish</p>
+      <h2>Know Before<br>You <em>Go.</em></h2>
+      <p class="body-text" style="margin-top:0.5rem;">
+        Get real-time updates on where Dhezz is playing, session recaps, and bad beat stories that will make you feel genuinely better about your own poker game.
+      </p>
+      <div class="social-links" style="margin-top:2rem;">
+        <a href="#" class="social-link">
+          <span class="social-icon">𝕏</span>
+          <span>Follow on X (Twitter)</span>
+          <span class="social-handle">@atmwithnopin</span>
+        </a>
+        <a href="#" class="social-link">
+          <span class="social-icon">📷</span>
+          <span>Follow on Instagram</span>
+          <span class="social-handle">@atmwithnopin</span>
+        </a>
+        <a href="#" class="social-link">
+          <span class="social-icon">🎵</span>
+          <span>Follow on TikTok</span>
+          <span class="social-handle">@atmwithnopin</span>
+        </a>
+        <a href="#" class="social-link">
+          <span class="social-icon">▶</span>
+          <span>Subscribe on YouTube</span>
+          <span class="social-handle">ATM With No PIN</span>
+        </a>
+      </div>
+    </div>
+    <div>
+      <div class="tagline-block">
+        <p class="tagline-text">
+          Everyone else is trying to find the fish at the table. I put up a website so you don't have to.
+        </p>
+        <p class="tagline-attr">— Dhezz, ATM With No PIN</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-logo">ATM WITH NO PIN™</div>
+    <div>atmwithnopin.com &mdash; Dhezz &mdash; $2/$5 NLH</div>
+    <div>♠ ♥ ♦ ♣ &mdash; No Pin Required</div>
+  </footer>
+
+</body>
+</html>

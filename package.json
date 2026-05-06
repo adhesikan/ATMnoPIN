@@ -1,0 +1,12 @@
+{
+  "name": "atm-with-no-pin",
+  "version": "1.0.0",
+  "description": "ATM With No PIN — Dhezz's poker landing page",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
