@@ -8,790 +8,620 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --black: #0a0a0a;
-      --green: #00c853;
-      --green-dim: #007a33;
-      --felt: #0d2e1a;
-      --gold: #c9a84c;
-      --offwhite: #f0ece0;
-      --gray: #888;
-      --red: #e53935;
+      --black: #0a0a0a; --green: #00c853; --green-dim: #007a33;
+      --gold: #c9a84c; --offwhite: #f0ece0; --gray: #888;
+      --red: #e53935; --sidebar: #0d0d0d;
     }
     html { height: 100%; }
-    body {
-      background: var(--black);
-      color: var(--offwhite);
-      font-family: 'DM Mono', monospace;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
-    }
+    body { background: var(--black); color: var(--offwhite); font-family: 'DM Mono', monospace; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-    /* ── DISCLAIMER OVERLAY ── */
-    #disclaimer-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.92);
-      z-index: 999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 1rem;
-    }
-    #disclaimer-box {
-      background: #0e0e0e;
-      border: 1px solid #2a2a2a;
-      max-width: 560px;
-      width: 100%;
-      padding: 2.5rem;
-      position: relative;
-    }
-    #disclaimer-box::before {
-      content: '⚠';
-      position: absolute;
-      top: -1.2rem;
-      left: 2rem;
-      background: var(--gold);
-      color: var(--black);
-      font-size: 1rem;
-      padding: 0.2rem 0.6rem;
-      font-family: 'DM Mono', monospace;
-    }
-    .disclaimer-title {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.8rem;
-      letter-spacing: 0.1em;
-      color: var(--offwhite);
-      margin-bottom: 0.3rem;
-    }
-    .disclaimer-sub {
-      font-size: 0.65rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--green);
-      margin-bottom: 1.5rem;
-    }
-    .disclaimer-terms {
-      font-size: 0.75rem;
-      line-height: 1.8;
-      color: #aaa;
-      margin-bottom: 1.5rem;
-      max-height: 260px;
-      overflow-y: auto;
-      padding-right: 0.5rem;
-      border-top: 1px solid #1a1a1a;
-      border-bottom: 1px solid #1a1a1a;
-      padding-top: 1rem;
-      padding-bottom: 1rem;
-    }
-    .disclaimer-terms p { margin-bottom: 0.8rem; }
-    .disclaimer-terms strong { color: var(--offwhite); }
-    .disclaimer-check {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.8rem;
-      margin-bottom: 1.5rem;
-      font-size: 0.75rem;
-      color: #aaa;
-      cursor: pointer;
-    }
-    .disclaimer-check input { margin-top: 2px; accent-color: var(--green); width: 14px; height: 14px; cursor: pointer; }
-    #agree-btn {
-      width: 100%;
-      padding: 0.9rem;
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      color: #444;
-      font-family: 'DM Mono', monospace;
-      font-size: 0.75rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      cursor: not-allowed;
-      transition: all 0.2s;
-    }
-    #agree-btn.active {
-      background: var(--green);
-      color: var(--black);
-      border-color: var(--green);
-      cursor: pointer;
-      font-weight: 500;
-    }
-    #agree-btn.active:hover { background: #00ff6a; }
+    /* OVERLAYS */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.93); z-index: 999; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+    .overlay.hidden { display: none; }
+    .modal { background: #0e0e0e; border: 1px solid #2a2a2a; max-width: 530px; width: 100%; padding: 2.5rem; }
+    .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; letter-spacing: 0.1em; margin-bottom: 0.3rem; }
+    .modal-sub { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green); margin-bottom: 1.5rem; }
+    .modal input, .modal select { width: 100%; background: #111; border: 1px solid #2a2a2a; color: var(--offwhite); font-family: 'DM Mono', monospace; font-size: 0.82rem; padding: 0.7rem 1rem; margin-bottom: 0.8rem; outline: none; transition: border-color 0.2s; }
+    .modal input:focus, .modal select:focus { border-color: var(--green); }
+    .modal select option { background: #111; }
+    .btn-g { width: 100%; padding: 0.8rem; background: var(--green); border: none; color: var(--black); font-family: 'DM Mono', monospace; font-size: 0.75rem; letter-spacing: 0.15em; text-transform: uppercase; font-weight: 500; cursor: pointer; transition: background 0.2s; margin-top: 0.3rem; }
+    .btn-g:hover { background: #00ff6a; }
+    .btn-g:disabled { background: #1a1a1a; color: #333; cursor: not-allowed; }
+    .btn-gh { width: 100%; padding: 0.7rem; background: transparent; border: 1px solid #2a2a2a; color: var(--gray); font-family: 'DM Mono', monospace; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; margin-top: 0.5rem; }
+    .btn-gh:hover { border-color: var(--offwhite); color: var(--offwhite); }
+    .hint { font-size: 0.65rem; color: var(--gray); margin-top: 0.5rem; line-height: 1.6; }
 
-    /* ── USERNAME MODAL ── */
-    #username-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.92);
-      z-index: 998;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 1rem;
-    }
-    #username-overlay.show { display: flex; }
-    #username-box {
-      background: #0e0e0e;
-      border: 1px solid #2a2a2a;
-      max-width: 400px;
-      width: 100%;
-      padding: 2.5rem;
-    }
-    .username-title {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.8rem;
-      letter-spacing: 0.1em;
-      margin-bottom: 0.3rem;
-    }
-    .username-sub {
-      font-size: 0.65rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--green);
-      margin-bottom: 1.5rem;
-    }
-    #username-input {
-      width: 100%;
-      background: #111;
-      border: 1px solid #2a2a2a;
-      color: var(--offwhite);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.85rem;
-      padding: 0.75rem 1rem;
-      margin-bottom: 1rem;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    #username-input:focus { border-color: var(--green); }
-    #username-btn {
-      width: 100%;
-      padding: 0.75rem;
-      background: var(--green);
-      border: none;
-      color: var(--black);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.75rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    #username-btn:hover { background: #00ff6a; }
-    .username-note { font-size: 0.65rem; color: var(--gray); margin-top: 0.8rem; line-height: 1.6; }
+    /* DISCLAIMER */
+    .disc-terms { font-size: 0.74rem; line-height: 1.8; color: #aaa; margin-bottom: 1.2rem; max-height: 210px; overflow-y: auto; border-top: 1px solid #1a1a1a; border-bottom: 1px solid #1a1a1a; padding: 1rem 0.4rem 1rem 0; }
+    .disc-terms p { margin-bottom: 0.7rem; }
+    .disc-terms strong { color: var(--offwhite); }
+    .check-row { display: flex; align-items: flex-start; gap: 0.8rem; margin-bottom: 1.2rem; font-size: 0.72rem; color: #aaa; cursor: pointer; line-height: 1.6; }
+    .check-row input { margin-top: 3px; accent-color: var(--green); min-width: 14px; cursor: pointer; }
 
-    /* ── HEADER ── */
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid #1a1a1a;
-      background: var(--black);
-      flex-shrink: 0;
-    }
-    .header-left { display: flex; align-items: center; gap: 1rem; }
-    .header-logo {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.2rem;
-      letter-spacing: 0.15em;
-      color: var(--green);
-      text-decoration: none;
-    }
-    .header-title {
-      font-size: 0.7rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--gray);
-    }
-    .online-count {
-      font-size: 0.65rem;
-      letter-spacing: 0.1em;
-      color: var(--green);
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-    .online-dot {
-      width: 6px; height: 6px;
-      background: var(--green);
-      border-radius: 50%;
-      animation: pulse 2s ease-in-out infinite;
-    }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    /* TABS */
+    .tab-row { display: flex; margin-bottom: 1.5rem; border-bottom: 1px solid #1a1a1a; }
+    .tab-btn { padding: 0.5rem 1.2rem; background: none; border: none; border-bottom: 2px solid transparent; color: var(--gray); font-family: 'DM Mono', monospace; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; margin-bottom: -1px; transition: all 0.2s; }
+    .tab-btn.active { color: var(--green); border-bottom-color: var(--green); }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
 
-    /* ── CHAT AREA ── */
-    #chat-area {
-      flex: 1 1 0;
-      min-height: 0;
-      overflow-y: auto;
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      scroll-behavior: smooth;
-    }
+    /* HEADER */
+    header { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.5rem; border-bottom: 1px solid #1a1a1a; flex-shrink: 0; }
+    .hdr-left { display: flex; align-items: center; gap: 1rem; }
+    .hdr-logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 0.15em; color: var(--green); text-decoration: none; }
+    .hdr-ch { font-size: 0.7rem; letter-spacing: 0.1em; color: var(--gray); }
+    .hdr-ch span { color: var(--offwhite); }
+    .online-pill { font-size: 0.6rem; color: var(--green); display: flex; align-items: center; gap: 0.4rem; border: 1px solid var(--green-dim); padding: 0.2rem 0.6rem; border-radius: 20px; }
+    .online-dot { width: 5px; height: 5px; background: var(--green); border-radius: 50%; animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* APP LAYOUT */
+    #app { display: flex; flex: 1 1 0; min-height: 0; overflow: hidden; }
+
+    /* SIDEBAR */
+    #sidebar { width: 215px; min-width: 215px; background: var(--sidebar); border-right: 1px solid #1a1a1a; display: flex; flex-direction: column; overflow: hidden; }
+    .sb-section { padding: 0.9rem 1rem 0.4rem; font-size: 0.58rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gray); display: flex; justify-content: space-between; align-items: center; }
+    .sb-add { background: none; border: none; color: var(--gray); cursor: pointer; font-size: 1.1rem; line-height: 1; transition: color 0.2s; }
+    .sb-add:hover { color: var(--green); }
+    #channel-list { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 0.2rem 0; }
+    #channel-list::-webkit-scrollbar { width: 3px; }
+    #channel-list::-webkit-scrollbar-thumb { background: #1a1a1a; }
+    .ch-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.42rem 1rem; cursor: pointer; font-size: 0.74rem; color: var(--gray); transition: all 0.15s; border-left: 2px solid transparent; user-select: none; }
+    .ch-item:hover { color: var(--offwhite); background: #111; }
+    .ch-item.active { color: var(--offwhite); background: #111; border-left-color: var(--green); }
+    .ch-icon { font-size: 0.68rem; min-width: 14px; }
+    .ch-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ch-badge { font-size: 0.52rem; letter-spacing: 0.06em; padding: 1px 4px; border-radius: 2px; }
+    .b-pub { background: rgba(0,200,83,0.12); color: var(--green); border: 1px solid var(--green-dim); }
+    .b-priv { background: rgba(201,168,76,0.12); color: var(--gold); border: 1px solid rgba(201,168,76,0.3); }
+    .b-sec { background: rgba(80,80,80,0.12); color: #555; border: 1px solid #222; }
+    .sb-foot { border-top: 1px solid #1a1a1a; padding: 0.8rem 1rem; font-size: 0.62rem; color: var(--gray); display: flex; flex-direction: column; gap: 0.3rem; }
+    .sb-foot .sb-user { color: var(--green); font-size: 0.72rem; }
+    .sb-foot a { color: #444; text-decoration: none; font-size: 0.6rem; }
+    .sb-foot a:hover { color: var(--gray); }
+
+    /* CHAT PANEL */
+    #chat-panel { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+    #ch-header { padding: 0.65rem 1.5rem; border-bottom: 1px solid #111; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; background: #080808; }
+    .chh-name { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 0.12em; }
+    .chh-meta { font-size: 0.6rem; color: var(--gray); margin-top: 1px; }
+    .chh-right { display: flex; gap: 0.7rem; align-items: center; }
+    .code-pill { font-size: 0.6rem; letter-spacing: 0.15em; background: #111; border: 1px solid #2a2a2a; padding: 0.2rem 0.6rem; color: var(--gold); cursor: pointer; transition: border-color 0.2s; }
+    .code-pill:hover { border-color: var(--gold); }
+    .leave-btn { font-size: 0.6rem; background: none; border: 1px solid #2a2a2a; color: var(--gray); padding: 0.2rem 0.6rem; cursor: pointer; font-family: 'DM Mono', monospace; letter-spacing: 0.08em; transition: all 0.2s; }
+    .leave-btn:hover { border-color: var(--red); color: var(--red); }
+
+    #chat-area { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 1.2rem 1.5rem; display: flex; flex-direction: column; gap: 0.6rem; scroll-behavior: smooth; }
     #chat-area::-webkit-scrollbar { width: 4px; }
-    #chat-area::-webkit-scrollbar-track { background: transparent; }
-    #chat-area::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
+    #chat-area::-webkit-scrollbar-thumb { background: #1a1a1a; border-radius: 2px; }
 
-    .msg {
-      display: flex;
-      flex-direction: column;
-      max-width: 75%;
-      animation: msgIn 0.2s ease;
-    }
-    @keyframes msgIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+    .msg { display: flex; flex-direction: column; max-width: 72%; animation: msgIn 0.18s ease; }
+    @keyframes msgIn { from { opacity:0; transform: translateY(5px); } to { opacity:1; transform: translateY(0); } }
     .msg.own { align-self: flex-end; align-items: flex-end; }
     .msg.other { align-self: flex-start; }
     .msg.system { align-self: center; max-width: 100%; }
+    .msg-meta { font-size: 0.58rem; letter-spacing: 0.08em; color: var(--gray); margin-bottom: 0.2rem; display: flex; gap: 0.5rem; }
+    .msg-meta .uname { color: var(--green); }
+    .msg.own .msg-meta .uname { color: var(--gold); }
+    .msg-bubble { padding: 0.52rem 0.82rem; font-size: 0.79rem; line-height: 1.6; word-break: break-word; }
+    .msg.other .msg-bubble { background: #111; border: 1px solid #1e1e1e; border-radius: 0 8px 8px 8px; }
+    .msg.own .msg-bubble { background: #0d2e1a; border: 1px solid var(--green-dim); border-radius: 8px 0 8px 8px; }
+    .msg.system .msg-bubble { background: transparent; border: none; color: #333; font-size: 0.6rem; letter-spacing: 0.08em; text-align: center; font-style: italic; }
 
-    .msg-meta {
-      font-size: 0.6rem;
-      letter-spacing: 0.1em;
-      color: var(--gray);
-      margin-bottom: 0.25rem;
-      display: flex;
-      gap: 0.5rem;
-      align-items: center;
-    }
-    .msg-meta .username { color: var(--green); }
-    .msg.own .msg-meta .username { color: var(--gold); }
-
-    .msg-bubble {
-      padding: 0.6rem 0.9rem;
-      font-size: 0.82rem;
-      line-height: 1.6;
-      word-break: break-word;
-    }
-    .msg.other .msg-bubble {
-      background: #111;
-      border: 1px solid #1e1e1e;
-      border-radius: 0 8px 8px 8px;
-      color: var(--offwhite);
-    }
-    .msg.own .msg-bubble {
-      background: #0d2e1a;
-      border: 1px solid var(--green-dim);
-      border-radius: 8px 0 8px 8px;
-      color: var(--offwhite);
-    }
-    .msg.system .msg-bubble {
-      background: transparent;
-      border: none;
-      color: var(--gray);
-      font-size: 0.65rem;
-      letter-spacing: 0.1em;
-      text-align: center;
-      font-style: italic;
-    }
-
-    /* ── INPUT AREA ── */
-    #input-area {
-      border-top: 1px solid #1a1a1a;
-      padding: 1rem 1.5rem;
-      display: flex;
-      gap: 0.75rem;
-      align-items: center;
-      background: var(--black);
-      flex-shrink: 0;
-    }
-    #msg-input {
-      flex: 1;
-      background: #111;
-      border: 1px solid #2a2a2a;
-      color: var(--offwhite);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.82rem;
-      padding: 0.65rem 1rem;
-      outline: none;
-      transition: border-color 0.2s;
-      border-radius: 2px;
-    }
+    #input-area { border-top: 1px solid #1a1a1a; padding: 0.8rem 1.5rem; display: flex; gap: 0.6rem; align-items: center; flex-shrink: 0; }
+    #msg-input { flex: 1; background: #111; border: 1px solid #2a2a2a; color: var(--offwhite); font-family: 'DM Mono', monospace; font-size: 0.79rem; padding: 0.58rem 0.9rem; outline: none; transition: border-color 0.2s; border-radius: 2px; }
     #msg-input:focus { border-color: var(--green); }
-    #msg-input::placeholder { color: #333; }
-    #send-btn {
-      padding: 0.65rem 1.4rem;
-      background: var(--green);
-      border: none;
-      color: var(--black);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.72rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      font-weight: 500;
-      cursor: pointer;
-      border-radius: 2px;
-      transition: background 0.2s;
-    }
+    #msg-input::placeholder { color: #2a2a2a; }
+    #send-btn { padding: 0.58rem 1.2rem; background: var(--green); border: none; color: var(--black); font-family: 'DM Mono', monospace; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; cursor: pointer; border-radius: 2px; transition: background 0.2s; }
     #send-btn:hover { background: #00ff6a; }
     #send-btn:disabled { background: #1a1a1a; color: #333; cursor: not-allowed; }
-
-    .char-count {
-      font-size: 0.6rem;
-      color: var(--gray);
-      min-width: 36px;
-      text-align: right;
-    }
+    .char-count { font-size: 0.58rem; color: #333; min-width: 28px; text-align: right; }
     .char-count.warn { color: var(--gold); }
     .char-count.over { color: var(--red); }
 
-    /* ── ADMIN PANEL ── */
-    #admin-panel {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.95);
-      z-index: 997;
-      flex-direction: column;
-      padding: 2rem;
-      overflow-y: auto;
-    }
+    /* ADMIN */
+    #admin-panel { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.97); z-index: 997; flex-direction: column; padding: 2rem; overflow-y: auto; }
     #admin-panel.show { display: flex; }
-    .admin-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-      border-bottom: 1px solid #1a1a1a;
-      padding-bottom: 1rem;
-    }
-    .admin-title {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.5rem;
-      letter-spacing: 0.1em;
-      color: var(--gold);
-    }
-    .admin-close {
-      background: none;
-      border: 1px solid #2a2a2a;
-      color: var(--offwhite);
-      padding: 0.4rem 0.8rem;
-      font-family: 'DM Mono', monospace;
-      font-size: 0.7rem;
-      cursor: pointer;
-      letter-spacing: 0.1em;
-    }
-    .admin-close:hover { border-color: var(--red); color: var(--red); }
-    #admin-log {
-      font-size: 0.72rem;
-      line-height: 1.8;
-      color: #aaa;
-    }
-    .log-row {
-      display: grid;
-      grid-template-columns: 160px 120px 80px 1fr;
-      gap: 1rem;
-      padding: 0.5rem 0;
-      border-bottom: 1px solid #111;
-      align-items: start;
-    }
-    .log-row:hover { background: #0a0a0a; }
-    .log-header {
-      font-size: 0.6rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--green);
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid #1a1a1a;
-      margin-bottom: 0.5rem;
-    }
-    .log-time { color: var(--gray); font-size: 0.65rem; }
-    .log-user { color: var(--gold); }
-    .log-agreed { color: var(--green); font-size: 0.65rem; }
-    .log-msg { color: var(--offwhite); }
-    .del-btn {
-      background: none;
-      border: none;
-      color: var(--red);
-      cursor: pointer;
-      font-size: 0.65rem;
-      font-family: 'DM Mono', monospace;
-      padding: 0;
-      opacity: 0.5;
-      transition: opacity 0.2s;
-    }
+    .adm-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid #1a1a1a; padding-bottom: 1rem; }
+    .adm-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 0.1em; color: var(--gold); }
+    .adm-close { background: none; border: 1px solid #2a2a2a; color: var(--offwhite); padding: 0.4rem 0.8rem; font-family: 'DM Mono', monospace; font-size: 0.7rem; cursor: pointer; }
+    .adm-close:hover { border-color: var(--red); color: var(--red); }
+    .adm-stats { display: flex; gap: 2rem; margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #1a1a1a; flex-wrap: wrap; }
+    .adm-stat-n { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--green); line-height: 1; }
+    .adm-stat-l { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gray); }
+    .adm-export { padding: 0.5rem 1rem; background: none; border: 1px solid #2a2a2a; color: var(--offwhite); font-family: 'DM Mono', monospace; font-size: 0.7rem; cursor: pointer; letter-spacing: 0.1em; margin-bottom: 1rem; transition: border-color 0.2s; }
+    .adm-export:hover { border-color: var(--green); color: var(--green); }
+    .log-row { display: grid; grid-template-columns: 148px 96px 80px 60px 1fr; gap: 0.8rem; padding: 0.45rem 0; border-bottom: 1px solid #111; font-size: 0.67rem; align-items: start; }
+    .log-row:hover { background: #080808; }
+    .log-hdr { font-size: 0.57rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--green); padding-bottom: 0.5rem; border-bottom: 1px solid #1a1a1a; margin-bottom: 0.3rem; }
+    .log-t { color: var(--gray); font-size: 0.6rem; }
+    .log-u { color: var(--gold); }
+    .log-c { color: var(--green); font-size: 0.6rem; }
+    .log-a { color: var(--green); font-size: 0.6rem; }
+    .del-btn { background: none; border: none; color: var(--red); cursor: pointer; font-size: 0.6rem; font-family: 'DM Mono', monospace; opacity: 0.4; transition: opacity 0.2s; margin-left: 0.4rem; }
     .del-btn:hover { opacity: 1; }
-    .admin-stats {
-      display: flex;
-      gap: 2rem;
-      margin-bottom: 1.5rem;
-      padding: 1rem;
-      border: 1px solid #1a1a1a;
-    }
-    .admin-stat-num {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 2rem;
-      color: var(--green);
-      line-height: 1;
-    }
-    .admin-stat-label { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gray); }
-    .admin-export {
-      padding: 0.5rem 1rem;
-      background: none;
-      border: 1px solid #2a2a2a;
-      color: var(--offwhite);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.7rem;
-      cursor: pointer;
-      letter-spacing: 0.1em;
-      margin-bottom: 1rem;
-      transition: border-color 0.2s;
-    }
-    .admin-export:hover { border-color: var(--green); color: var(--green); }
 
-    /* ── FOOTER BAR ── */
-    .footer-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.4rem 1.5rem;
-      border-top: 1px solid #111;
-      background: #050505;
-      font-size: 0.6rem;
-      letter-spacing: 0.1em;
-      color: #333;
-      flex-shrink: 0;
-    }
-    .footer-bar a { color: #333; text-decoration: none; }
-    .footer-bar a:hover { color: var(--gray); }
-    #admin-trigger { cursor: pointer; user-select: none; }
-
-    /* ── BANNED / ERROR ── */
-    .error-msg {
-      text-align: center;
-      padding: 2rem;
-      color: var(--red);
-      font-size: 0.8rem;
-      letter-spacing: 0.1em;
-    }
-
-    @media (max-width: 600px) {
-      .msg { max-width: 90%; }
-      .log-row { grid-template-columns: 1fr 1fr; }
-      .admin-stats { flex-wrap: wrap; gap: 1rem; }
-    }
+    @media (max-width: 600px) { #sidebar { width: 160px; min-width: 160px; } .msg { max-width: 88%; } }
+    @media (max-width: 440px) { #sidebar { display: none; } }
   </style>
 </head>
 <body>
 
-<!-- ── DISCLAIMER OVERLAY ── -->
-<div id="disclaimer-overlay">
-  <div id="disclaimer-box">
-    <div class="disclaimer-title">Before You Enter 🏧</div>
-    <div class="disclaimer-sub">Community Chat — Read & Agree to Continue</div>
-    <div class="disclaimer-terms">
-      <p><strong>1. This is a social community chat</strong> — ATMwithNoPIN.com chat is for entertainment, community discussion, and poker table talk only. It is not a gambling platform, and no real money transactions of any kind take place here.</p>
-      <p><strong>2. You must be 18 or older</strong> to participate in this chat. By agreeing, you confirm you meet this requirement.</p>
-      <p><strong>3. No illegal activity</strong> — Discussion of cheating, collusion, chip dumping, or any illegal gambling activity is strictly prohibited and will result in immediate removal.</p>
-      <p><strong>4. No harassment or abuse</strong> — Treat all participants with respect. Hate speech, threats, personal attacks, or abusive language of any kind are not tolerated.</p>
-      <p><strong>5. Chat is monitored and logged</strong> — All messages are recorded with timestamps and session data. Logs are retained and may be reviewed by the moderator (Dhezz) at any time. By chatting, you consent to this logging.</p>
-      <p><strong>6. No spam or advertising</strong> — Do not post unsolicited links, promotional content, or repetitive messages.</p>
-      <p><strong>7. Moderator rights</strong> — The moderator reserves the right to remove any message or ban any user at any time, without notice or explanation.</p>
-      <p><strong>8. No expectation of privacy</strong> — Messages posted here are visible to all participants. Do not share personal, financial, or sensitive information in this chat.</p>
-      <p><strong>9. Continued use = acceptance</strong> — By entering the chat and posting, you agree to these terms in full. These terms may be updated at any time.</p>
-      <p style="color:var(--gray);font-size:0.7rem;margin-top:1rem;">Your agreement is timestamped and logged along with your session information.</p>
+<!-- DISCLAIMER -->
+<div class="overlay" id="disc-overlay">
+  <div class="modal">
+    <div class="modal-title">Before You Enter</div>
+    <div class="modal-sub">Community Chat — Read &amp; Agree</div>
+    <div class="disc-terms">
+      <p><strong>1. Social community only</strong> — Entertainment and poker community discussion. No real money transactions.</p>
+      <p><strong>2. You must be 18+</strong> to participate. By agreeing you confirm this.</p>
+      <p><strong>3. No illegal activity</strong> — No cheating, collusion, chip dumping, or illegal gambling discussion.</p>
+      <p><strong>4. No harassment</strong> — Respect all participants. No hate speech, threats, or abuse.</p>
+      <p><strong>5. Chat is monitored and logged</strong> — All messages (including private and secret channels) are recorded with timestamps and session data. The moderator can review all logs at any time.</p>
+      <p><strong>6. No spam or advertising</strong> — No unsolicited links or promos.</p>
+      <p><strong>7. Moderator rights</strong> — Dhezz may remove messages or ban users at any time.</p>
+      <p><strong>8. Private channels</strong> — Private/secret channels are hidden from other users but are still fully logged and visible to the moderator.</p>
+      <p><strong>9. Continued use = acceptance.</strong> Terms may update at any time.</p>
     </div>
-    <label class="disclaimer-check">
-      <input type="checkbox" id="agree-check" onchange="toggleAgree(this)"/>
-      I have read and agree to the community chat terms above. I confirm I am 18 years of age or older.
+    <label class="check-row">
+      <input type="checkbox" id="agree-check" onchange="document.getElementById('agree-btn').disabled=!this.checked"/>
+      I have read and agree to the community chat terms. I am 18 or older.
     </label>
-    <button id="agree-btn" disabled onclick="enterChat()">Enter the Chat Room 🏧</button>
+    <button class="btn-g" id="agree-btn" disabled onclick="enterChat()">Enter the Chat Room</button>
   </div>
 </div>
 
-<!-- ── USERNAME OVERLAY ── -->
-<div id="username-overlay">
-  <div id="username-box">
-    <div class="username-title">Pick Your Handle</div>
-    <div class="username-sub">What should we call you at the table?</div>
-    <input type="text" id="username-input" placeholder="e.g. PokerPro99, FishFinder..." maxlength="28" onkeydown="if(event.key==='Enter')setUsername()"/>
-    <button id="username-btn" onclick="setUsername()">Take My Seat 🃏</button>
-    <p class="username-note">Max 28 characters. No special characters. This is visible to everyone in the chat.</p>
+<!-- USERNAME -->
+<div class="overlay hidden" id="user-overlay">
+  <div class="modal">
+    <div class="modal-title">Pick Your Handle</div>
+    <div class="modal-sub">What do they call you at the table?</div>
+    <input type="text" id="username-input" placeholder="e.g. PokerPro99, FishFinder..." maxlength="28"
+      onkeydown="if(event.key==='Enter')setUsername()"/>
+    <button class="btn-g" onclick="setUsername()">Take My Seat</button>
+    <p class="hint">Max 28 characters. Visible to everyone in the room.</p>
   </div>
 </div>
 
-<!-- ── HEADER ── -->
+<!-- CREATE / JOIN CHANNEL -->
+<div class="overlay hidden" id="ch-overlay">
+  <div class="modal">
+    <div class="modal-title">Channels</div>
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="switchTab('create')">Create New</button>
+      <button class="tab-btn" onclick="switchTab('join')">Join with Code</button>
+    </div>
+    <div class="tab-pane active" id="tab-create">
+      <input type="text" id="ch-name-input" placeholder="Channel name (e.g. foxwoods-crew)" maxlength="30"
+        onkeydown="if(event.key==='Enter')createChannel()"/>
+      <select id="ch-type-input">
+        <option value="public">Public — listed, anyone can join</option>
+        <option value="private">Private — listed, join by code only</option>
+        <option value="secret">Secret — hidden from list, code only</option>
+      </select>
+      <button class="btn-g" onclick="createChannel()">Create Channel</button>
+      <p class="hint" id="create-hint">Private and secret channels get a shareable 6-character code.</p>
+    </div>
+    <div class="tab-pane" id="tab-join">
+      <p style="font-size:0.74rem;color:var(--gray);margin-bottom:1rem;line-height:1.7;">Enter the code shared with you to join a private or secret channel.</p>
+      <input type="text" id="join-code-input" placeholder="Room code (e.g. ABC123)" maxlength="6"
+        style="text-transform:uppercase;letter-spacing:0.3em"
+        oninput="this.value=this.value.toUpperCase()"
+        onkeydown="if(event.key==='Enter')joinByCode()"/>
+      <button class="btn-g" onclick="joinByCode()">Join Channel</button>
+      <p class="hint" id="join-hint"></p>
+    </div>
+    <button class="btn-gh" onclick="closeCh()">Cancel</button>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div id="admin-panel">
+  <div class="adm-hdr">
+    <div class="adm-title">Admin — Full Chat Log</div>
+    <button class="adm-close" onclick="closeAdmin()">Close</button>
+  </div>
+  <div class="adm-stats">
+    <div><div class="adm-stat-n" id="s-msgs">0</div><div class="adm-stat-l">Messages</div></div>
+    <div><div class="adm-stat-n" id="s-users">0</div><div class="adm-stat-l">Unique Users</div></div>
+    <div><div class="adm-stat-n" id="s-chs">0</div><div class="adm-stat-l">Channels</div></div>
+    <div><div class="adm-stat-n" id="s-agreed">0</div><div class="adm-stat-l">Agreed to Terms</div></div>
+  </div>
+  <button class="adm-export" onclick="exportCSV()">Export Full Log as CSV</button>
+  <div class="log-row log-hdr"><span>Timestamp</span><span>Username</span><span>Channel</span><span>Agreed</span><span>Message</span></div>
+  <div id="log-rows"></div>
+</div>
+
+<!-- HEADER -->
 <header>
-  <div class="header-left">
-    <a href="/" class="header-logo">ATM/NoPIN</a>
-    <span class="header-title">♠ Community Chat</span>
+  <div class="hdr-left">
+    <a href="/" class="hdr-logo">ATM/NoPIN</a>
+    <span class="hdr-ch">♠ <span id="active-ch-label">lobby</span></span>
   </div>
-  <div class="online-count">
-    <div class="online-dot"></div>
-    <span id="online-count">Live</span>
-  </div>
+  <div class="online-pill"><div class="online-dot"></div><span>Live</span></div>
 </header>
 
-<!-- ── CHAT AREA ── -->
-<div id="chat-area">
-  <div class="msg system">
-    <div class="msg-bubble">>> Welcome to the ATM with No PIN chat room. Be cool. No PIN required.</div>
-  </div>
-</div>
-
-<!-- ── INPUT AREA ── -->
-<div id="input-area">
-  <input type="text" id="msg-input" placeholder="Type a message..." maxlength="500" disabled
-    oninput="updateCharCount()" onkeydown="if(event.key==='Enter')sendMessage()"/>
-  <span class="char-count" id="char-count">500</span>
-  <button id="send-btn" onclick="sendMessage()" disabled>Send</button>
-</div>
-
-<!-- ── FOOTER BAR ── -->
-<div class="footer-bar">
-  <span><a href="/">← atmwithnopin.com</a></span>
-  <span><a href="#" onclick="changeUsername();return false;">change name</a></span>
-  <span id="admin-trigger" onclick="promptAdmin()" title="Admin">⚙</span>
-</div>
-
-<!-- ── ADMIN PANEL ── -->
-<div id="admin-panel">
-  <div class="admin-header">
-    <div class="admin-title">🔐 Admin — Chat Log</div>
-    <button class="admin-close" onclick="closeAdmin()">✕ Close</button>
-  </div>
-  <div class="admin-stats">
-    <div><div class="admin-stat-num" id="stat-total">0</div><div class="admin-stat-label">Total Messages</div></div>
-    <div><div class="admin-stat-num" id="stat-users">0</div><div class="admin-stat-label">Unique Users</div></div>
-    <div><div class="admin-stat-num" id="stat-agreed">0</div><div class="admin-stat-label">Agreed to Terms</div></div>
-  </div>
-  <button class="admin-export" onclick="exportCSV()">⬇ Export Log as CSV</button>
-  <div id="admin-log">
-    <div class="log-row log-header">
-      <span>Timestamp</span><span>Username</span><span>Agreed</span><span>Message</span>
+<!-- APP -->
+<div id="app">
+  <div id="sidebar">
+    <div style="padding:0.8rem 1rem;border-bottom:1px solid #111;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:0.85rem;letter-spacing:0.15em;color:var(--green);">Channels</div>
     </div>
-    <div id="log-rows"></div>
+    <div class="sb-section">
+      <span>Rooms</span>
+      <button class="sb-add" onclick="openCh()" title="Create or join channel">＋</button>
+    </div>
+    <div id="channel-list"></div>
+    <div class="sb-foot">
+      <div class="sb-user" id="sb-user">—</div>
+      <a href="#" onclick="changeUsername();return false;">change name</a>
+      <a href="#" onclick="promptAdmin();return false;">admin panel</a>
+      <a href="/">back to site</a>
+    </div>
+  </div>
+
+  <div id="chat-panel">
+    <div id="ch-header">
+      <div>
+        <div class="chh-name" id="chh-name"># lobby</div>
+        <div class="chh-meta" id="chh-meta">The main table — everyone is welcome</div>
+      </div>
+      <div class="chh-right" id="chh-right"></div>
+    </div>
+    <div id="chat-area"></div>
+    <div id="input-area">
+      <input type="text" id="msg-input" placeholder="Message #lobby..." maxlength="500" disabled
+        oninput="updateCount()" onkeydown="if(event.key==='Enter')sendMsg()"/>
+      <span class="char-count" id="char-count">500</span>
+      <button id="send-btn" onclick="sendMsg()" disabled>Send</button>
+    </div>
   </div>
 </div>
 
-<!-- Firebase SDK -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import {
-    getFirestore, collection, addDoc, onSnapshot,
-    query, orderBy, limit, serverTimestamp, deleteDoc, doc, getDocs
-  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, onSnapshot,
+  query, orderBy, limit, serverTimestamp,
+  deleteDoc, doc, setDoc, getDoc, getDocs, where
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyAzlx4DVWbSkB4aM-njR55IT5qSPv4CFuk",
-    authDomain: "atmwithnopin-c5bd7.firebaseapp.com",
-    projectId: "atmwithnopin-c5bd7",
-    storageBucket: "atmwithnopin-c5bd7.firebasestorage.app",
-    messagingSenderId: "404706016435",
-    appId: "1:404706016435:web:b5e3cf34ccc9b669bd04c6",
-    measurementId: "G-SBBMSL0MS5"
-  };
+const fb = initializeApp({
+  apiKey: "AIzaSyAzlx4DVWbSkB4aM-njR55IT5qSPv4CFuk",
+  authDomain: "atmwithnopin-c5bd7.firebaseapp.com",
+  projectId: "atmwithnopin-c5bd7",
+  storageBucket: "atmwithnopin-c5bd7.firebasestorage.app",
+  messagingSenderId: "404706016435",
+  appId: "1:404706016435:web:b5e3cf34ccc9b669bd04c6"
+});
+const db = getFirestore(fb);
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+// STATE
+let me = null, agreed = false, agreedTs = null;
+let curChId = 'lobby', curChName = 'lobby';
+let myChannels = new Set(['lobby']);
+let channelCache = { lobby: { id:'lobby', name:'lobby', type:'public', description:'The main table — everyone is welcome', code:null } };
+let unsub = null;
+let adminMsgs = [];
+const sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+const ADMIN = "dhezz2024atm"; // Change this!
 
-  // State
-  let currentUser = null;
-  let disclaimerAccepted = false;
-  let disclaimerTimestamp = null;
-  const sessionId = Math.random().toString(36).substring(2) + Date.now().toString(36);
-  const ADMIN_PASSWORD = "dhezz2024atm"; // Change this!
-  let allMessages = [];
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-  // Expose to global scope
-  window.toggleAgree = (cb) => {
-    const btn = document.getElementById('agree-btn');
-    if (cb.checked) btn.classList.add('active');
-    else btn.classList.remove('active');
-    btn.disabled = !cb.checked;
-  };
-
-  window.enterChat = () => {
-    if (!document.getElementById('agree-check').checked) return;
-    disclaimerAccepted = true;
-    disclaimerTimestamp = new Date().toISOString();
-    document.getElementById('disclaimer-overlay').style.display = 'none';
-    document.getElementById('username-overlay').classList.add('show');
+// RESTORE SESSION
+function restore() {
+  const ok = localStorage.getItem('atm_agreed');
+  const u  = localStorage.getItem('atm_username');
+  const ts = localStorage.getItem('atm_agreed_ts');
+  const chs = localStorage.getItem('atm_channels');
+  if (chs) { try { JSON.parse(chs).forEach(c => myChannels.add(c)); } catch(e){} }
+  if (ok === 'true' && u) {
+    agreed = true; agreedTs = ts; me = u;
+    hide('disc-overlay'); hide('user-overlay');
+    document.getElementById('sb-user').textContent = me;
+    enableInput();
+    loadChannels();
+    switchCh('lobby');
+  } else if (ok === 'true') {
+    agreed = true; agreedTs = ts;
+    hide('disc-overlay'); show('user-overlay');
     setTimeout(() => document.getElementById('username-input').focus(), 100);
-  };
-
-  window.setUsername = () => {
-    const input = document.getElementById('username-input');
-    const val = input.value.trim().replace(/[^a-zA-Z0-9_\- ]/g, '').substring(0, 28);
-    if (!val) { input.placeholder = 'Please enter a name!'; return; }
-    currentUser = val;
-    document.getElementById('username-overlay').classList.remove('show');
-    document.getElementById('msg-input').disabled = false;
-    document.getElementById('send-btn').disabled = false;
-    document.getElementById('msg-input').focus();
-    postSystemMessage(`🃏 ${currentUser} has taken a seat at the table.`);
-  };
-
-  window.updateCharCount = () => {
-    const input = document.getElementById('msg-input');
-    const count = document.getElementById('char-count');
-    const remaining = 500 - input.value.length;
-    count.textContent = remaining;
-    count.className = 'char-count' + (remaining < 50 ? ' warn' : '') + (remaining < 0 ? ' over' : '');
-  };
-
-  window.sendMessage = async () => {
-    const input = document.getElementById('msg-input');
-    const text = input.value.trim();
-    if (!text || !currentUser || text.length > 500) return;
-    input.value = '';
-    document.getElementById('char-count').textContent = '500';
-    try {
-      await addDoc(collection(db, 'messages'), {
-        username: currentUser,
-        message: text,
-        timestamp: serverTimestamp(),
-        sessionId: sessionId,
-        disclaimerAccepted: disclaimerAccepted,
-        disclaimerTimestamp: disclaimerTimestamp,
-      });
-    } catch (e) {
-      console.error('Send error:', e);
-      showError('Could not send message. Please try again.');
-    }
-  };
-
-  async function postSystemMessage(text) {
-    try {
-      await addDoc(collection(db, 'messages'), {
-        username: 'SYSTEM',
-        message: text,
-        timestamp: serverTimestamp(),
-        sessionId: 'system',
-        disclaimerAccepted: true,
-        disclaimerTimestamp: new Date().toISOString(),
-        isSystem: true,
-      });
-    } catch(e) {}
   }
+}
 
-  function showError(msg) {
-    const area = document.getElementById('chat-area');
-    const el = document.createElement('div');
-    el.className = 'error-msg';
-    el.textContent = msg;
-    area.appendChild(el);
-    setTimeout(() => el.remove(), 4000);
-  }
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+function enableInput() { document.getElementById('msg-input').disabled = false; document.getElementById('send-btn').disabled = false; }
 
-  function renderMessage(data, id) {
-    const area = document.getElementById('chat-area');
-    const isOwn = data.username === currentUser;
-    const isSystem = data.isSystem || data.username === 'SYSTEM';
-    const div = document.createElement('div');
-    div.className = `msg ${isSystem ? 'system' : isOwn ? 'own' : 'other'}`;
-    div.dataset.id = id;
+// DISCLAIMER
+window.enterChat = () => {
+  agreed = true; agreedTs = new Date().toISOString();
+  localStorage.setItem('atm_agreed','true');
+  localStorage.setItem('atm_agreed_ts', agreedTs);
+  hide('disc-overlay'); show('user-overlay');
+  setTimeout(() => document.getElementById('username-input').focus(), 100);
+};
 
-    const ts = data.timestamp?.toDate ? data.timestamp.toDate() : new Date();
-    const timeStr = ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+// USERNAME
+window.setUsername = () => {
+  const inp = document.getElementById('username-input');
+  const val = inp.value.trim().replace(/[^a-zA-Z0-9_\- ]/g,'').slice(0,28);
+  if (!val) { inp.style.borderColor='var(--red)'; return; }
+  me = val;
+  localStorage.setItem('atm_username', me);
+  hide('user-overlay');
+  document.getElementById('sb-user').textContent = me;
+  enableInput();
+  loadChannels();
+  switchCh('lobby');
+  if (!window._seated) { window._seated = true; sysMsg(`>> ${me} has taken a seat at the table.`, 'lobby'); }
+};
 
-    if (!isSystem) {
-      const meta = document.createElement('div');
-      meta.className = 'msg-meta';
-      meta.innerHTML = `<span class="username">${escHtml(data.username)}</span><span>${timeStr}</span>`;
-      div.appendChild(meta);
-    }
+window.changeUsername = () => {
+  localStorage.removeItem('atm_username');
+  me = null;
+  document.getElementById('username-input').value = '';
+  show('user-overlay');
+  setTimeout(() => document.getElementById('username-input').focus(), 100);
+};
 
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble';
-    bubble.textContent = data.message;
-    div.appendChild(bubble);
-
-    area.appendChild(div);
-    area.scrollTop = area.scrollHeight;
-  }
-
-  function escHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
-  // Live listener
-  const q = query(collection(db, 'messages'), orderBy('timestamp', 'asc'), limit(200));
-  onSnapshot(q, (snapshot) => {
-    allMessages = [];
-    snapshot.forEach(d => allMessages.push({ id: d.id, ...d.data() }));
-
-    const area = document.getElementById('chat-area');
-    // Only render new messages (simple approach: clear and re-render on first load, then append)
-    snapshot.docChanges().forEach(change => {
-      if (change.type === 'added') {
-        renderMessage(change.doc.data(), change.doc.id);
-      }
-      if (change.type === 'removed') {
-        const el = area.querySelector(`[data-id="${change.doc.id}"]`);
-        if (el) el.remove();
-      }
+// LOAD CHANNELS SIDEBAR
+async function loadChannels() {
+  renderChItem(channelCache.lobby);
+  // Public channels live listener
+  onSnapshot(query(collection(db,'channels'), where('type','==','public')), snap => {
+    snap.forEach(d => {
+      const ch = { id:d.id, ...d.data() };
+      channelCache[d.id] = ch;
+      if (!document.querySelector(`[data-ch="${d.id}"]`)) renderChItem(ch);
     });
   });
+  // Private/secret channels user joined
+  for (const chId of myChannels) {
+    if (chId === 'lobby') continue;
+    try {
+      const d = await getDoc(doc(db,'channels',chId));
+      if (d.exists()) {
+        const ch = { id:d.id, ...d.data() };
+        channelCache[d.id] = ch;
+        if (!document.querySelector(`[data-ch="${d.id}"]`)) renderChItem(ch);
+      }
+    } catch(e) {}
+  }
+}
 
-  // Admin
-  const ADMIN_PIN = ADMIN_PASSWORD;
-  window.promptAdmin = () => {
-    const pw = prompt('🔐 Admin PIN:');
-    if (pw === ADMIN_PIN) openAdmin();
-    else if (pw !== null) alert('Wrong PIN.');
-  };
+function renderChItem(ch) {
+  if (document.querySelector(`[data-ch="${ch.id}"]`)) return;
+  const list = document.getElementById('channel-list');
+  const el = document.createElement('div');
+  el.className = 'ch-item' + (ch.id === curChId ? ' active' : '');
+  el.dataset.ch = ch.id;
+  el.onclick = () => switchCh(ch.id);
+  const icon = ch.type === 'public' ? '#' : ch.type === 'private' ? '&#128274;' : '&#128065;';
+  const badge = ch.type === 'public'
+    ? `<span class="ch-badge b-pub">pub</span>`
+    : ch.type === 'private'
+    ? `<span class="ch-badge b-priv">prv</span>`
+    : `<span class="ch-badge b-sec">sec</span>`;
+  el.innerHTML = `<span class="ch-icon">${icon}</span><span class="ch-name">${esc(ch.name)}</span>${badge}`;
+  list.appendChild(el);
+}
 
-  function openAdmin() {
-    const panel = document.getElementById('admin-panel');
-    panel.classList.add('show');
-    renderAdminLog();
+// SWITCH CHANNEL
+window.switchCh = async (chId) => {
+  curChId = chId;
+  const ch = channelCache[chId] || channelCache.lobby;
+  curChName = ch.name;
+
+  document.querySelectorAll('.ch-item').forEach(el => el.classList.toggle('active', el.dataset.ch === chId));
+  document.getElementById('active-ch-label').textContent = ch.name;
+  document.getElementById('chh-name').textContent = `# ${ch.name}`;
+  document.getElementById('chh-meta').textContent = ch.description || (ch.type === 'public' ? 'Public channel' : ch.type === 'private' ? 'Private — invite only' : 'Secret channel');
+  document.getElementById('msg-input').placeholder = `Message #${ch.name}...`;
+
+  // Code pill + leave button
+  const right = document.getElementById('chh-right');
+  right.innerHTML = '';
+  if (ch.code && chId !== 'lobby') {
+    const pill = document.createElement('span');
+    pill.className = 'code-pill';
+    pill.textContent = `CODE: ${ch.code}`;
+    pill.title = 'Click to copy';
+    pill.onclick = () => { navigator.clipboard?.writeText(ch.code); pill.textContent = 'COPIED!'; setTimeout(() => pill.textContent = `CODE: ${ch.code}`, 1500); };
+    right.appendChild(pill);
+    const lb = document.createElement('button');
+    lb.className = 'leave-btn';
+    lb.textContent = 'Leave';
+    lb.onclick = () => leaveCh(chId);
+    right.appendChild(lb);
   }
 
-  window.closeAdmin = () => {
-    document.getElementById('admin-panel').classList.remove('show');
-  };
+  // Messages
+  document.getElementById('chat-area').innerHTML = '';
+  if (unsub) unsub();
+  const q = query(collection(db,'channels',chId,'messages'), orderBy('timestamp','asc'), limit(200));
+  unsub = onSnapshot(q, snap => {
+    snap.docChanges().forEach(change => {
+      if (change.type === 'added') renderMsg(change.doc.data(), change.doc.id);
+      if (change.type === 'removed') { const el = document.querySelector(`[data-mid="${change.doc.id}"]`); if (el) el.remove(); }
+    });
+  });
+};
 
-  function renderAdminLog() {
+window.leaveCh = (chId) => {
+  myChannels.delete(chId);
+  localStorage.setItem('atm_channels', JSON.stringify([...myChannels]));
+  const el = document.querySelector(`[data-ch="${chId}"]`);
+  if (el) el.remove();
+  switchCh('lobby');
+};
+
+// CREATE CHANNEL
+window.openCh = () => show('ch-overlay');
+window.closeCh = () => {
+  hide('ch-overlay');
+  document.getElementById('ch-name-input').value = '';
+  document.getElementById('join-code-input').value = '';
+  document.getElementById('join-hint').textContent = '';
+  document.getElementById('create-hint').textContent = 'Private and secret channels get a shareable 6-character code.';
+  document.getElementById('create-hint').style.color = '';
+};
+window.switchTab = (t) => {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (i===0&&t==='create')||(i===1&&t==='join')));
+  document.getElementById('tab-create').classList.toggle('active', t==='create');
+  document.getElementById('tab-join').classList.toggle('active', t==='join');
+};
+
+window.createChannel = async () => {
+  const raw = document.getElementById('ch-name-input').value.trim();
+  const type = document.getElementById('ch-type-input').value;
+  const name = raw.toLowerCase().replace(/[^a-z0-9\-_]/g,'-').replace(/-+/g,'-').slice(0,30);
+  if (!name) { document.getElementById('ch-name-input').style.borderColor='var(--red)'; return; }
+  const code = type !== 'public' ? Math.random().toString(36).slice(2,8).toUpperCase() : null;
+  const chId = `ch_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+  try {
+    await setDoc(doc(db,'channels',chId), { name, type, code, description:`Created by ${me}`, createdBy:me, createdAt:serverTimestamp() });
+    myChannels.add(chId);
+    localStorage.setItem('atm_channels', JSON.stringify([...myChannels]));
+    channelCache[chId] = { id:chId, name, type, code, description:`Created by ${me}` };
+    renderChItem(channelCache[chId]);
+    const hint = document.getElementById('create-hint');
+    hint.style.color = 'var(--green)';
+    hint.textContent = code ? `Done! Share code: ${code}` : 'Public channel created!';
+    setTimeout(() => { closeCh(); switchCh(chId); }, 1400);
+  } catch(e) { document.getElementById('create-hint').textContent = 'Error: ' + e.message; }
+};
+
+// JOIN BY CODE
+window.joinByCode = async () => {
+  const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+  if (code.length < 4) { document.getElementById('join-hint').textContent = 'Enter a valid code.'; return; }
+  try {
+    const snap = await getDocs(query(collection(db,'channels'), where('code','==',code)));
+    if (snap.empty) { document.getElementById('join-hint').textContent = 'No channel found with that code.'; return; }
+    const ch = { id:snap.docs[0].id, ...snap.docs[0].data() };
+    channelCache[ch.id] = ch;
+    myChannels.add(ch.id);
+    localStorage.setItem('atm_channels', JSON.stringify([...myChannels]));
+    renderChItem(ch);
+    document.getElementById('join-hint').style.color = 'var(--green)';
+    document.getElementById('join-hint').textContent = `Joined #${ch.name}!`;
+    setTimeout(() => { closeCh(); switchCh(ch.id); }, 1000);
+  } catch(e) { document.getElementById('join-hint').textContent = 'Error: ' + e.message; }
+};
+
+// SEND MESSAGE
+window.sendMsg = async () => {
+  const inp = document.getElementById('msg-input');
+  const text = inp.value.trim();
+  if (!text || !me || text.length > 500) return;
+  inp.value = '';
+  document.getElementById('char-count').textContent = '500';
+  try {
+    await addDoc(collection(db,'channels',curChId,'messages'), {
+      username:me, message:text, timestamp:serverTimestamp(),
+      sessionId:sid, disclaimerAccepted:agreed, disclaimerTimestamp:agreedTs,
+      channelId:curChId, channelName:curChName
+    });
+  } catch(e) { console.error(e); }
+};
+
+async function sysMsg(text, chId) {
+  try {
+    await addDoc(collection(db,'channels',chId,'messages'), {
+      username:'SYSTEM', message:text, timestamp:serverTimestamp(),
+      sessionId:'system', disclaimerAccepted:true, disclaimerTimestamp:new Date().toISOString(),
+      isSystem:true, channelId:chId, channelName:chId
+    });
+  } catch(e) {}
+}
+
+function renderMsg(data, id) {
+  const area = document.getElementById('chat-area');
+  if (document.querySelector(`[data-mid="${id}"]`)) return;
+  const isOwn = data.username === me;
+  const isSys = data.isSystem || data.username === 'SYSTEM';
+  const div = document.createElement('div');
+  div.className = `msg ${isSys?'system':isOwn?'own':'other'}`;
+  div.dataset.mid = id;
+  const ts = data.timestamp?.toDate ? data.timestamp.toDate() : new Date();
+  const t = ts.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  if (!isSys) {
+    const meta = document.createElement('div');
+    meta.className = 'msg-meta';
+    meta.innerHTML = `<span class="uname">${esc(data.username)}</span><span>${t}</span>`;
+    div.appendChild(meta);
+  }
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.textContent = data.message;
+  div.appendChild(bubble);
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+window.updateCount = () => {
+  const inp = document.getElementById('msg-input');
+  const c = document.getElementById('char-count');
+  const r = 500 - inp.value.length;
+  c.textContent = r;
+  c.className = 'char-count' + (r<50?' warn':'') + (r<0?' over':'');
+};
+
+// ADMIN
+window.promptAdmin = () => { const p = prompt('Admin PIN:'); if (p===ADMIN) openAdmin(); else if(p!==null) alert('Wrong PIN.'); };
+window.closeAdmin = () => document.getElementById('admin-panel').classList.remove('show');
+
+async function openAdmin() {
+  document.getElementById('admin-panel').classList.add('show');
+  document.getElementById('log-rows').innerHTML = '<div style="color:var(--gray);font-size:0.7rem;padding:1rem;">Loading...</div>';
+  adminMsgs = [];
+  const users = new Set();
+  const chIds = new Set(['lobby']);
+  try {
+    const csnap = await getDocs(collection(db,'channels'));
+    csnap.forEach(d => chIds.add(d.id));
+    for (const chId of chIds) {
+      const msnap = await getDocs(query(collection(db,'channels',chId,'messages'), orderBy('timestamp','asc')));
+      msnap.forEach(d => { adminMsgs.push({id:d.id,chId,...d.data()}); if(d.data().username!=='SYSTEM') users.add(d.data().username); });
+    }
+    adminMsgs.sort((a,b)=>(b.timestamp?.toMillis?.()??0)-(a.timestamp?.toMillis?.()??0));
+    document.getElementById('s-msgs').textContent = adminMsgs.filter(m=>m.username!=='SYSTEM').length;
+    document.getElementById('s-users').textContent = users.size;
+    document.getElementById('s-chs').textContent = chIds.size;
+    document.getElementById('s-agreed').textContent = adminMsgs.filter(m=>m.disclaimerAccepted&&m.username!=='SYSTEM').length;
     const rows = document.getElementById('log-rows');
     rows.innerHTML = '';
-    const users = new Set();
-    let agreed = 0;
-    allMessages.forEach(m => {
-      if (m.username !== 'SYSTEM') {
-        users.add(m.username);
-        if (m.disclaimerAccepted) agreed++;
-      }
+    adminMsgs.forEach(m => {
       const ts = m.timestamp?.toDate ? m.timestamp.toDate() : new Date();
       const row = document.createElement('div');
       row.className = 'log-row';
-      row.innerHTML = `
-        <span class="log-time">${ts.toLocaleString()}</span>
-        <span class="log-user">${escHtml(m.username)}</span>
-        <span class="log-agreed">${m.disclaimerAccepted ? '✓ Yes' : '—'}</span>
-        <span class="log-msg">${escHtml(m.message)} ${m.username !== 'SYSTEM' ? `<button class="del-btn" onclick="deleteMsg('${m.id}')">✕ delete</button>` : ''}</span>
-      `;
+      row.innerHTML = `<span class="log-t">${ts.toLocaleString()}</span><span class="log-u">${esc(m.username)}</span><span class="log-c">#${esc(m.channelName||m.chId)}</span><span class="log-a">${m.disclaimerAccepted?'Y':'—'}</span><span>${esc(m.message)}${m.username!=='SYSTEM'?`<button class="del-btn" onclick="delMsg('${m.chId}','${m.id}')">del</button>`:''}`;
       rows.appendChild(row);
     });
-    document.getElementById('stat-total').textContent = allMessages.filter(m => m.username !== 'SYSTEM').length;
-    document.getElementById('stat-users').textContent = users.size;
-    document.getElementById('stat-agreed').textContent = agreed;
-  }
+  } catch(e) { document.getElementById('log-rows').innerHTML = `<div style="color:var(--red);padding:1rem;">${e.message}</div>`; }
+}
 
-  window.deleteMsg = async (id) => {
-    if (!confirm('Delete this message?')) return;
-    try {
-      await deleteDoc(doc(db, 'messages', id));
-      renderAdminLog();
-    } catch(e) { alert('Could not delete: ' + e.message); }
-  };
+window.delMsg = async (chId, msgId) => {
+  if (!confirm('Delete this message?')) return;
+  try { await deleteDoc(doc(db,'channels',chId,'messages',msgId)); openAdmin(); } catch(e) { alert(e.message); }
+};
 
-  window.exportCSV = () => {
-    const rows = [['Timestamp','Username','Session ID','Disclaimer Accepted','Disclaimer Timestamp','Message']];
-    allMessages.forEach(m => {
-      const ts = m.timestamp?.toDate ? m.timestamp.toDate().toISOString() : '';
-      rows.push([ts, m.username, m.sessionId, m.disclaimerAccepted, m.disclaimerTimestamp || '', m.message]);
-    });
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `atmwithnopin-chat-log-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+window.exportCSV = () => {
+  const rows = [['Timestamp','Username','Channel','Session ID','Agreed','Message']];
+  adminMsgs.forEach(m => {
+    const ts = m.timestamp?.toDate ? m.timestamp.toDate().toISOString() : '';
+    rows.push([ts, m.username, m.channelName||m.chId, m.sessionId, m.disclaimerAccepted, m.message]);
+  });
+  const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = `atmchat-log-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+};
+
+// INIT
+restore();
 </script>
 </body>
 </html>
