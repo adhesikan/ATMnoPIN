@@ -702,6 +702,12 @@ async function openAdmin() {
   adminMsgs = [];
   const users = new Set();
   const chIds = new Set(['lobby']);
+
+  function setStat(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+
   try {
     const csnap = await getDocs(collection(db,'channels'));
     csnap.forEach(d => chIds.add(d.id));
@@ -710,10 +716,11 @@ async function openAdmin() {
       msnap.forEach(d => { adminMsgs.push({id:d.id,chId,...d.data()}); if(d.data().username!=='SYSTEM') users.add(d.data().username); });
     }
     adminMsgs.sort((a,b)=>(b.timestamp?.toMillis?.()??0)-(a.timestamp?.toMillis?.()??0));
-    document.getElementById('s-msgs').textContent = adminMsgs.filter(m=>m.username!=='SYSTEM').length;
-    document.getElementById('s-users').textContent = users.size;
-    document.getElementById('s-chs').textContent = chIds.size;
-    document.getElementById('s-agreed').textContent = adminMsgs.filter(m=>m.disclaimerAccepted&&m.username!=='SYSTEM').length;
+    setStat('s-msgs',   adminMsgs.filter(m=>m.username!=='SYSTEM').length);
+    setStat('s-users',  users.size);
+    setStat('s-chs',    chIds.size);
+    setStat('s-visits', '—');   // updated when visitor tab loads
+    setStat('s-countries', '—');
     const rows = document.getElementById('log-rows');
     rows.innerHTML = '';
     adminMsgs.forEach(m => {
