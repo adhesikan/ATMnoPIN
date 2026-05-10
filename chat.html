@@ -888,23 +888,45 @@ async function loadVisitors() {
       rows.innerHTML = '<div style="color:var(--gray);font-size:0.7rem;padding:1rem;">No visits logged yet.</div>';
       return;
     }
+
+    // Update header columns
+    const hdr = document.querySelector('.log-row.log-hdr[data-visitor-hdr]');
+
     visitData.forEach(v => {
       const ts = v.timestamp?.toDate ? v.timestamp.toDate() : new Date();
+
+      // Build city + state string
+      const city = (v.city && v.city !== 'unknown') ? v.city : '';
+      const state = (v.state && v.state !== 'unknown') ? v.state : (v.region && v.region !== 'unknown' ? v.region : '');
+      const location = city && state ? `${city}, ${state}` : city || state || '—';
+
+      // Truncate long IPs
+      const ip = v.ip || 'unknown';
+      const ipShort = ip.length > 20 ? ip.substring(0, 18) + '…' : ip;
+
       const row = document.createElement('div');
       row.className = 'log-row';
-      row.style.gridTemplateColumns = '148px 90px 90px 110px 80px 80px 80px 1fr';
+      row.style.gridTemplateColumns = '140px 110px 160px 90px 80px 70px 70px 1fr';
       row.innerHTML = `
         <span class="log-t">${ts.toLocaleString()}</span>
-        <span class="log-u" title="${esc(v.ip)}">${esc(v.ip)}</span>
-        <span class="log-c">${esc(v.city)}</span>
-        <span style="color:var(--offwhite);font-size:0.65rem;">${esc(v.country)}</span>
-        <span class="log-t">${esc(v.browser)}</span>
-        <span class="log-t">${esc(v.os)}</span>
-        <span class="log-t">${esc(v.device)}</span>
-        <span style="font-size:0.62rem;color:#666;">${esc(v.page)} &nbsp;·&nbsp; from: ${esc(v.referrer)}</span>
+        <span class="log-u" title="${esc(ip)}" style="font-size:0.6rem;word-break:break-all;">${esc(ipShort)}</span>
+        <span style="color:var(--offwhite);font-size:0.65rem;">${esc(location)}</span>
+        <span style="color:var(--offwhite);font-size:0.65rem;">${esc(v.country||'—')}</span>
+        <span class="log-t">${esc(v.browser||'—')}</span>
+        <span class="log-t">${esc(v.os||'—')}</span>
+        <span class="log-t">${esc(v.device||'—')}</span>
+        <span style="font-size:0.6rem;color:#666;">${esc(v.page||'/')} &nbsp;·&nbsp; ${esc(v.referrer||'direct')}</span>
       `;
       rows.appendChild(row);
     });
+
+    // Update column header to match new layout
+    const visitorHdr = document.querySelector('#adm-tab-visitors .log-row.log-hdr');
+    if (visitorHdr) {
+      visitorHdr.style.gridTemplateColumns = '140px 110px 160px 90px 80px 70px 70px 1fr';
+      visitorHdr.innerHTML = '<span>Timestamp</span><span>IP</span><span>City, State</span><span>Country</span><span>Browser</span><span>OS</span><span>Device</span><span>Page / Referrer</span>';
+    }
+
   } catch(e) {
     rows.innerHTML = `<div style="color:var(--red);padding:1rem;">${e.message}</div>`;
   }

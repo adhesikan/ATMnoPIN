@@ -1,7 +1,6 @@
 /* visitor-tracker.js — ATM with No PIN
    Logs each page visit to Firebase Firestore: visits collection
-   Captures: IP, geo, browser, OS, screen, referrer, page, timestamp
-   Silently fails if blocked — never affects user experience
+   Uses multiple geo APIs with fallback for best IPv6 coverage
 */
 (async function() {
   try {
@@ -20,7 +19,7 @@
     const app = getApps().length ? getApps()[0] : initializeApp(cfg);
     const db = getFirestore(app);
 
-    // Parse browser & OS from user agent
+    // Browser fingerprinting
     function parseBrowser(ua) {
       if (/Edg\//.test(ua)) return 'Edge';
       if (/OPR\/|Opera/.test(ua)) return 'Opera';
@@ -30,7 +29,6 @@
       if (/MSIE|Trident/.test(ua)) return 'IE';
       return 'Other';
     }
-
     function parseOS(ua) {
       if (/Windows NT 10/.test(ua)) return 'Windows 10/11';
       if (/Windows NT 6\.3/.test(ua)) return 'Windows 8.1';
@@ -42,7 +40,6 @@
       if (/Linux/.test(ua)) return 'Linux';
       return 'Other';
     }
-
     function parseDevice(ua) {
       if (/Mobi|Android|iPhone|iPad/.test(ua)) return 'Mobile';
       if (/Tablet/.test(ua)) return 'Tablet';
@@ -55,7 +52,6 @@
     if (lastVisit && Date.now() - parseInt(lastVisit) < 30 * 60 * 1000) return;
     sessionStorage.setItem(sessionKey, Date.now().toString());
 
-    // Base data from browser
     const ua = navigator.userAgent;
     const visitData = {
       page: window.location.pathname || '/',
@@ -69,31 +65,71 @@
       screenHeight: window.screen.height,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown',
       timestamp: serverTimestamp(),
-      // Geo filled in below
-      ip: 'unknown',
-      city: 'unknown',
-      region: 'unknown',
-      country: 'unknown',
-      org: 'unknown',
-      postal: 'unknown',
+      ip: 'unknown', city: 'unknown', region: 'unknown', state: 'unknown',
+      country: 'unknown', org: 'unknown', postal: 'unknown',
+      latitude: null, longitude: null,
     };
 
-    // Geo + IP lookup via ipapi.co (free, 1000/day)
-    try {
-      const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(4000) });
-      if (res.ok) {
-        const geo = await res.json();
-        visitData.ip       = geo.ip       || 'unknown';
-        visitData.city     = geo.city     || 'unknown';
-        visitData.region   = geo.region   || 'unknown';
-        visitData.country  = geo.country_name || geo.country || 'unknown';
-        visitData.org      = geo.org      || 'unknown';
-        visitData.postal   = geo.postal   || 'unknown';
-        visitData.latitude  = geo.latitude  || null;
-        visitData.longitude = geo.longitude || null;
+    // GEO LOOKUP — try multiple APIs, best IPv6 coverage wins
+    // API 1: ip-api.com — excellent IPv6, returns city+state+region
+    async function tryIpApi() {
+      const r = await fetch('http://ip-api.com/json/?fields=status,message,country,regionName,city,zip,lat,lon,isp,org,query', 
+        { signal: AbortSignal.timeout(4000) });
+      if (!r.ok) return false;
+      const d = await r.json();
+      if (d.status !== 'success') return false;
+      visitData.ip      = d.query      || 'unknown';
+      visitData.city    = d.city       || 'unknown';
+      visitData.region  = d.regionName || 'unknown'; // full state name e.g. "Connecticut"
+      visitData.state   = d.regionName || 'unknown';
+      visitData.country = d.country    || 'unknown';
+      visitData.org     = d.org || d.isp || 'unknown';
+      visitData.postal  = d.zip        || 'unknown';
+      visitData.latitude  = d.lat      || null;
+      visitData.longitude = d.lon      || null;
+      return true;
+    }
+
+    // API 2: ipapi.co — fallback, good IPv6 support
+    async function tryIpApiCo() {
+      const r = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(4000) });
+      if (!r.ok) return false;
+      const d = await r.json();
+      if (d.error) return false;
+      visitData.ip      = d.ip              || 'unknown';
+      visitData.city    = d.city            || 'unknown';
+      visitData.region  = d.region          || 'unknown';
+      visitData.state   = d.region          || 'unknown';
+      visitData.country = d.country_name    || 'unknown';
+      visitData.org     = d.org             || 'unknown';
+      visitData.postal  = d.postal          || 'unknown';
+      visitData.latitude  = d.latitude      || null;
+      visitData.longitude = d.longitude     || null;
+      return true;
+    }
+
+    // API 3: freeipapi.com — another fallback, handles IPv6
+    async function tryFreeIpApi() {
+      const r = await fetch('https://freeipapi.com/api/json', { signal: AbortSignal.timeout(4000) });
+      if (!r.ok) return false;
+      const d = await r.json();
+      visitData.ip      = d.ipAddress       || 'unknown';
+      visitData.city    = d.cityName        || 'unknown';
+      visitData.region  = d.regionName      || 'unknown';
+      visitData.state   = d.regionName      || 'unknown';
+      visitData.country = d.countryName     || 'unknown';
+      visitData.org     = 'unknown';
+      visitData.postal  = d.zipCode         || 'unknown';
+      visitData.latitude  = d.latitude      || null;
+      visitData.longitude = d.longitude     || null;
+      return true;
+    }
+
+    // Try APIs in order — first success wins
+    try { await tryIpApi(); } catch(e) {
+      try { await tryIpApiCo(); } catch(e2) {
+        try { await tryFreeIpApi(); } catch(e3) {}
       }
-    } catch(e) {
-      // geo failed — still log without it
     }
 
     await addDoc(collection(db, 'visits'), visitData);
