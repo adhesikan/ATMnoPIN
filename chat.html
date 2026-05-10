@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ATM Chat Room — ATM With No PIN</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --black: #0a0a0a;
+      --green: #00c853;
+      --green-dim: #007a33;
+      --felt: #0d2e1a;
+      --gold: #c9a84c;
+      --offwhite: #f0ece0;
+      --gray: #888;
+      --red: #e53935;
+    }
+    html, body { height: 100%; }
+    body {
+      background: var(--black);
+      color: var(--offwhite);
+      font-family: 'DM Mono', monospace;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── DISCLAIMER OVERLAY ── */
+    #disclaimer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    #disclaimer-box {
+      background: #0e0e0e;
+      border: 1px solid #2a2a2a;
+      max-width: 560px;
+      width: 100%;
+      padding: 2.5rem;
+      position: relative;
+    }
+    #disclaimer-box::before {
+      content: '⚠';
+      position: absolute;
+      top: -1.2rem;
+      left: 2rem;
+      background: var(--gold);
+      color: var(--black);
+      font-size: 1rem;
+      padding: 0.2rem 0.6rem;
+      font-family: 'DM Mono', monospace;
+    }
+    .disclaimer-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.8rem;
+      letter-spacing: 0.1em;
+      color: var(--offwhite);
+      margin-bottom: 0.3rem;
+    }
+    .disclaimer-sub {
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 1.5rem;
+    }
+    .disclaimer-terms {
+      font-size: 0.75rem;
+      line-height: 1.8;
+      color: #aaa;
+      margin-bottom: 1.5rem;
+      max-height: 260px;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+      padding-top: 1rem;
+      padding-bottom: 1rem;
+    }
+    .disclaimer-terms p { margin-bottom: 0.8rem; }
+    .disclaimer-terms strong { color: var(--offwhite); }
+    .disclaimer-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.8rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.75rem;
+      color: #aaa;
+      cursor: pointer;
+    }
+    .disclaimer-check input { margin-top: 2px; accent-color: var(--green); width: 14px; height: 14px; cursor: pointer; }
+    #agree-btn {
+      width: 100%;
+      padding: 0.9rem;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      color: #444;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: not-allowed;
+      transition: all 0.2s;
+    }
+    #agree-btn.active {
+      background: var(--green);
+      color: var(--black);
+      border-color: var(--green);
+      cursor: pointer;
+      font-weight: 500;
+    }
+    #agree-btn.active:hover { background: #00ff6a; }
+
+    /* ── USERNAME MODAL ── */
+    #username-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 998;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    #username-overlay.show { display: flex; }
+    #username-box {
+      background: #0e0e0e;
+      border: 1px solid #2a2a2a;
+      max-width: 400px;
+      width: 100%;
+      padding: 2.5rem;
+    }
+    .username-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.8rem;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.3rem;
+    }
+    .username-sub {
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 1.5rem;
+    }
+    #username-input {
+      width: 100%;
+      background: #111;
+      border: 1px solid #2a2a2a;
+      color: var(--offwhite);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.85rem;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #username-input:focus { border-color: var(--green); }
+    #username-btn {
+      width: 100%;
+      padding: 0.75rem;
+      background: var(--green);
+      border: none;
+      color: var(--black);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #username-btn:hover { background: #00ff6a; }
+    .username-note { font-size: 0.65rem; color: var(--gray); margin-top: 0.8rem; line-height: 1.6; }
+
+    /* ── HEADER ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #1a1a1a;
+      background: var(--black);
+      flex-shrink: 0;
+    }
+    .header-left { display: flex; align-items: center; gap: 1rem; }
+    .header-logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.2rem;
+      letter-spacing: 0.15em;
+      color: var(--green);
+      text-decoration: none;
+    }
+    .header-title {
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--gray);
+    }
+    .online-count {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .online-dot {
+      width: 6px; height: 6px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* ── CHAT AREA ── */
+    #chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      scroll-behavior: smooth;
+    }
+    #chat-area::-webkit-scrollbar { width: 4px; }
+    #chat-area::-webkit-scrollbar-track { background: transparent; }
+    #chat-area::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
+
+    .msg {
+      display: flex;
+      flex-direction: column;
+      max-width: 75%;
+      animation: msgIn 0.2s ease;
+    }
+    @keyframes msgIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+    .msg.own { align-self: flex-end; align-items: flex-end; }
+    .msg.other { align-self: flex-start; }
+    .msg.system { align-self: center; max-width: 100%; }
+
+    .msg-meta {
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      color: var(--gray);
+      margin-bottom: 0.25rem;
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .msg-meta .username { color: var(--green); }
+    .msg.own .msg-meta .username { color: var(--gold); }
+
+    .msg-bubble {
+      padding: 0.6rem 0.9rem;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    .msg.other .msg-bubble {
+      background: #111;
+      border: 1px solid #1e1e1e;
+      border-radius: 0 8px 8px 8px;
+      color: var(--offwhite);
+    }
+    .msg.own .msg-bubble {
+      background: #0d2e1a;
+      border: 1px solid var(--green-dim);
+      border-radius: 8px 0 8px 8px;
+      color: var(--offwhite);
+    }
+    .msg.system .msg-bubble {
+      background: transparent;
+      border: none;
+      color: var(--gray);
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-align: center;
+      font-style: italic;
+    }
+
+    /* ── INPUT AREA ── */
+    #input-area {
+      border-top: 1px solid #1a1a1a;
+      padding: 1rem 1.5rem;
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      background: var(--black);
+      flex-shrink: 0;
+    }
+    #msg-input {
+      flex: 1;
+      background: #111;
+      border: 1px solid #2a2a2a;
+      color: var(--offwhite);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.82rem;
+      padding: 0.65rem 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+      border-radius: 2px;
+    }
+    #msg-input:focus { border-color: var(--green); }
+    #msg-input::placeholder { color: #333; }
+    #send-btn {
+      padding: 0.65rem 1.4rem;
+      background: var(--green);
+      border: none;
+      color: var(--black);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: background 0.2s;
+    }
+    #send-btn:hover { background: #00ff6a; }
+    #send-btn:disabled { background: #1a1a1a; color: #333; cursor: not-allowed; }
+
+    .char-count {
+      font-size: 0.6rem;
+      color: var(--gray);
+      min-width: 36px;
+      text-align: right;
+    }
+    .char-count.warn { color: var(--gold); }
+    .char-count.over { color: var(--red); }
+
+    /* ── ADMIN PANEL ── */
+    #admin-panel {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.95);
+      z-index: 997;
+      flex-direction: column;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+    #admin-panel.show { display: flex; }
+    .admin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid #1a1a1a;
+      padding-bottom: 1rem;
+    }
+    .admin-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.5rem;
+      letter-spacing: 0.1em;
+      color: var(--gold);
+    }
+    .admin-close {
+      background: none;
+      border: 1px solid #2a2a2a;
+      color: var(--offwhite);
+      padding: 0.4rem 0.8rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+    }
+    .admin-close:hover { border-color: var(--red); color: var(--red); }
+    #admin-log {
+      font-size: 0.72rem;
+      line-height: 1.8;
+      color: #aaa;
+    }
+    .log-row {
+      display: grid;
+      grid-template-columns: 160px 120px 80px 1fr;
+      gap: 1rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #111;
+      align-items: start;
+    }
+    .log-row:hover { background: #0a0a0a; }
+    .log-header {
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--green);
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #1a1a1a;
+      margin-bottom: 0.5rem;
+    }
+    .log-time { color: var(--gray); font-size: 0.65rem; }
+    .log-user { color: var(--gold); }
+    .log-agreed { color: var(--green); font-size: 0.65rem; }
+    .log-msg { color: var(--offwhite); }
+    .del-btn {
+      background: none;
+      border: none;
+      color: var(--red);
+      cursor: pointer;
+      font-size: 0.65rem;
+      font-family: 'DM Mono', monospace;
+      padding: 0;
+      opacity: 0.5;
+      transition: opacity 0.2s;
+    }
+    .del-btn:hover { opacity: 1; }
+    .admin-stats {
+      display: flex;
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      border: 1px solid #1a1a1a;
+    }
+    .admin-stat-num {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2rem;
+      color: var(--green);
+      line-height: 1;
+    }
+    .admin-stat-label { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gray); }
+    .admin-export {
+      padding: 0.5rem 1rem;
+      background: none;
+      border: 1px solid #2a2a2a;
+      color: var(--offwhite);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      margin-bottom: 1rem;
+      transition: border-color 0.2s;
+    }
+    .admin-export:hover { border-color: var(--green); color: var(--green); }
+
+    /* ── FOOTER BAR ── */
+    .footer-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.4rem 1.5rem;
+      border-top: 1px solid #111;
+      background: #050505;
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      color: #333;
+      flex-shrink: 0;
+    }
+    .footer-bar a { color: #333; text-decoration: none; }
+    .footer-bar a:hover { color: var(--gray); }
+    #admin-trigger { cursor: pointer; user-select: none; }
+
+    /* ── BANNED / ERROR ── */
+    .error-msg {
+      text-align: center;
+      padding: 2rem;
+      color: var(--red);
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+    }
+
+    @media (max-width: 600px) {
+      .msg { max-width: 90%; }
+      .log-row { grid-template-columns: 1fr 1fr; }
+      .admin-stats { flex-wrap: wrap; gap: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── DISCLAIMER OVERLAY ── -->
+<div id="disclaimer-overlay">
+  <div id="disclaimer-box">
+    <div class="disclaimer-title">Before You Enter 🏧</div>
+    <div class="disclaimer-sub">Community Chat — Read & Agree to Continue</div>
+    <div class="disclaimer-terms">
+      <p><strong>1. This is a social community chat</strong> — ATMwithNoPIN.com chat is for entertainment, community discussion, and poker table talk only. It is not a gambling platform, and no real money transactions of any kind take place here.</p>
+      <p><strong>2. You must be 18 or older</strong> to participate in this chat. By agreeing, you confirm you meet this requirement.</p>
+      <p><strong>3. No illegal activity</strong> — Discussion of cheating, collusion, chip dumping, or any illegal gambling activity is strictly prohibited and will result in immediate removal.</p>
+      <p><strong>4. No harassment or abuse</strong> — Treat all participants with respect. Hate speech, threats, personal attacks, or abusive language of any kind are not tolerated.</p>
+      <p><strong>5. Chat is monitored and logged</strong> — All messages are recorded with timestamps and session data. Logs are retained and may be reviewed by the moderator (Dhezz) at any time. By chatting, you consent to this logging.</p>
+      <p><strong>6. No spam or advertising</strong> — Do not post unsolicited links, promotional content, or repetitive messages.</p>
+      <p><strong>7. Moderator rights</strong> — The moderator reserves the right to remove any message or ban any user at any time, without notice or explanation.</p>
+      <p><strong>8. No expectation of privacy</strong> — Messages posted here are visible to all participants. Do not share personal, financial, or sensitive information in this chat.</p>
+      <p><strong>9. Continued use = acceptance</strong> — By entering the chat and posting, you agree to these terms in full. These terms may be updated at any time.</p>
+      <p style="color:var(--gray);font-size:0.7rem;margin-top:1rem;">Your agreement is timestamped and logged along with your session information.</p>
+    </div>
+    <label class="disclaimer-check">
+      <input type="checkbox" id="agree-check" onchange="toggleAgree(this)"/>
+      I have read and agree to the community chat terms above. I confirm I am 18 years of age or older.
+    </label>
+    <button id="agree-btn" disabled onclick="enterChat()">Enter the Chat Room 🏧</button>
+  </div>
+</div>
+
+<!-- ── USERNAME OVERLAY ── -->
+<div id="username-overlay">
+  <div id="username-box">
+    <div class="username-title">Pick Your Handle</div>
+    <div class="username-sub">What should we call you at the table?</div>
+    <input type="text" id="username-input" placeholder="e.g. PokerPro99, FishFinder..." maxlength="28" onkeydown="if(event.key==='Enter')setUsername()"/>
+    <button id="username-btn" onclick="setUsername()">Take My Seat 🃏</button>
+    <p class="username-note">Max 28 characters. No special characters. This is visible to everyone in the chat.</p>
+  </div>
+</div>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="header-left">
+    <a href="/" class="header-logo">ATM/NoPIN</a>
+    <span class="header-title">♠ Community Chat</span>
+  </div>
+  <div class="online-count">
+    <div class="online-dot"></div>
+    <span id="online-count">Live</span>
+  </div>
+</header>
+
+<!-- ── CHAT AREA ── -->
+<div id="chat-area">
+  <div class="msg system">
+    <div class="msg-bubble">🏧 Welcome to the ATM with No PIN chat room. Be cool. No PIN required.</div>
+  </div>
+</div>
+
+<!-- ── INPUT AREA ── -->
+<div id="input-area">
+  <input type="text" id="msg-input" placeholder="Type a message..." maxlength="500" disabled
+    oninput="updateCharCount()" onkeydown="if(event.key==='Enter')sendMessage()"/>
+  <span class="char-count" id="char-count">500</span>
+  <button id="send-btn" onclick="sendMessage()" disabled>Send</button>
+</div>
+
+<!-- ── FOOTER BAR ── -->
+<div class="footer-bar">
+  <span><a href="/">← atmwithnopin.com</a></span>
+  <span id="admin-trigger" onclick="promptAdmin()" title="Admin">⚙</span>
+</div>
+
+<!-- ── ADMIN PANEL ── -->
+<div id="admin-panel">
+  <div class="admin-header">
+    <div class="admin-title">🔐 Admin — Chat Log</div>
+    <button class="admin-close" onclick="closeAdmin()">✕ Close</button>
+  </div>
+  <div class="admin-stats">
+    <div><div class="admin-stat-num" id="stat-total">0</div><div class="admin-stat-label">Total Messages</div></div>
+    <div><div class="admin-stat-num" id="stat-users">0</div><div class="admin-stat-label">Unique Users</div></div>
+    <div><div class="admin-stat-num" id="stat-agreed">0</div><div class="admin-stat-label">Agreed to Terms</div></div>
+  </div>
+  <button class="admin-export" onclick="exportCSV()">⬇ Export Log as CSV</button>
+  <div id="admin-log">
+    <div class="log-row log-header">
+      <span>Timestamp</span><span>Username</span><span>Agreed</span><span>Message</span>
+    </div>
+    <div id="log-rows"></div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getFirestore, collection, addDoc, onSnapshot,
+    query, orderBy, limit, serverTimestamp, deleteDoc, doc, getDocs
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAzlx4DVWbSkB4aM-njR55IT5qSPv4CFuk",
+    authDomain: "atmwithnopin-c5bd7.firebaseapp.com",
+    projectId: "atmwithnopin-c5bd7",
+    storageBucket: "atmwithnopin-c5bd7.firebasestorage.app",
+    messagingSenderId: "404706016435",
+    appId: "1:404706016435:web:b5e3cf34ccc9b669bd04c6",
+    measurementId: "G-SBBMSL0MS5"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // State
+  let currentUser = null;
+  let disclaimerAccepted = false;
+  let disclaimerTimestamp = null;
+  const sessionId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+  const ADMIN_PASSWORD = "dhezz2024atm"; // Change this!
+  let allMessages = [];
+
+  // Expose to global scope
+  window.toggleAgree = (cb) => {
+    const btn = document.getElementById('agree-btn');
+    if (cb.checked) btn.classList.add('active');
+    else btn.classList.remove('active');
+    btn.disabled = !cb.checked;
+  };
+
+  window.enterChat = () => {
+    if (!document.getElementById('agree-check').checked) return;
+    disclaimerAccepted = true;
+    disclaimerTimestamp = new Date().toISOString();
+    document.getElementById('disclaimer-overlay').style.display = 'none';
+    document.getElementById('username-overlay').classList.add('show');
+    setTimeout(() => document.getElementById('username-input').focus(), 100);
+  };
+
+  window.setUsername = () => {
+    const input = document.getElementById('username-input');
+    const val = input.value.trim().replace(/[^a-zA-Z0-9_\- ]/g, '').substring(0, 28);
+    if (!val) { input.placeholder = 'Please enter a name!'; return; }
+    currentUser = val;
+    document.getElementById('username-overlay').classList.remove('show');
+    document.getElementById('msg-input').disabled = false;
+    document.getElementById('send-btn').disabled = false;
+    document.getElementById('msg-input').focus();
+    postSystemMessage(`🃏 ${currentUser} has taken a seat at the table.`);
+  };
+
+  window.updateCharCount = () => {
+    const input = document.getElementById('msg-input');
+    const count = document.getElementById('char-count');
+    const remaining = 500 - input.value.length;
+    count.textContent = remaining;
+    count.className = 'char-count' + (remaining < 50 ? ' warn' : '') + (remaining < 0 ? ' over' : '');
+  };
+
+  window.sendMessage = async () => {
+    const input = document.getElementById('msg-input');
+    const text = input.value.trim();
+    if (!text || !currentUser || text.length > 500) return;
+    input.value = '';
+    document.getElementById('char-count').textContent = '500';
+    try {
+      await addDoc(collection(db, 'messages'), {
+        username: currentUser,
+        message: text,
+        timestamp: serverTimestamp(),
+        sessionId: sessionId,
+        disclaimerAccepted: disclaimerAccepted,
+        disclaimerTimestamp: disclaimerTimestamp,
+      });
+    } catch (e) {
+      console.error('Send error:', e);
+      showError('Could not send message. Please try again.');
+    }
+  };
+
+  async function postSystemMessage(text) {
+    try {
+      await addDoc(collection(db, 'messages'), {
+        username: 'SYSTEM',
+        message: text,
+        timestamp: serverTimestamp(),
+        sessionId: 'system',
+        disclaimerAccepted: true,
+        disclaimerTimestamp: new Date().toISOString(),
+        isSystem: true,
+      });
+    } catch(e) {}
+  }
+
+  function showError(msg) {
+    const area = document.getElementById('chat-area');
+    const el = document.createElement('div');
+    el.className = 'error-msg';
+    el.textContent = msg;
+    area.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  function renderMessage(data, id) {
+    const area = document.getElementById('chat-area');
+    const isOwn = data.username === currentUser;
+    const isSystem = data.isSystem || data.username === 'SYSTEM';
+    const div = document.createElement('div');
+    div.className = `msg ${isSystem ? 'system' : isOwn ? 'own' : 'other'}`;
+    div.dataset.id = id;
+
+    const ts = data.timestamp?.toDate ? data.timestamp.toDate() : new Date();
+    const timeStr = ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (!isSystem) {
+      const meta = document.createElement('div');
+      meta.className = 'msg-meta';
+      meta.innerHTML = `<span class="username">${escHtml(data.username)}</span><span>${timeStr}</span>`;
+      div.appendChild(meta);
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.textContent = data.message;
+    div.appendChild(bubble);
+
+    area.appendChild(div);
+    area.scrollTop = area.scrollHeight;
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Live listener
+  const q = query(collection(db, 'messages'), orderBy('timestamp', 'asc'), limit(200));
+  onSnapshot(q, (snapshot) => {
+    allMessages = [];
+    snapshot.forEach(d => allMessages.push({ id: d.id, ...d.data() }));
+
+    const area = document.getElementById('chat-area');
+    // Only render new messages (simple approach: clear and re-render on first load, then append)
+    snapshot.docChanges().forEach(change => {
+      if (change.type === 'added') {
+        renderMessage(change.doc.data(), change.doc.id);
+      }
+      if (change.type === 'removed') {
+        const el = area.querySelector(`[data-id="${change.doc.id}"]`);
+        if (el) el.remove();
+      }
+    });
+  });
+
+  // Admin
+  const ADMIN_PIN = ADMIN_PASSWORD;
+  window.promptAdmin = () => {
+    const pw = prompt('🔐 Admin PIN:');
+    if (pw === ADMIN_PIN) openAdmin();
+    else if (pw !== null) alert('Wrong PIN.');
+  };
+
+  function openAdmin() {
+    const panel = document.getElementById('admin-panel');
+    panel.classList.add('show');
+    renderAdminLog();
+  }
+
+  window.closeAdmin = () => {
+    document.getElementById('admin-panel').classList.remove('show');
+  };
+
+  function renderAdminLog() {
+    const rows = document.getElementById('log-rows');
+    rows.innerHTML = '';
+    const users = new Set();
+    let agreed = 0;
+    allMessages.forEach(m => {
+      if (m.username !== 'SYSTEM') {
+        users.add(m.username);
+        if (m.disclaimerAccepted) agreed++;
+      }
+      const ts = m.timestamp?.toDate ? m.timestamp.toDate() : new Date();
+      const row = document.createElement('div');
+      row.className = 'log-row';
+      row.innerHTML = `
+        <span class="log-time">${ts.toLocaleString()}</span>
+        <span class="log-user">${escHtml(m.username)}</span>
+        <span class="log-agreed">${m.disclaimerAccepted ? '✓ Yes' : '—'}</span>
+        <span class="log-msg">${escHtml(m.message)} ${m.username !== 'SYSTEM' ? `<button class="del-btn" onclick="deleteMsg('${m.id}')">✕ delete</button>` : ''}</span>
+      `;
+      rows.appendChild(row);
+    });
+    document.getElementById('stat-total').textContent = allMessages.filter(m => m.username !== 'SYSTEM').length;
+    document.getElementById('stat-users').textContent = users.size;
+    document.getElementById('stat-agreed').textContent = agreed;
+  }
+
+  window.deleteMsg = async (id) => {
+    if (!confirm('Delete this message?')) return;
+    try {
+      await deleteDoc(doc(db, 'messages', id));
+      renderAdminLog();
+    } catch(e) { alert('Could not delete: ' + e.message); }
+  };
+
+  window.exportCSV = () => {
+    const rows = [['Timestamp','Username','Session ID','Disclaimer Accepted','Disclaimer Timestamp','Message']];
+    allMessages.forEach(m => {
+      const ts = m.timestamp?.toDate ? m.timestamp.toDate().toISOString() : '';
+      rows.push([ts, m.username, m.sessionId, m.disclaimerAccepted, m.disclaimerTimestamp || '', m.message]);
+    });
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `atmwithnopin-chat-log-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+</script>
+</body>
+</html>
