@@ -586,6 +586,47 @@
       .nav-links { gap: 1rem; }
       footer { flex-direction: column; gap: 0.5rem; text-align: center; padding: 1.5rem; }
     }
+
+    /* ─── DHEZZ PORTRAIT ─── */
+    .dhezz-portrait {
+      border: 1px solid #1e1e1e;
+      overflow: hidden;
+      position: relative;
+    }
+    .dhezz-portrait img {
+      width: 100%;
+      display: block;
+      filter: invert(1) brightness(0.85);
+      transition: transform 0.4s ease;
+    }
+    .dhezz-portrait:hover img { transform: scale(1.02); }
+    .portrait-caption {
+      padding: 1.2rem 1.5rem;
+      background: #0d0d0d;
+      border-top: 1px solid #1e1e1e;
+    }
+    .caption-tag {
+      font-size: 0.55rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--green);
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+    .portrait-caption p {
+      font-family: 'DM Serif Display', serif;
+      font-style: italic;
+      font-size: 0.9rem;
+      color: var(--offwhite);
+      line-height: 1.6;
+    }
+    .caption-sub {
+      display: block;
+      margin-top: 0.5rem;
+      font-size: 0.65rem;
+      color: var(--gray);
+      letter-spacing: 0.08em;
+    }
   </style>
 </head>
 <body>
@@ -696,7 +737,15 @@
       </p>
     </div>
     <div class="about-rules">
-      <p class="section-label">// House Rules</p>
+      <div class="dhezz-portrait">
+        <img src="/dhezz.jpeg" alt="Dhezz at the poker table — ATM with No PIN" />
+        <div class="portrait-caption">
+          <span class="caption-tag">&#x2756; Actual Photo — Not Staged</span>
+          <p>"That stack? Gone in 20 minutes.<br>The hat? Still on his head.<br>The smile? Never left."</p>
+          <span class="caption-sub">— Every Foxwoods dealer, probably</span>
+        </div>
+      </div>
+      <p class="section-label" style="margin-top:0.5rem;">// House Rules</p>
       <div class="rule">
         <div class="rule-num">01</div>
         <div class="rule-title">No PIN. No Problem.</div>
