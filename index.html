@@ -487,6 +487,68 @@
       color: var(--gray);
     }
 
+    /* ─── THE CREW ─── */
+    .crew-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: #1a1a1a;
+      margin-top: 0;
+    }
+    .crew-card {
+      background: var(--black);
+      padding: 2rem;
+      transition: background 0.2s;
+      border-left: 3px solid transparent;
+    }
+    .crew-card:hover { background: #0d0d0d; border-left-color: var(--green); }
+    .crew-card-open { border-left: 3px solid #1a1a1a !important; }
+    .crew-card-open:hover { border-left-color: #2a2a2a !important; }
+    .crew-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.2rem;
+    }
+    .crew-suit {
+      font-size: 2.5rem;
+      color: var(--green);
+      line-height: 1;
+    }
+    .crew-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.8rem;
+      letter-spacing: 0.08em;
+      color: var(--offwhite);
+      line-height: 1;
+    }
+    .crew-alias {
+      font-family: 'DM Serif Display', serif;
+      font-style: italic;
+      font-size: 0.85rem;
+      color: var(--gold);
+      margin-top: 0.2rem;
+    }
+    .crew-bio {
+      font-size: 0.75rem;
+      line-height: 1.8;
+      color: var(--gray);
+      margin-bottom: 1.5rem;
+    }
+    .crew-stats { display: flex; flex-direction: column; gap: 0.5rem; }
+    .crew-stat {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.4rem 0;
+      border-top: 1px solid #111;
+      font-size: 0.68rem;
+    }
+    .cs-label { color: #444; letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.6rem; }
+    .cs-val { color: var(--offwhite); text-align: right; }
+    .cs-green { color: var(--green); }
+    .cs-gold { color: var(--gold); }
+
     /* ─── FOLLOW ─── */
     .follow {
       padding: 5rem;
@@ -581,6 +643,7 @@
       .schedule-row.header { display: none; }
       .hall { padding: 3rem 2rem; }
       .hall-grid { grid-template-columns: 1fr; }
+      .crew-grid { grid-template-columns: 1fr; }
       .follow { grid-template-columns: 1fr; gap: 2rem; padding: 3rem 2rem; }
       nav { padding: 1rem 1.5rem; }
       .nav-links { gap: 1rem; }
@@ -660,6 +723,7 @@
       <li><a href="/chat.html">💬 Chat</a></li>
       <li><a href="#about">About</a></li>
       <li><a href="#schedule">Find Me</a></li>
+      <li><a href="#crew">The Crew</a></li>
       <li><a href="#hall">Hall of Winners</a></li>
       <li><a href="#follow">Follow</a></li>
     </ul>
@@ -807,6 +871,64 @@
     </div>
   </section>
 
+  <!-- THE CREW -->
+  <section class="hall" id="crew" style="border-top:1px solid #1a1a1a;">
+    <p class="section-label">// The Usual Suspects</p>
+    <h2>The Crew —<br><em>Fellow Fish</em></h2>
+    <p class="body-text" style="max-width:55ch;margin-bottom:3rem;">Every ATM needs its ecosystem. Meet the rest of the table — equally dangerous, equally entertaining, equally unlikely to fold when they should.</p>
+    <div class="crew-grid">
+
+      <div class="crew-card">
+        <div class="crew-header">
+          <div class="crew-suit">♣</div>
+          <div>
+            <div class="crew-name">Manny</div>
+            <div class="crew-alias">"The Machine"</div>
+          </div>
+        </div>
+        <div class="crew-bio">Deposits chips like clockwork. Consistent. Reliable. Unstoppable. You could set your watch to the moment he shoves the river with second pair. A true force of nature at the felt.</div>
+        <div class="crew-stats">
+          <div class="crew-stat"><span class="cs-label">Specialty</span><span class="cs-val">Mechanical chip donations</span></div>
+          <div class="crew-stat"><span class="cs-label">Tell</span><span class="cs-val">Always looks confident</span></div>
+          <div class="crew-stat"><span class="cs-label">Threat Level</span><span class="cs-val cs-green">Bring extra buy-ins</span></div>
+        </div>
+      </div>
+
+      <div class="crew-card">
+        <div class="crew-header">
+          <div class="crew-suit" style="color:var(--red);">♦</div>
+          <div>
+            <div class="crew-name">Jamie</div>
+            <div class="crew-alias">"The Tuna"</div>
+          </div>
+        </div>
+        <div class="crew-bio">A classic fish. Never sees it coming — not the bluff, not the set, not the straight on the board. An eternal optimist who believes every hand is the one. Bless his heart and his chips.</div>
+        <div class="crew-stats">
+          <div class="crew-stat"><span class="cs-label">Specialty</span><span class="cs-val">Calling with nothing</span></div>
+          <div class="crew-stat"><span class="cs-label">Tell</span><span class="cs-val">Looks at chips before calling</span></div>
+          <div class="crew-stat"><span class="cs-label">Threat Level</span><span class="cs-val cs-gold">Occasionally dangerous</span></div>
+        </div>
+      </div>
+
+      <div class="crew-card crew-card-open">
+        <div class="crew-header">
+          <div class="crew-suit" style="color:#333;">♠</div>
+          <div>
+            <div class="crew-name">You?</div>
+            <div class="crew-alias">"TBD"</div>
+          </div>
+        </div>
+        <div class="crew-bio">The crew has one seat open. Foxwoods. $2/$5. Come sit down, make some bad decisions, and earn your nickname. The ATM welcomes all denominations.</div>
+        <div class="crew-stats">
+          <div class="crew-stat"><span class="cs-label">Specialty</span><span class="cs-val">Unknown — yet</span></div>
+          <div class="crew-stat"><span class="cs-label">Tell</span><span class="cs-val">To be discovered</span></div>
+          <div class="crew-stat"><span class="cs-label">Threat Level</span><span class="cs-val" style="color:#333;">Unrated</span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
   <!-- HALL OF WINNERS -->
   <section class="hall" id="hall">
     <p class="section-label">// Hall of Winners</p>
@@ -814,21 +936,21 @@
     <div class="hall-grid">
       <div class="winner-card">
         <div class="winner-rank gold">01</div>
-        <div class="winner-name">Your Name Here</div>
-        <div class="winner-amount">Pending First Victim</div>
-        <div class="winner-note">The throne awaits. Foxwoods. $2/$5. You know what to do.</div>
+        <div class="winner-name">Manny "The Machine"</div>
+        <div class="winner-amount">Clockwork. Every time.</div>
+        <div class="winner-note">Deposits so reliably he should be registered as a financial institution. The undisputed champion of giving Dhezz's chips a new home.</div>
       </div>
       <div class="winner-card">
         <div class="winner-rank silver">02</div>
-        <div class="winner-name">Seat TBD</div>
-        <div class="winner-amount">—</div>
-        <div class="winner-note">Securing the runner-up spot has never been easier. Just call his 3-bet.</div>
+        <div class="winner-name">Jamie "The Tuna"</div>
+        <div class="winner-amount">Never saw it coming.</div>
+        <div class="winner-note">Called every bet, folded none, won somehow. A mystery wrapped in an enigma wrapped in a bad poker hand. Somehow still at the table.</div>
       </div>
       <div class="winner-card">
         <div class="winner-rank bronze">03</div>
-        <div class="winner-name">Future Friend</div>
+        <div class="winner-name">Seat Available</div>
         <div class="winner-amount">—</div>
-        <div class="winner-note">Third place is still a victory. Come find the ATM.</div>
+        <div class="winner-note">Third place is wide open. Foxwoods. $2/$5. You know what to do.</div>
       </div>
     </div>
     <div class="hall-cta">
