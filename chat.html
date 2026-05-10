@@ -218,18 +218,35 @@
 <!-- ADMIN -->
 <div id="admin-panel">
   <div class="adm-hdr">
-    <div class="adm-title">Admin — Full Chat Log</div>
+    <div class="adm-title">Admin Panel</div>
     <button class="adm-close" onclick="closeAdmin()">Close</button>
   </div>
   <div class="adm-stats">
     <div><div class="adm-stat-n" id="s-msgs">0</div><div class="adm-stat-l">Messages</div></div>
-    <div><div class="adm-stat-n" id="s-users">0</div><div class="adm-stat-l">Unique Users</div></div>
+    <div><div class="adm-stat-n" id="s-users">0</div><div class="adm-stat-l">Unique Chatters</div></div>
     <div><div class="adm-stat-n" id="s-chs">0</div><div class="adm-stat-l">Channels</div></div>
-    <div><div class="adm-stat-n" id="s-agreed">0</div><div class="adm-stat-l">Agreed to Terms</div></div>
+    <div><div class="adm-stat-n" id="s-visits">0</div><div class="adm-stat-l">Total Visits</div></div>
+    <div><div class="adm-stat-n" id="s-countries">0</div><div class="adm-stat-l">Countries</div></div>
   </div>
-  <button class="adm-export" onclick="exportCSV()">Export Full Log as CSV</button>
-  <div class="log-row log-hdr"><span>Timestamp</span><span>Username</span><span>Channel</span><span>Agreed</span><span>Message</span></div>
-  <div id="log-rows"></div>
+  <!-- Admin tabs -->
+  <div class="tab-row" style="margin-bottom:1rem;">
+    <button class="tab-btn active" onclick="adminTab('chat')">Chat Log</button>
+    <button class="tab-btn" onclick="adminTab('visitors')">Visitor Log</button>
+  </div>
+  <!-- Chat log tab -->
+  <div id="adm-tab-chat">
+    <button class="adm-export" onclick="exportCSV()">Export Chat Log as CSV</button>
+    <div class="log-row log-hdr"><span>Timestamp</span><span>Username</span><span>Channel</span><span>Agreed</span><span>Message</span></div>
+    <div id="log-rows"></div>
+  </div>
+  <!-- Visitors tab -->
+  <div id="adm-tab-visitors" style="display:none;">
+    <button class="adm-export" onclick="exportVisitorsCSV()">Export Visitor Log as CSV</button>
+    <div class="log-row log-hdr" style="grid-template-columns:148px 90px 90px 110px 80px 80px 80px 1fr;">
+      <span>Timestamp</span><span>IP</span><span>City</span><span>Country</span><span>Browser</span><span>OS</span><span>Device</span><span>Page / Referrer</span>
+    </div>
+    <div id="visit-rows"></div>
+  </div>
 </div>
 
 <!-- HEADER -->
@@ -620,8 +637,72 @@ window.exportCSV = () => {
   a.click();
 };
 
+// ADMIN TABS
+let visitData = [];
+window.adminTab = async (tab) => {
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',(i===0&&tab==='chat')||(i===1&&tab==='visitors')));
+  document.getElementById('adm-tab-chat').style.display = tab==='chat' ? 'block' : 'none';
+  document.getElementById('adm-tab-visitors').style.display = tab==='visitors' ? 'block' : 'none';
+  if (tab === 'visitors') await loadVisitors();
+};
+
+async function loadVisitors() {
+  const rows = document.getElementById('visit-rows');
+  rows.innerHTML = '<div style="color:var(--gray);font-size:0.7rem;padding:1rem;">Loading visitor log...</div>';
+  try {
+    const snap = await getDocs(query(collection(db,'visits'), orderBy('timestamp','desc'), limit(500)));
+    visitData = [];
+    snap.forEach(d => visitData.push({ id:d.id, ...d.data() }));
+
+    // Update stats
+    const countries = new Set(visitData.map(v=>v.country).filter(c=>c&&c!=='unknown'));
+    document.getElementById('s-visits').textContent = visitData.length;
+    document.getElementById('s-countries').textContent = countries.size;
+
+    rows.innerHTML = '';
+    if (visitData.length === 0) {
+      rows.innerHTML = '<div style="color:var(--gray);font-size:0.7rem;padding:1rem;">No visits logged yet.</div>';
+      return;
+    }
+    visitData.forEach(v => {
+      const ts = v.timestamp?.toDate ? v.timestamp.toDate() : new Date();
+      const row = document.createElement('div');
+      row.className = 'log-row';
+      row.style.gridTemplateColumns = '148px 90px 90px 110px 80px 80px 80px 1fr';
+      row.innerHTML = `
+        <span class="log-t">${ts.toLocaleString()}</span>
+        <span class="log-u" title="${esc(v.ip)}">${esc(v.ip)}</span>
+        <span class="log-c">${esc(v.city)}</span>
+        <span style="color:var(--offwhite);font-size:0.65rem;">${esc(v.country)}</span>
+        <span class="log-t">${esc(v.browser)}</span>
+        <span class="log-t">${esc(v.os)}</span>
+        <span class="log-t">${esc(v.device)}</span>
+        <span style="font-size:0.62rem;color:#666;">${esc(v.page)} &nbsp;·&nbsp; from: ${esc(v.referrer)}</span>
+      `;
+      rows.appendChild(row);
+    });
+  } catch(e) {
+    rows.innerHTML = `<div style="color:var(--red);padding:1rem;">${e.message}</div>`;
+  }
+}
+
+window.exportVisitorsCSV = () => {
+  const rows = [['Timestamp','IP','City','Region','Country','Org/ISP','Browser','OS','Device','Language','Screen','Timezone','Page','Referrer','Latitude','Longitude']];
+  visitData.forEach(v => {
+    const ts = v.timestamp?.toDate ? v.timestamp.toDate().toISOString() : '';
+    rows.push([ts, v.ip, v.city, v.region, v.country, v.org, v.browser, v.os, v.device, v.language, `${v.screenWidth}x${v.screenHeight}`, v.timezone, v.page, v.referrer, v.latitude||'', v.longitude||'']);
+  });
+  const csv = rows.map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = `atmvisitors-log-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+};
+
 // INIT
 restore();
 </script>
+<!-- Visitor Tracker -->
+<script type="module" src="/visitor-tracker.js"></script>
 </body>
 </html>
