@@ -16,8 +16,9 @@
     body { background: var(--black); color: var(--offwhite); font-family: 'DM Mono', monospace; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
     /* OVERLAYS */
-    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.93); z-index: 999; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.93); z-index: 999; display: none; align-items: center; justify-content: center; padding: 1rem; }
     .overlay.hidden { display: none; }
+    .overlay.visible { display: flex; }
     .modal { background: #0e0e0e; border: 1px solid #2a2a2a; max-width: 530px; width: 100%; padding: 2.5rem; }
     .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; letter-spacing: 0.1em; margin-bottom: 0.3rem; }
     .modal-sub { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green); margin-bottom: 1.5rem; }
@@ -90,6 +91,35 @@
     .code-pill:hover { border-color: var(--gold); }
     .leave-btn { font-size: 0.6rem; background: none; border: 1px solid #2a2a2a; color: var(--gray); padding: 0.2rem 0.6rem; cursor: pointer; font-family: 'DM Mono', monospace; letter-spacing: 0.08em; transition: all 0.2s; }
     .leave-btn:hover { border-color: var(--red); color: var(--red); }
+
+    /* PIN BAR */
+    #pin-bar {
+      padding: 0.5rem 1.5rem;
+      background: #0a1a10;
+      border-bottom: 1px solid var(--green-dim);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.72rem;
+      color: #aaa;
+      flex-shrink: 0;
+    }
+    #pin-icon { font-size: 0.75rem; }
+    #pin-text { flex: 1; line-height: 1.5; }
+    #pin-text strong { color: var(--green); }
+    #pin-edit-btn {
+      background: none;
+      border: 1px solid #1a3a20;
+      color: #446644;
+      font-size: 0.7rem;
+      cursor: pointer;
+      padding: 0.15rem 0.4rem;
+      font-family: 'DM Mono', monospace;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    #pin-edit-btn:hover { border-color: var(--green); color: var(--green); }
+    #pin-edit-btn.hidden { display: none; }
 
     #chat-area { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 1.2rem 1.5rem; display: flex; flex-direction: column; gap: 0.6rem; scroll-behavior: smooth; }
     #chat-area::-webkit-scrollbar { width: 4px; }
@@ -285,6 +315,12 @@
       </div>
       <div class="chh-right" id="chh-right"></div>
     </div>
+    <!-- Pinned message bar -->
+    <div id="pin-bar" style="display:none;">
+      <span id="pin-icon">📌</span>
+      <span id="pin-text"></span>
+      <button id="pin-edit-btn" onclick="editPin()" title="Edit pin">✎</button>
+    </div>
     <div id="chat-area"></div>
     <div id="input-area">
       <input type="text" id="msg-input" placeholder="Message #lobby..." maxlength="500" disabled
@@ -294,6 +330,25 @@
     </div>
   </div>
 </div>
+
+<!-- Early session check — runs before module loads to avoid flash of disclaimer -->
+<script>
+(function() {
+  const agreed = localStorage.getItem('atm_agreed');
+  const username = localStorage.getItem('atm_username');
+  if (agreed === 'true' && username) {
+    // All good — show nothing, module will set up chat
+  } else if (agreed === 'true') {
+    // Agreed but no name — show username picker only
+    const el = document.getElementById('user-overlay');
+    el.classList.remove('hidden'); el.classList.add('visible');
+  } else {
+    // First visit — show disclaimer
+    const el = document.getElementById('disc-overlay');
+    el.classList.remove('hidden'); el.classList.add('visible');
+  }
+})();
+</script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -346,8 +401,8 @@ function restore() {
   }
 }
 
-function show(id) { document.getElementById(id).classList.remove('hidden'); }
-function hide(id) { document.getElementById(id).classList.add('hidden'); }
+function show(id) { const el=document.getElementById(id); el.classList.remove('hidden'); el.classList.add('visible'); }
+function hide(id) { const el=document.getElementById(id); el.classList.add('hidden'); el.classList.remove('visible'); }
 function enableInput() { document.getElementById('msg-input').disabled = false; document.getElementById('send-btn').disabled = false; }
 
 // DISCLAIMER
@@ -463,6 +518,9 @@ window.switchCh = async (chId) => {
       if (change.type === 'removed') { const el = document.querySelector(`[data-mid="${change.doc.id}"]`); if (el) el.remove(); }
     });
   });
+
+  // Load pinned message
+  loadPin(chId);
 };
 
 window.leaveCh = (chId) => {
@@ -471,6 +529,48 @@ window.leaveCh = (chId) => {
   const el = document.querySelector(`[data-ch="${chId}"]`);
   if (el) el.remove();
   switchCh('lobby');
+};
+
+// ── PINNED MESSAGES ──
+async function loadPin(chId) {
+  const bar = document.getElementById('pin-bar');
+  const pinText = document.getElementById('pin-text');
+  const editBtn = document.getElementById('pin-edit-btn');
+  try {
+    const pinDoc = await getDoc(doc(db, 'pins', chId));
+    if (pinDoc.exists() && pinDoc.data().text) {
+      pinText.innerHTML = `<strong>📌 Pinned:</strong> ${esc(pinDoc.data().text)}`;
+      bar.style.display = 'flex';
+      // Only show edit button if admin is logged in
+      editBtn.classList.toggle('hidden', !window._isAdmin);
+    } else {
+      bar.style.display = window._isAdmin ? 'flex' : 'none';
+      pinText.innerHTML = window._isAdmin ? '<em style="color:#333">No pin set — click ✎ to add one</em>' : '';
+      editBtn.classList.toggle('hidden', !window._isAdmin);
+    }
+  } catch(e) {
+    bar.style.display = 'none';
+  }
+}
+
+window.editPin = async () => {
+  const current = document.getElementById('pin-text').textContent.replace('📌 Pinned: ', '').replace('No pin set — click ✎ to add one', '');
+  const text = prompt('Set pinned message for #' + curChName + ':\n(Leave blank to remove pin)', current);
+  if (text === null) return; // cancelled
+  try {
+    if (text.trim() === '') {
+      await deleteDoc(doc(db, 'pins', curChId));
+    } else {
+      await setDoc(doc(db, 'pins', curChId), {
+        text: text.trim().slice(0, 200),
+        setBy: me,
+        setAt: serverTimestamp(),
+        channelId: curChId,
+        channelName: curChName,
+      });
+    }
+    loadPin(curChId);
+  } catch(e) { alert('Error saving pin: ' + e.message); }
 };
 
 // CREATE CHANNEL
@@ -586,7 +686,14 @@ window.updateCount = () => {
 };
 
 // ADMIN
-window.promptAdmin = () => { const p = prompt('Admin PIN:'); if (p===ADMIN) openAdmin(); else if(p!==null) alert('Wrong PIN.'); };
+window.promptAdmin = () => {
+  const p = prompt('Admin PIN:');
+  if (p === ADMIN) {
+    window._isAdmin = true;
+    openAdmin();
+    loadPin(curChId); // refresh pin bar to show edit button
+  } else if (p !== null) alert('Wrong PIN.');
+};
 window.closeAdmin = () => document.getElementById('admin-panel').classList.remove('show');
 
 async function openAdmin() {
