@@ -487,6 +487,109 @@
       color: var(--gray);
     }
 
+    /* ─── STAFF SECTION ─── */
+    .staff-section {
+      padding: 5rem;
+      border-top: 1px solid #1a1a1a;
+      background: #070707;
+    }
+    .staff-intro { margin-bottom: 3rem; }
+    .staff-role-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .staff-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: #1a1a1a;
+    }
+    .staff-card {
+      background: #0a0a0a;
+      padding: 1.8rem;
+      transition: background 0.2s;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+    .staff-card:hover { background: #0e0e0e; }
+    .staff-top {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.3rem;
+    }
+    .staff-initial {
+      width: 44px;
+      height: 44px;
+      border: 1px solid #2a2a2a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.4rem;
+      letter-spacing: 0.05em;
+      color: var(--green);
+      flex-shrink: 0;
+    }
+    .staff-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.4rem;
+      letter-spacing: 0.1em;
+      color: var(--offwhite);
+      line-height: 1;
+    }
+    .staff-role {
+      font-size: 0.58rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gray);
+      margin-top: 0.2rem;
+    }
+    .staff-quote {
+      font-family: 'DM Serif Display', serif;
+      font-style: italic;
+      font-size: 0.82rem;
+      color: var(--gray);
+      line-height: 1.6;
+      padding-left: 0.8rem;
+      border-left: 2px solid #1e1e1e;
+    }
+    .staff-banter {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      padding: 0.6rem 0.8rem;
+      background: #111;
+      border: 1px solid #1a1a1a;
+    }
+    .banter-label {
+      font-size: 0.58rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #444;
+    }
+    .banter-text {
+      font-size: 0.75rem;
+      color: var(--offwhite);
+      line-height: 1.5;
+    }
+    .staff-footer {
+      margin-top: 3rem;
+      padding: 1.5rem;
+      border: 1px solid #1a1a1a;
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--gray);
+      font-style: italic;
+      line-height: 1.8;
+    }
+
     /* ─── FOXWOODS FEATURE ─── */
     .foxwoods-feature {
       display: grid;
@@ -737,7 +840,8 @@
       .hall-grid { grid-template-columns: 1fr; }
       .crew-grid { grid-template-columns: 1fr; }
       .follow { grid-template-columns: 1fr; gap: 2rem; padding: 3rem 2rem; }
-      .foxwoods-feature { grid-template-columns: 1fr; }
+      .staff-section { padding: 3rem 2rem; }
+      .staff-grid { grid-template-columns: 1fr; }
       .fw-left { padding: 3rem 2rem; }
       .fw-right { padding: 3rem 2rem; border-left: none; border-top: 1px solid #1a1a1a; }
       nav { padding: 1rem 1.5rem; }
@@ -819,6 +923,7 @@
       <li><a href="#about">About</a></li>
       <li><a href="#schedule">Find Me</a></li>
       <li><a href="#foxwoods">Foxwoods</a></li>
+      <li><a href="#staff">The Staff</a></li>
       <li><a href="#crew">The Crew</a></li>
       <li><a href="#hall">Hall of Winners</a></li>
       <li><a href="#follow">Follow</a></li>
@@ -1002,6 +1107,183 @@
           <span class="fw-stat-label">Still smiling</span>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- STAFF APPRECIATION -->
+  <section class="staff-section" id="staff">
+    <div class="staff-intro">
+      <p class="section-label">// The Real MVPs</p>
+      <h2>Foxwoods Staff —<br><em>The Unsung Heroes</em></h2>
+      <p class="body-text" style="max-width:55ch;">They deal the cards, run the floor, and somehow still show up knowing Dhezz is coming. This one's for the people who make the Foxwoods poker room the greatest place to donate chips in the Northeast.</p>
+    </div>
+
+    <!-- FLOOR STAFF -->
+    <div class="staff-role-label">// Floor Staff</div>
+    <div class="staff-grid">
+
+      <div class="staff-card">
+        <div class="staff-top">
+          <div class="staff-initial">B</div>
+          <div>
+            <div class="staff-name">Bhavin</div>
+            <div class="staff-role">Floor</div>
+          </div>
+        </div>
+        <div class="staff-quote">"The man who helps Dhezz get seated faster than Dhezz can lose his chips."</div>
+        <div class="staff-banter">
+          <span class="banter-label">What Dhezz says:</span>
+          <span class="banter-text">"Thank you, Bhavin."</span>
+        </div>
+        <div class="staff-banter">
+          <span class="banter-label">What Bhavin does:</span>
+          <span class="banter-text">Helps anyway. Every time. A true professional.</span>
+        </div>
+      </div>
+
+      <div class="staff-card">
+        <div class="staff-top">
+          <div class="staff-initial" style="color:var(--red);">C</div>
+          <div>
+            <div class="staff-name">Charlie</div>
+            <div class="staff-role">Floor</div>
+          </div>
+        </div>
+        <div class="staff-quote">"Foxwoods' most secure employee. No severance package could save him from Dhezz's commentary."</div>
+        <div class="staff-banter">
+          <span class="banter-label">What Dhezz says:</span>
+          <span class="banter-text">"Fire Charlie! No Severance!"</span>
+        </div>
+        <div class="staff-banter">
+          <span class="banter-label">What Charlie does:</span>
+          <span class="banter-text">Shows up again tomorrow. Unfazed. Untouchable. Undefeated.</span>
+        </div>
+      </div>
+
+      <div class="staff-card">
+        <div class="staff-top">
+          <div class="staff-initial" style="color:var(--gold);">S</div>
+          <div>
+            <div class="staff-name">Steve</div>
+            <div class="staff-role">Floor</div>
+          </div>
+        </div>
+        <div class="staff-quote">"Born on the same day and month as Dhezz. The universe's most suspicious coincidence."</div>
+        <div class="staff-banter">
+          <span class="banter-label">What they share:</span>
+          <span class="banter-text">Same birthday. That's where the similarities end.</span>
+        </div>
+        <div class="staff-banter">
+          <span class="banter-label">Fun fact:</span>
+          <span class="banter-text">Steve has kept his chips. Dhezz has not.</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- DEALERS -->
+    <div class="staff-role-label" style="margin-top:3rem;">// The Dealers — Artists of Chaos</div>
+    <div class="staff-grid">
+
+      <div class="staff-card">
+        <div class="staff-top">
+          <div class="staff-initial">F</div>
+          <div>
+            <div class="staff-name">Felix</div>
+            <div class="staff-role">Dealer</div>
+          </div>
+        </div>
+        <div class="staff-quote">"A man of eternal optimism, matching Dhezz's energy beat for beat."</div>
+        <div class="staff-banter">
+          <span class="banter-label">Dhezz says:</span>
+          <span class="banter-text">"Coming Soon."</span>
+        </div>
+        <div class="staff-banter">
+          <span class="banter-label">Felix fires back:</span>
+          <span class="banter-text">"Very Soon." 🃏</span>
+        </div>
+      </div>
+
+      <div class="staff-card">
+        <div class="staff-top">
+          <div class="staff-initial" style="color:var(--red);">R</div>
+          <div>
+            <div class="staff-name">Ray</div>
+            <div class="staff-role">Dealer</div>
+          </div>
+        </div>
+        <div class="staff-quote">"The dealer who gives as good as he gets. Mutual respect at its finest."</div>
+        <div class="staff-banter">
+          <span class="banter-label">Dhezz says:</span>
+          <span class="banter-text">"You suck, Ray."</span>
+        </div>
+        <div class="staff-banter">
+          <span class="banter-label">Ray fires back:</span>
+          <span class="banter-text">"You suck." No hesitation. No apology.</span>
+        </div>
+      </div>
+
+      <div class="staff-card">
+        <div class="staff-top">
+          <div class="staff-initial" style="color:var(--gold);">J</div>
+          <div>
+            <div class="staff-name">Jenny</div>
+            <div class="staff-role">Dealer</div>
+          </div>
+        </div>
+        <div class="staff-quote">"The zen master of the felt. One word. Always the right one."</div>
+        <div class="staff-banter">
+          <span class="banter-label">Dhezz, panicking:</span>
+          <span class="banter-text">*does something impulsive*</span>
+        </div>
+        <div class="staff-banter">
+          <span class="banter-label">Jenny, calmly:</span>
+          <span class="banter-text">"Patience." 🧘</span>
+        </div>
+      </div>
+
+      <div class="staff-card">
+        <div class="staff-top">
+          <div class="staff-initial">S</div>
+          <div>
+            <div class="staff-name">Saku</div>
+            <div class="staff-role">Dealer</div>
+          </div>
+        </div>
+        <div class="staff-quote">"Prescribed the only known cure for Dhezz's chip-losing condition."</div>
+        <div class="staff-banter">
+          <span class="banter-label">The situation:</span>
+          <span class="banter-text">Dhezz about to give away his stack. Again.</span>
+        </div>
+        <div class="staff-banter">
+          <span class="banter-label">Saku's prescription:</span>
+          <span class="banter-text">"Fevicol." — Hold on to your chips, man. 🧴</span>
+        </div>
+      </div>
+
+      <div class="staff-card">
+        <div class="staff-top">
+          <div class="staff-initial" style="color:var(--green);">D</div>
+          <div>
+            <div class="staff-name">Dave</div>
+            <div class="staff-role">Dealer</div>
+          </div>
+        </div>
+        <div class="staff-quote">"The only dealer who gets his own personalized greeting. Every. Single. Time."</div>
+        <div class="staff-banter">
+          <span class="banter-label">Dhezz, every time Dave sits down:</span>
+          <span class="banter-text">"Behave, Dave." 😄</span>
+        </div>
+        <div class="staff-banter">
+          <span class="banter-label">Dave's response:</span>
+          <span class="banter-text">*deals another bad beat* Mission not accomplished.</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="staff-footer">
+      ♠ &nbsp; To all the Foxwoods poker room staff — thank you for the memories, the laughs, and for not banning Dhezz yet. You are the real winners here.
     </div>
   </section>
 
