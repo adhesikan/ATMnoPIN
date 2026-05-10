@@ -91,6 +91,24 @@
     .code-pill:hover { border-color: var(--gold); }
     .leave-btn { font-size: 0.6rem; background: none; border: 1px solid #2a2a2a; color: var(--gray); padding: 0.2rem 0.6rem; cursor: pointer; font-family: 'DM Mono', monospace; letter-spacing: 0.08em; transition: all 0.2s; }
     .leave-btn:hover { border-color: var(--red); color: var(--red); }
+    .invite-btn {
+      font-size: 0.6rem; background: rgba(0,200,83,0.08);
+      border: 1px solid var(--green-dim); color: var(--green);
+      padding: 0.2rem 0.7rem; cursor: pointer;
+      font-family: 'DM Mono', monospace; letter-spacing: 0.1em;
+      transition: all 0.2s;
+    }
+    .invite-btn:hover { background: rgba(0,200,83,0.18); }
+    .share-btn {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.65rem 1rem; border: 1px solid #1e1e1e;
+      background: #0d0d0d; color: var(--offwhite);
+      font-family: 'DM Mono', monospace; font-size: 0.7rem;
+      letter-spacing: 0.08em; cursor: pointer;
+      text-decoration: none; transition: all 0.2s;
+    }
+    .share-btn:hover { border-color: var(--green); color: var(--green); }
+    .share-btn .sh-icon { font-size: 1rem; width: 20px; text-align: center; }
 
     /* PIN BAR */
     #pin-bar {
@@ -101,16 +119,17 @@
       align-items: center;
       gap: 0.6rem;
       font-size: 0.72rem;
-      color: #aaa;
+      color: var(--offwhite);
       flex-shrink: 0;
     }
     #pin-icon { font-size: 0.75rem; }
-    #pin-text { flex: 1; line-height: 1.5; }
+    #pin-text { flex: 1; line-height: 1.5; color: var(--offwhite); }
     #pin-text strong { color: var(--green); }
+    #pin-text em { color: #666; font-style: italic; }
     #pin-edit-btn {
       background: none;
       border: 1px solid #1a3a20;
-      color: #446644;
+      color: var(--green);
       font-size: 0.7rem;
       cursor: pointer;
       padding: 0.15rem 0.4rem;
@@ -118,7 +137,7 @@
       transition: all 0.2s;
       flex-shrink: 0;
     }
-    #pin-edit-btn:hover { border-color: var(--green); color: var(--green); }
+    #pin-edit-btn:hover { border-color: var(--green); background: rgba(0,200,83,0.1); }
     #pin-edit-btn.hidden { display: none; }
 
     #chat-area { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 1.2rem 1.5rem; display: flex; flex-direction: column; gap: 0.6rem; scroll-behavior: smooth; }
@@ -210,6 +229,33 @@
       onkeydown="if(event.key==='Enter')setUsername()"/>
     <button class="btn-g" onclick="setUsername()">Take My Seat</button>
     <p class="hint">Max 28 characters. Visible to everyone in the room.</p>
+  </div>
+</div>
+
+<!-- INVITE SHEET -->
+<div class="overlay hidden" id="invite-overlay">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-title">Invite to Channel</div>
+    <div class="modal-sub" id="invite-ch-label">Private Channel</div>
+
+    <!-- Link box -->
+    <div style="display:flex;gap:0.5rem;margin-bottom:1.2rem;">
+      <input type="text" id="invite-link-input" readonly
+        style="flex:1;font-size:0.7rem;letter-spacing:0.05em;color:var(--green);background:#080808;cursor:pointer;"
+        onclick="this.select()"/>
+      <button class="btn-g" style="width:auto;padding:0.7rem 1rem;margin-top:0;font-size:0.65rem;" onclick="copyInviteLink()">Copy</button>
+    </div>
+
+    <!-- Share buttons -->
+    <div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--gray);margin-bottom:0.8rem;">Share via</div>
+    <div id="share-btns" style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:1.2rem;"></div>
+
+    <!-- QR hint -->
+    <div style="font-size:0.65rem;color:#444;text-align:center;padding:0.8rem;border:1px solid #111;margin-bottom:0.8rem;">
+      Or share the code directly: <span id="invite-code-display" style="color:var(--gold);letter-spacing:0.2em;font-size:0.8rem;"></span>
+    </div>
+
+    <button class="btn-gh" onclick="closeInvite()">Close</button>
   </div>
 </div>
 
@@ -394,6 +440,7 @@ function restore() {
     enableInput();
     loadChannels();
     switchCh('lobby');
+    setTimeout(checkAutoJoin, 1500);
   } else if (ok === 'true') {
     agreed = true; agreedTs = ts;
     hide('disc-overlay'); show('user-overlay');
@@ -427,6 +474,7 @@ window.setUsername = () => {
   loadChannels();
   switchCh('lobby');
   if (!window._seated) { window._seated = true; sysMsg(`>> ${me} has taken a seat at the table.`, 'lobby'); }
+  setTimeout(checkAutoJoin, 1500); // wait for channels to load
 };
 
 window.changeUsername = () => {
@@ -491,16 +539,28 @@ window.switchCh = async (chId) => {
   document.getElementById('chh-meta').textContent = ch.description || (ch.type === 'public' ? 'Public channel' : ch.type === 'private' ? 'Private — invite only' : 'Secret channel');
   document.getElementById('msg-input').placeholder = `Message #${ch.name}...`;
 
-  // Code pill + leave button
+
+  // Code pill + invite + leave button
   const right = document.getElementById('chh-right');
   right.innerHTML = '';
   if (ch.code && chId !== 'lobby') {
+    // Code pill
     const pill = document.createElement('span');
     pill.className = 'code-pill';
     pill.textContent = `CODE: ${ch.code}`;
-    pill.title = 'Click to copy';
+    pill.title = 'Click to copy code';
     pill.onclick = () => { navigator.clipboard?.writeText(ch.code); pill.textContent = 'COPIED!'; setTimeout(() => pill.textContent = `CODE: ${ch.code}`, 1500); };
     right.appendChild(pill);
+
+    // Invite button
+    const invBtn = document.createElement('button');
+    invBtn.className = 'invite-btn';
+    invBtn.textContent = '⤴ Invite';
+    invBtn.title = 'Share invite link';
+    invBtn.onclick = () => showInviteSheet(ch);
+    right.appendChild(invBtn);
+
+    // Leave button
     const lb = document.createElement('button');
     lb.className = 'leave-btn';
     lb.textContent = 'Leave';
@@ -530,6 +590,56 @@ window.leaveCh = (chId) => {
   if (el) el.remove();
   switchCh('lobby');
 };
+
+// ── INVITE SHEET ──
+function showInviteSheet(ch) {
+  const baseUrl = window.location.origin + window.location.pathname;
+  const inviteUrl = `${baseUrl}?join=${ch.code}`;
+
+  document.getElementById('invite-ch-label').textContent = `# ${ch.name} — ${ch.type} channel`;
+  document.getElementById('invite-link-input').value = inviteUrl;
+  document.getElementById('invite-code-display').textContent = ch.code;
+
+  const msg = `Join me in the ATM with No PIN chat room!\n\nChannel: #${ch.name}\nLink: ${inviteUrl}\n\nOr use code: ${ch.code} at atmwithnopin.com/chat.html`;
+  const msgEncoded = encodeURIComponent(msg);
+  const urlEncoded = encodeURIComponent(inviteUrl);
+  const titleEncoded = encodeURIComponent(`Join #${ch.name} on ATM with No PIN`);
+
+  const platforms = [
+    { icon: '💬', label: 'SMS / iMessage',  href: `sms:?body=${msgEncoded}` },
+    { icon: '🟢', label: 'WhatsApp',         href: `https://wa.me/?text=${msgEncoded}` },
+    { icon: '𝕏',  label: 'X / Twitter',      href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`Join me in the #ATMwithNoPIN chat room! Channel: #${ch.name} — use code ${ch.code} or click: ${inviteUrl}`)}` },
+    { icon: '📘', label: 'Facebook',          href: `https://www.facebook.com/sharer/sharer.php?u=${urlEncoded}` },
+    { icon: '💼', label: 'Telegram',          href: `https://t.me/share/url?url=${urlEncoded}&text=${encodeURIComponent(`Join #${ch.name} on ATM with No PIN — code: ${ch.code}`)}` },
+    { icon: '📧', label: 'Email',             href: `mailto:?subject=${titleEncoded}&body=${msgEncoded}` },
+  ];
+
+  const container = document.getElementById('share-btns');
+  container.innerHTML = '';
+  platforms.forEach(p => {
+    const a = document.createElement('a');
+    a.className = 'share-btn';
+    a.href = p.href;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.innerHTML = `<span class="sh-icon">${p.icon}</span><span>${p.label}</span>`;
+    container.appendChild(a);
+  });
+
+  show('invite-overlay');
+}
+
+window.copyInviteLink = () => {
+  const inp = document.getElementById('invite-link-input');
+  navigator.clipboard?.writeText(inp.value).then(() => {
+    const btn = inp.nextElementSibling;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1800);
+  });
+  inp.select();
+};
+
+window.closeInvite = () => hide('invite-overlay');
 
 // ── PINNED MESSAGES ──
 async function loadPin(chId) {
@@ -814,7 +924,44 @@ window.exportVisitorsCSV = () => {
 };
 
 // INIT
+// Handle invite link ?join=CODE
+const urlParams = new URLSearchParams(window.location.search);
+const joinCode = urlParams.get('join');
+if (joinCode) {
+  // Store code to auto-join after login
+  sessionStorage.setItem('atm_autojoin', joinCode.toUpperCase());
+  // Clean URL
+  window.history.replaceState({}, '', window.location.pathname);
+}
+
 restore();
+
+// After restore, check for pending auto-join
+async function checkAutoJoin() {
+  const code = sessionStorage.getItem('atm_autojoin');
+  if (!code || !me) return;
+  sessionStorage.removeItem('atm_autojoin');
+  try {
+    const snap = await getDocs(query(collection(db,'channels'), where('code','==',code)));
+    if (snap.empty) return;
+    const ch = { id:snap.docs[0].id, ...snap.docs[0].data() };
+    channelCache[ch.id] = ch;
+    myChannels.add(ch.id);
+    localStorage.setItem('atm_channels', JSON.stringify([...myChannels]));
+    renderChItem(ch);
+    switchCh(ch.id);
+    // Show welcome toast
+    showToast(`Joined #${ch.name} via invite link!`);
+  } catch(e) {}
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:5rem;left:50%;transform:translateX(-50%);background:var(--green);color:var(--black);padding:0.6rem 1.4rem;font-family:"DM Mono",monospace;font-size:0.75rem;font-weight:500;letter-spacing:0.1em;z-index:9999;border-radius:2px;animation:msgIn 0.2s ease;';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
 </script>
 <!-- Visitor Tracker -->
 <script type="module" src="/visitor-tracker.js"></script>
