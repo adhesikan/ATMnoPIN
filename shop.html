@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>THE ATM GIFT SHOP</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--black:#0a0a0a;--green:#00c853;--gold:#c9a84c;--offwhite:#f0ece0;--gray:#888}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--black);color:var(--offwhite);font-family:'DM Mono',monospace;line-height:1.5}
+    a{color:inherit}
+    .container{max-width:1100px;margin:0 auto;padding:3rem}
+
+    /* nav */
+    nav{display:flex;justify-content:space-between;align-items:center;padding:1rem 0}
+    .nav-logo{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--green)}
+    .nav-links{display:flex;gap:1rem;list-style:none}
+    .nav-links a{text-decoration:none;color:var(--gray);font-size:0.85rem}
+
+    .hero-shop{padding:3rem 0 1rem;text-align:center}
+    .hero-shop h1{font-family:'Bebas Neue',sans-serif;font-size:3.2rem;color:var(--green);margin-bottom:0.35rem}
+    .hero-shop .tagline{color:var(--gray);max-width:60ch;margin:0.25rem auto}
+    .hero-shop .sub{color:var(--offwhite);margin-top:0.6rem;font-size:0.95rem}
+
+    .products-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;margin-top:2rem}
+    .product-card{background:#0d0d0d;border:1px solid #171717;padding:1.25rem;border-radius:10px}
+    .product-badge{display:inline-block;background:var(--green);color:var(--black);padding:0.2rem 0.5rem;border-radius:6px;font-size:0.75rem;font-weight:700;margin-bottom:0.6rem}
+    .product-img{width:100%;height:180px;background:#111;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#333;font-size:0.85rem}
+    .product-title{font-family:'Bebas Neue',sans-serif;font-size:1.05rem;margin-top:0.6rem}
+    .product-sub{color:var(--gray);font-size:0.9rem;margin-top:0.25rem}
+    .product-price{color:var(--green);font-weight:700;margin-top:0.6rem}
+    .product-desc{color:var(--gray);font-size:0.9rem;margin-top:0.6rem}
+    .product-actions{margin-top:1rem;display:flex;gap:0.5rem}
+    .btn{padding:0.6rem 1rem;border:none;border-radius:6px;cursor:pointer;text-decoration:none;font-family:'DM Mono',monospace}
+    .btn-buy{background:var(--green);color:var(--black);font-weight:700}
+
+    .coming-card{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;height:180px;padding:1rem;color:var(--gray)}
+    .coming-title{font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:var(--offwhite)}
+    .coming-desc{font-size:0.9rem;margin-top:0.4rem}
+
+    .bottom-section{margin-top:2.5rem;padding:1.5rem;background:#0c0c0c;border:1px solid #111;border-radius:8px}
+    .bottom-section h3{font-family:'Bebas Neue',sans-serif;color:var(--green);margin-bottom:0.4rem}
+    .bottom-section p{color:var(--gray);max-width:60ch}
+
+    footer{border-top:1px solid #111;margin-top:2.5rem;padding:1rem 0;text-align:center;color:var(--gray)}
+    footer a{color:var(--green);text-decoration:none}
+
+    @media(max-width:700px){.nav-links{display:none}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <div class="nav-logo">ATM / No PIN</div>
+      <ul class="nav-links">
+        <li><a href="/chat.html">💬 Chat</a></li>
+        <li><a href="/shop.html">Shop 🏧</a></li>
+        <li><a href="/index.html#about">About</a></li>
+        <li><a href="/index.html#schedule">Find Me</a></li>
+        <li><a href="/index.html#crew">The Crew</a></li>
+        <li><a href="/index.html#follow">Follow</a></li>
+      </ul>
+    </nav>
+
+    <section class="hero-shop">
+      <h1>THE ATM GIFT SHOP</h1>
+      <p class="tagline">No PIN Required. No Taste Either. Just Great Merch.</p>
+      <div class="sub">Official merch for the poker world's most reliable chip donor</div>
+    </section>
+
+    <section class="products">
+      <div class="products-grid">
+
+        <!-- Live product -->
+        <div class="product-card">
+          <div class="product-badge">Live Now</div>
+          <div class="product-img"><img src="/hat-mockup.png" alt="Hat mockup" style="max-width:100%;height:100%;object-fit:cover;border-radius:6px"/></div>
+          <div class="product-title">ATM With No PIN Classic Rope Cap</div>
+          <div class="product-sub">The official hat of Foxwoods' favorite ATM</div>
+          <div class="product-price">$27</div>
+          <div class="product-desc">The official hat of the poker world's most reliable chip donor</div>
+          <div class="product-actions">
+            <a class="btn btn-buy" href="https://www.etsy.com/listing/4509722810/atm-with-no-pin-classic-rope-cap-poker" target="_blank" rel="noopener">Buy on Etsy ↗</a>
+          </div>
+        </div>
+
+        <!-- Coming soon items -->
+        <div class="product-card">
+          <div class="coming-card">
+            <div class="coming-title">Classic Tee</div>
+            <div class="coming-desc">No PIN Required. Front and back print. ~$28</div>
+          </div>
+        </div>
+
+        <div class="product-card">
+          <div class="coming-card">
+            <div class="coming-title">ATM Hoodie</div>
+            <div class="coming-desc">For when you're cold AND broke. ~$55</div>
+          </div>
+        </div>
+
+        <div class="product-card">
+          <div class="coming-card">
+            <div class="coming-title">Sticker Pack</div>
+            <div class="coming-desc">Slap it on your water bottle, laptop, or your opponent's car. ~$10</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="bottom-section">
+      <h3>Won a pot off Dhezz?</h3>
+      <p>The I Sat With Dhezz winner's patch is coming soon. Beat him at the table, claim your limited edition badge. Follow @ATMwithNoPIN for the drop.</p>
+    </section>
+
+    <footer>
+      <div>Back to <a href="https://atmwithnopin.com">atmwithnopin.com</a></div>
+    </footer>
+  </div>
+</body>
+</html>
