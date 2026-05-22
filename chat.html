@@ -49,7 +49,8 @@
     /* HEADER */
     header { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.5rem; border-bottom: 1px solid #1a1a1a; flex-shrink: 0; }
     .hdr-left { display: flex; align-items: center; gap: 1rem; }
-    .hdr-logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 0.15em; color: var(--green); text-decoration: none; }
+    .hdr-logo { display: inline-flex; align-items: center; gap: 0.75rem; color: var(--green); text-decoration: none; }
+    .site-logo { display: block; width: auto; max-height: 34px; }
     .hdr-ch { font-size: 0.7rem; letter-spacing: 0.1em; color: var(--gray); }
     .hdr-ch span { color: var(--offwhite); }
     .online-pill { font-size: 0.6rem; color: var(--green); display: flex; align-items: center; gap: 0.4rem; border: 1px solid var(--green-dim); padding: 0.2rem 0.6rem; border-radius: 20px; }
@@ -328,7 +329,7 @@
 <!-- HEADER -->
 <header>
   <div class="hdr-left">
-    <a href="/" class="hdr-logo">ATM/NoPIN</a>
+    <a href="/" class="hdr-logo"><img src="/logo.svg" alt="ATM With No PIN" class="site-logo"></a>
     <span class="hdr-ch">♠ <span id="active-ch-label">lobby</span></span>
   </div>
   <div class="online-pill"><div class="online-dot"></div><span>Live</span></div>
