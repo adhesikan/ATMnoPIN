@@ -511,79 +511,85 @@ function renderAdminPage() {
       </div>
       <div id="visitor-log"><div class="notice">Loading...</div></div>
     </section>
-    <script type="module">
-      import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-      import { getFirestore, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-      var cfg = {
-        apiKey: "AIzaSyAzlx4DVWbSkB4aM-njR55IT5qSPv4CFuk",
-        authDomain: "atmwithnopin-c5bd7.firebaseapp.com",
-        projectId: "atmwithnopin-c5bd7",
-        storageBucket: "atmwithnopin-c5bd7.firebasestorage.app",
-        messagingSenderId: "404706016435",
-        appId: "1:404706016435:web:b5e3cf34ccc9b669bd04c6"
-      };
-      var fbApp = getApps().length ? getApps()[0] : initializeApp(cfg);
-      var db = getFirestore(fbApp);
+    <script>
+    (async function() {
+      var container = document.getElementById('visitor-log');
       var visitData = [];
       function vesc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-      async function loadVisitors() {
-        var container = document.getElementById('visitor-log');
-        container.innerHTML = '<div class="notice">Loading visitor log...</div>';
-        try {
-          var snap = await getDocs(query(collection(db, 'visits'), orderBy('timestamp', 'desc'), limit(500)));
-          visitData = [];
-          snap.forEach(function(d) { visitData.push(Object.assign({ id: d.id }, d.data())); });
-          var countries = new Set(visitData.map(function(v) { return v.country; }).filter(function(c) { return c && c !== 'unknown'; }));
-          var ips = new Set(visitData.map(function(v) { return v.ip; }).filter(function(ip) { return ip && ip !== 'unknown'; }));
-          document.getElementById('v-total').textContent = visitData.length;
-          document.getElementById('v-countries').textContent = countries.size;
-          document.getElementById('v-unique-ips').textContent = ips.size;
-          if (!visitData.length) {
-            container.innerHTML = '<div class="notice">No visits logged yet.</div>';
-            return;
+      try {
+        var _app = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+        var _fs  = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        var cfg = {
+          apiKey: 'AIzaSyAzlx4DVWbSkB4aM-njR55IT5qSPv4CFuk',
+          authDomain: 'atmwithnopin-c5bd7.firebaseapp.com',
+          projectId: 'atmwithnopin-c5bd7',
+          storageBucket: 'atmwithnopin-c5bd7.firebasestorage.app',
+          messagingSenderId: '404706016435',
+          appId: '1:404706016435:web:b5e3cf34ccc9b669bd04c6'
+        };
+        var fbApp = _app.getApps().length ? _app.getApps()[0] : _app.initializeApp(cfg);
+        var db = _fs.getFirestore(fbApp);
+        async function loadVisitors() {
+          container.innerHTML = '<div class="notice">Loading visitor log...</div>';
+          try {
+            var snap = await _fs.getDocs(_fs.query(_fs.collection(db, 'visits'), _fs.orderBy('timestamp', 'desc'), _fs.limit(500)));
+            visitData = [];
+            snap.forEach(function(d) { visitData.push(Object.assign({ id: d.id }, d.data())); });
+            var countries = new Set(visitData.map(function(v) { return v.country; }).filter(function(c) { return c && c !== 'unknown'; }));
+            var ips = new Set(visitData.map(function(v) { return v.ip; }).filter(function(ip) { return ip && ip !== 'unknown'; }));
+            document.getElementById('v-total').textContent = visitData.length;
+            document.getElementById('v-countries').textContent = countries.size;
+            document.getElementById('v-unique-ips').textContent = ips.size;
+            if (!visitData.length) {
+              container.innerHTML = '<div class="notice">No visits logged yet.</div>';
+              return;
+            }
+            var hdr = '<div style="display:grid;grid-template-columns:148px 110px 160px 90px 80px 70px 70px 1fr;gap:.5rem;padding:.4rem 0;border-bottom:1px solid #1a1a1a;font-size:.57rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green);">'
+              + '<span>Timestamp</span><span>IP</span><span>City, State</span><span>Country</span><span>Browser</span><span>OS</span><span>Device</span><span>Page / Referrer</span></div>';
+            var rowsHtml = visitData.map(function(v) {
+              var ts = (v.timestamp && v.timestamp.toDate) ? v.timestamp.toDate() : new Date();
+              var city  = (v.city  && v.city  !== 'unknown') ? v.city  : '';
+              var state = (v.state && v.state !== 'unknown') ? v.state : ((v.region && v.region !== 'unknown') ? v.region : '');
+              var location = city && state ? city + ', ' + state : city || state || '—';
+              var ip = v.ip || 'unknown';
+              var ipShort = ip.length > 20 ? ip.substring(0, 18) + '…' : ip;
+              return '<div style="display:grid;grid-template-columns:148px 110px 160px 90px 80px 70px 70px 1fr;gap:.5rem;padding:.35rem 0;border-bottom:1px solid #111;font-size:.67rem;">'
+                + '<span style="color:#888;font-size:.6rem;">' + ts.toLocaleString() + '</span>'
+                + '<span style="color:var(--gold);font-size:.6rem;word-break:break-all;" title="' + vesc(ip) + '">' + vesc(ipShort) + '</span>'
+                + '<span style="color:var(--offwhite);font-size:.65rem;">' + vesc(location) + '</span>'
+                + '<span style="color:var(--offwhite);font-size:.65rem;">' + vesc(v.country || '—') + '</span>'
+                + '<span style="color:#888;">' + vesc(v.browser || '—') + '</span>'
+                + '<span style="color:#888;">' + vesc(v.os || '—') + '</span>'
+                + '<span style="color:#888;">' + vesc(v.device || '—') + '</span>'
+                + '<span style="font-size:.6rem;color:#555;">' + vesc(v.page || '/') + ' · ' + vesc(v.referrer || 'direct') + '</span>'
+                + '</div>';
+            }).join('');
+            container.innerHTML = '<div style="overflow-x:auto;">' + hdr + rowsHtml + '</div>';
+          } catch(e) {
+            container.innerHTML = '<div class="notice" style="border-color:#5c1f1f;">Error: ' + vesc(e.message || String(e)) + '</div>';
           }
-          var hdr = '<div style="display:grid;grid-template-columns:148px 110px 160px 90px 80px 70px 70px 1fr;gap:.5rem;padding:.4rem 0;border-bottom:1px solid #1a1a1a;font-size:.57rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green);">'
-            + '<span>Timestamp</span><span>IP</span><span>City, State</span><span>Country</span><span>Browser</span><span>OS</span><span>Device</span><span>Page / Referrer</span></div>';
-          var rowsHtml = visitData.map(function(v) {
-            var ts = (v.timestamp && v.timestamp.toDate) ? v.timestamp.toDate() : new Date();
-            var city  = (v.city   && v.city   !== 'unknown') ? v.city   : '';
-            var state = (v.state  && v.state  !== 'unknown') ? v.state  : ((v.region && v.region !== 'unknown') ? v.region : '');
-            var location = city && state ? city + ', ' + state : city || state || '—';
-            var ip = v.ip || 'unknown';
-            var ipShort = ip.length > 20 ? ip.substring(0, 18) + '…' : ip;
-            return '<div style="display:grid;grid-template-columns:148px 110px 160px 90px 80px 70px 70px 1fr;gap:.5rem;padding:.35rem 0;border-bottom:1px solid #111;font-size:.67rem;">'
-              + '<span style="color:#888;font-size:.6rem;">' + ts.toLocaleString() + '</span>'
-              + '<span style="color:var(--gold);font-size:.6rem;word-break:break-all;" title="' + vesc(ip) + '">' + vesc(ipShort) + '</span>'
-              + '<span style="color:var(--offwhite);font-size:.65rem;">' + vesc(location) + '</span>'
-              + '<span style="color:var(--offwhite);font-size:.65rem;">' + vesc(v.country || '—') + '</span>'
-              + '<span style="color:#888;">' + vesc(v.browser || '—') + '</span>'
-              + '<span style="color:#888;">' + vesc(v.os || '—') + '</span>'
-              + '<span style="color:#888;">' + vesc(v.device || '—') + '</span>'
-              + '<span style="font-size:.6rem;color:#555;">' + vesc(v.page || '/') + ' &nbsp;&middot;&nbsp; ' + vesc(v.referrer || 'direct') + '</span>'
-              + '</div>';
-          }).join('');
-          container.innerHTML = '<div style="overflow-x:auto;">' + hdr + rowsHtml + '</div>';
-        } catch(e) {
-          container.innerHTML = '<div class="notice" style="border-color:#5c1f1f;">Error loading visitors: ' + vesc(e.message) + '</div>';
         }
+        function exportVisitorsCSV() {
+          if (!visitData.length) return;
+          var headers = ['Timestamp','IP','City','Region','Country','Org/ISP','Browser','OS','Device','Language','Screen','Timezone','Page','Referrer','Latitude','Longitude'];
+          var rows = [headers].concat(visitData.map(function(v) {
+            var ts = (v.timestamp && v.timestamp.toDate) ? v.timestamp.toDate().toISOString() : '';
+            return [ts, v.ip, v.city, v.region, v.country, v.org, v.browser, v.os, v.device, v.language,
+                    (v.screenWidth || '') + 'x' + (v.screenHeight || ''), v.timezone, v.page, v.referrer, v.latitude || '', v.longitude || ''];
+          }));
+          var csv = rows.map(function(r) { return r.map(function(c) { return '"' + String(c || '').replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+          a.download = 'atm-visitors-' + new Date().toISOString().split('T')[0] + '.csv';
+          a.click();
+        }
+        document.getElementById('refreshVisitors').addEventListener('click', loadVisitors);
+        document.getElementById('exportVisitors').addEventListener('click', exportVisitorsCSV);
+        await loadVisitors();
+      } catch(e) {
+        container.innerHTML = '<div class="notice" style="border-color:#5c1f1f;">Failed to load visitor log: ' + vesc(e.message || String(e)) + '</div>';
       }
-      function exportVisitorsCSV() {
-        if (!visitData.length) return;
-        var headers = ['Timestamp','IP','City','Region','Country','Org/ISP','Browser','OS','Device','Language','Screen','Timezone','Page','Referrer','Latitude','Longitude'];
-        var rows = [headers].concat(visitData.map(function(v) {
-          var ts = (v.timestamp && v.timestamp.toDate) ? v.timestamp.toDate().toISOString() : '';
-          return [ts, v.ip, v.city, v.region, v.country, v.org, v.browser, v.os, v.device, v.language,
-                  (v.screenWidth || '') + 'x' + (v.screenHeight || ''), v.timezone, v.page, v.referrer, v.latitude || '', v.longitude || ''];
-        }));
-        var csv = rows.map(function(r) { return r.map(function(c) { return '"' + String(c || '').replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
-        var a = document.createElement('a');
-        a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-        a.download = 'atm-visitors-' + new Date().toISOString().split('T')[0] + '.csv';
-        a.click();
-      }
-      document.getElementById('refreshVisitors').addEventListener('click', loadVisitors);
-      document.getElementById('exportVisitors').addEventListener('click', exportVisitorsCSV);
-      loadVisitors();
+    })();
     </script>`);
 }
 
