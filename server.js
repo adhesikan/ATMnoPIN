@@ -3,9 +3,13 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { URL } = require('url');
+const { Pool } = require('pg');
+const Database = require('better-sqlite3');
 
 const PORT = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, 'data', 'blog-posts.json');
+const SQLITE_DB_FILE = path.join(__dirname, 'data', 'blog-posts.sqlite');
+const DATABASE_URL = process.env.DATABASE_URL || '';
 
 function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return;
@@ -47,6 +51,49 @@ if (!fs.existsSync(path.dirname(DATA_FILE))) fs.mkdirSync(path.dirname(DATA_FILE
 if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '[]');
 
 const sessions = new Map();
+const pgPool = DATABASE_URL ? new Pool({
+  connectionString: DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+}) : null;
+const sqliteDb = !DATABASE_URL ? new Database(SQLITE_DB_FILE) : null;
+
+function initializeDatabase() {
+  if (sqliteDb) {
+    sqliteDb.exec(`
+      CREATE TABLE IF NOT EXISTS blog_posts (
+        id TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    return;
+  }
+
+  if (pgPool) {
+    pgPool.query(`
+      CREATE TABLE IF NOT EXISTS blog_posts (
+        id TEXT PRIMARY KEY,
+        data JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `).catch(() => {});
+  }
+}
+
+async function migrateLegacyPosts() {
+  try {
+    if (!fs.existsSync(DATA_FILE)) return;
+    const legacyPosts = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    if (!Array.isArray(legacyPosts) || !legacyPosts.length) return;
+    const existing = await loadPosts();
+    if (!existing.length) await savePosts(legacyPosts);
+  } catch {
+    // Ignore legacy migration failures and fall back to the live DB store.
+  }
+}
+
+initializeDatabase();
+migrateLegacyPosts().catch(() => {});
 
 function hash(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
@@ -72,7 +119,7 @@ function slugify(text) {
     .replace(/^-|-$/g, '');
 }
 
-function loadPosts() {
+function loadPostsSync() {
   try {
     return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
   } catch {
@@ -80,8 +127,55 @@ function loadPosts() {
   }
 }
 
-function savePosts(posts) {
+function savePostsSync(posts) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(posts, null, 2));
+}
+
+async function loadPosts() {
+  if (pgPool) {
+    const { rows } = await pgPool.query('SELECT id, data FROM blog_posts ORDER BY created_at DESC');
+    return rows.map((row) => row.data);
+  }
+
+  if (sqliteDb) {
+    const rows = sqliteDb.prepare('SELECT id, data FROM blog_posts ORDER BY created_at DESC').all();
+    return rows.map((row) => JSON.parse(row.data));
+  }
+
+  return loadPostsSync();
+}
+
+async function savePosts(posts) {
+  if (pgPool) {
+    const client = await pgPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM blog_posts');
+      for (const post of posts) {
+        await client.query('INSERT INTO blog_posts (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data', [post.id, post]);
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    return;
+  }
+
+  if (sqliteDb) {
+    const stmt = sqliteDb.prepare('INSERT INTO blog_posts (id, data) VALUES (?, ?)');
+    sqliteDb.exec('BEGIN IMMEDIATE');
+    sqliteDb.exec('DELETE FROM blog_posts');
+    for (const post of posts) {
+      stmt.run(post.id, JSON.stringify(post));
+    }
+    sqliteDb.exec('COMMIT');
+    return;
+  }
+
+  savePostsSync(posts);
 }
 
 function escapeHtml(value) {
@@ -547,8 +641,9 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/api/admin/posts' && req.method === 'GET') {
+    const posts = await loadPosts();
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(loadPosts().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))));
+    res.end(JSON.stringify(posts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))));
     return;
   }
 
@@ -574,9 +669,9 @@ const server = http.createServer(async (req, res) => {
       if (!post.title || !post.slug || !post.excerpt || !post.content || !post.status) {
         throw new Error('Title, slug, excerpt, body, and status are required.');
       }
-      const posts = loadPosts();
+      const posts = await loadPosts();
       posts.push(post);
-      savePosts(posts);
+      await savePosts(posts);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(post));
     } catch (error) {
@@ -588,7 +683,8 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname.startsWith('/api/admin/posts/') && req.method === 'GET') {
     const id = pathname.split('/').pop();
-    const post = loadPosts().find((item) => item.id === id);
+    const posts = await loadPosts();
+    const post = posts.find((item) => item.id === id);
     if (!post) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Post not found.' })); return; }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(post));
@@ -599,7 +695,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const id = pathname.split('/').pop();
       const body = await parseJsonBody(req);
-      const posts = loadPosts();
+      const posts = await loadPosts();
       const index = posts.findIndex((item) => item.id === id);
       if (index === -1) throw new Error('Post not found.');
       if (!body.title || !body.slug || !body.excerpt || !body.content || !body.status) {
@@ -621,7 +717,7 @@ const server = http.createServer(async (req, res) => {
         published_at: body.status === 'published' ? (posts[index].published_at || new Date().toISOString()) : (body.status === 'draft' ? null : posts[index].published_at || null),
       };
       posts[index] = updated;
-      savePosts(posts);
+      await savePosts(posts);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(updated));
     } catch (error) {
@@ -634,9 +730,10 @@ const server = http.createServer(async (req, res) => {
   if (pathname.startsWith('/api/admin/posts/') && req.method === 'DELETE') {
     try {
       const id = pathname.split('/').pop();
-      const posts = loadPosts().filter((item) => item.id !== id);
-      if (posts.length === loadPosts().length) throw new Error('Post not found.');
-      savePosts(posts);
+      const currentPosts = await loadPosts();
+      const posts = currentPosts.filter((item) => item.id !== id);
+      if (posts.length === currentPosts.length) throw new Error('Post not found.');
+      await savePosts(posts);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
     } catch (error) {
@@ -698,14 +795,16 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/blog') {
+    const posts = await loadPosts();
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(renderBlogListPage(loadPosts()));
+    res.end(renderBlogListPage(posts));
     return;
   }
 
   if (pathname.startsWith('/blog/')) {
     const slug = pathname.split('/').filter(Boolean).slice(1).join('/');
-    const post = loadPosts().find((item) => item.slug === slug && item.status === 'published');
+    const posts = await loadPosts();
+    const post = posts.find((item) => item.slug === slug && item.status === 'published');
     if (!post) {
       res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(renderLayout('Post not found', `<section class="card"><h1>Post not found</h1><p class="body-text">That story is not available yet, or the slug is wrong.</p></section>`));
@@ -717,7 +816,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/' || pathname === '/index.html') {
-    const posts = loadPosts().filter((post) => post.status === 'published').sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at)).slice(0, 3);
+    const posts = (await loadPosts()).filter((post) => post.status === 'published').sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at)).slice(0, 3);
     fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, data) => {
       if (err) {
         res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
