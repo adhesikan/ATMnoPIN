@@ -201,7 +201,6 @@ function renderLayout(title, body) {
       <a href="/" style="color:var(--green); font-weight:700; text-transform:uppercase; letter-spacing:.18em;">ATMwithNoPIN™</a>
       <ul class="nav-links">
         <li><a href="/blog">Blog</a></li>
-        <li><a href="/admin">Admin</a></li>
         <li><a href="/">Home</a></li>
       </ul>
     </nav>
@@ -275,19 +274,20 @@ function renderAdminPage() {
       <article class="card">
         <h2>Create / Edit Post</h2>
         <div class="form-grid">
-          <label>Title<input id="title" type="text" placeholder="The river call nobody saw coming" /></label>
-          <label>Slug<input id="slug" type="text" placeholder="river-call-nobody-saw-coming" /></label>
-          <label>Excerpt<textarea id="excerpt" placeholder="A short summary for the blog list and social preview."></textarea></label>
-          <label>Body (Markdown supported)<textarea id="content" placeholder="# Big hand recap\n\n- one line\n- another line"></textarea></label>
+          <div class="notice">Required fields: Title, Excerpt, Body, and Status.</div>
+          <label>Title *<input id="title" type="text" required placeholder="The river call nobody saw coming" /></label>
+          <label>Slug *<input id="slug" type="text" required placeholder="river-call-nobody-saw-coming" /></label>
+          <label>Excerpt *<textarea id="excerpt" required placeholder="A short summary for the blog list and social preview."></textarea></label>
+          <label>Body (Markdown supported) *<textarea id="content" required placeholder="# Big hand recap\n\n- one line\n- another line"></textarea></label>
           <label>Tags<input id="tags" type="text" placeholder="Foxwoods, Bad Beat, Funny Hand" /></label>
-          <label>Status<select id="status"><option value="draft">Draft</option><option value="published">Published</option></select></label>
+          <label>Status *<select id="status" required><option value="draft">Draft</option><option value="published">Published</option></select></label>
           <label>Featured image URL<input id="featured_image_url" type="text" placeholder="https://..." /></label>
           <label>Featured image alt<input id="featured_image_alt" type="text" placeholder="Dhezz at the table" /></label>
           <label>Video URLs (one per line)<textarea id="video_urls" placeholder="https://www.youtube.com/watch?v=..."></textarea></label>
           <label>Featured image upload<input id="featuredFile" type="file" accept="image/png,image/jpeg,image/webp" /></label>
           <label>Gallery image uploads<input id="galleryFiles" type="file" accept="image/png,image/jpeg,image/webp" multiple /></label>
           <div class="row">
-            <button id="saveBtn">Save Post</button>
+            <button id="saveBtn" type="button">Save Post</button>
             <button id="previewBtn" class="secondary" type="button">Preview</button>
             <button id="newBtn" class="secondary" type="button">New Post</button>
             <button id="logoutBtn" class="secondary" type="button">Logout</button>
@@ -328,10 +328,14 @@ function renderAdminPage() {
           setStatus('Saving post…');
           const title = document.getElementById('title').value.trim();
           const slug = document.getElementById('slug').value.trim() || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-          const excerpt = document.getElementById('excerpt').value;
-          const content = document.getElementById('content').value;
+          const excerpt = document.getElementById('excerpt').value.trim();
+          const content = document.getElementById('content').value.trim();
           const tags = document.getElementById('tags').value.split(',').map(t => t.trim()).filter(Boolean);
           const status = document.getElementById('status').value;
+          if (!title || !excerpt || !content || !status) {
+            setStatus('Please fill in Title, Excerpt, Body, and Status before saving.', 'bad');
+            return;
+          }
           const featured_image_url = document.getElementById('featured_image_url').value.trim();
           const featured_image_alt = document.getElementById('featured_image_alt').value.trim();
           const video_urls = document.getElementById('video_urls').value.split('\n').map(v => v.trim()).filter(Boolean);
@@ -567,7 +571,9 @@ const server = http.createServer(async (req, res) => {
         updated_at: new Date().toISOString(),
         published_at: body.status === 'published' ? new Date().toISOString() : null,
       };
-      if (!post.title || !post.slug) { throw new Error('Title and slug are required.'); }
+      if (!post.title || !post.slug || !post.excerpt || !post.content || !post.status) {
+        throw new Error('Title, slug, excerpt, body, and status are required.');
+      }
       const posts = loadPosts();
       posts.push(post);
       savePosts(posts);
@@ -596,6 +602,9 @@ const server = http.createServer(async (req, res) => {
       const posts = loadPosts();
       const index = posts.findIndex((item) => item.id === id);
       if (index === -1) throw new Error('Post not found.');
+      if (!body.title || !body.slug || !body.excerpt || !body.content || !body.status) {
+        throw new Error('Title, slug, excerpt, body, and status are required.');
+      }
       const updated = {
         ...posts[index],
         title: String(body.title || posts[index].title || '').trim(),

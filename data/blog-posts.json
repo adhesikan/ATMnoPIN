@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "id": "deadfca7-71dd-4381-be1e-f04c28368453",
+    "title": "Good Save",
+    "slug": "good-save",
+    "excerpt": "Required field test",
+    "content": "Body text",
+    "featured_image_url": "",
+    "featured_image_alt": "",
+    "gallery_images": [],
+    "video_urls": [],
+    "tags": [
+      "Funny Hand"
+    ],
+    "status": "draft",
+    "created_at": "2026-06-12T18:06:13.096Z",
+    "updated_at": "2026-06-12T18:06:13.096Z",
+    "published_at": null
+  }
+]
