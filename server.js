@@ -338,7 +338,7 @@ function renderAdminPage() {
           }
           const featured_image_url = document.getElementById('featured_image_url').value.trim();
           const featured_image_alt = document.getElementById('featured_image_alt').value.trim();
-          const video_urls = document.getElementById('video_urls').value.split('\n').map(v => v.trim()).filter(Boolean);
+          const video_urls = document.getElementById('video_urls').value.split('\\n').map(v => v.trim()).filter(Boolean);
           const featuredFile = document.getElementById('featuredFile').files[0];
           const galleryFiles = Array.from(document.getElementById('galleryFiles').files);
           let featuredImage = featured_image_url ? { url: featured_image_url, alt: featured_image_alt } : null;
@@ -395,7 +395,7 @@ function renderAdminPage() {
         document.getElementById('status').value = post.status || 'draft';
         document.getElementById('featured_image_url').value = post.featured_image_url || '';
         document.getElementById('featured_image_alt').value = post.featured_image_alt || '';
-        document.getElementById('video_urls').value = (post.video_urls || []).join('\n');
+        document.getElementById('video_urls').value = (post.video_urls || []).join('\\n');
         setStatus('Post loaded for editing.', 'ok');
       });
       loadPosts();
