@@ -724,16 +724,23 @@ const server = http.createServer(async (req, res) => {
         res.end('Homepage not found');
         return;
       }
-      const preview = posts.map((post) => `
-        <article class="post-card" style="margin-top:.75rem;">
-          ${post.featured_image_url ? `<img src="${escapeHtml(post.featured_image_url)}" alt="${escapeHtml(post.featured_image_alt || post.title)}" />` : ''}
+      const recentPosts = posts.map((post) => `
+        <article class="recent-post-tile">
           <p class="meta">${escapeHtml(new Date(post.published_at || post.created_at).toLocaleDateString())}</p>
-          <h3 style="font-size:1.1rem; margin:.25rem 0;">${escapeHtml(post.title)}</h3>
-          <p class="body-text">${escapeHtml(post.excerpt || '')}</p>
-          <a href="/blog/${escapeHtml(post.slug)}" style="display:inline-block; margin-top:.5rem;">Read story →</a>
+          <h4>${escapeHtml(post.title)}</h4>
+          <p>${escapeHtml(post.excerpt || 'Fresh table story coming soon.')}</p>
+          <a href="/blog/${escapeHtml(post.slug)}">Read story →</a>
         </article>`).join('');
       const html = data
-        .replace('<!-- BLOG_PREVIEW -->', `<section class="schedule" id="latest" style="border-top:1px solid #1a1a1a;"><p class="section-label">// Latest from the ATM</p><h2>Latest from the ATM</h2><p class="body-text" style="max-width:60ch;">Fresh table stories, tournament notes, and bad beats from the ATMwithNoPIN™ world.</p><div class="posts">${preview || '<div class="notice">No published posts yet. Publish your first story in the admin area.</div>'}</div></section>`)
+        .replace('<!-- BLOG_PREVIEW -->', `<section class="schedule" id="latest" style="border-top:1px solid #1a1a1a;"><p class="section-label">// Latest from the ATM</p><h2>Latest from the ATM</h2><p class="body-text" style="max-width:60ch;">Fresh table stories, tournament notes, and bad beats from the ATMwithNoPIN™ world.</p><div class="posts">${posts.map((post) => `
+          <article class="post-card" style="margin-top:.75rem;">
+            ${post.featured_image_url ? `<img src="${escapeHtml(post.featured_image_url)}" alt="${escapeHtml(post.featured_image_alt || post.title)}" />` : ''}
+            <p class="meta">${escapeHtml(new Date(post.published_at || post.created_at).toLocaleDateString())}</p>
+            <h3 style="font-size:1.1rem; margin:.25rem 0;">${escapeHtml(post.title)}</h3>
+            <p class="body-text">${escapeHtml(post.excerpt || '')}</p>
+            <a href="/blog/${escapeHtml(post.slug)}" style="display:inline-block; margin-top:.5rem;">Read story →</a>
+          </article>`).join('') || '<div class="notice">No published posts yet. Publish your first story in the admin area.</div>'}</div></section>`)
+        .replace('<!-- RECENT_POSTS -->', recentPosts || '<div class="notice">No published posts yet.</div>')
         .replace(/ATM With No PIN — Dhezz/g, 'ATMwithNoPIN™ Poker | Official Site')
         .replace(/<title>ATM With No PIN — Dhezz<\/title>/, '<title>ATMwithNoPIN™ Poker | Official Site</title>');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
