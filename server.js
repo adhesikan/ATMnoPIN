@@ -346,11 +346,7 @@ function renderBlogPostPage(post) {
         <div style="margin-top:.8rem;">${renderMarkdown(post.content || '')}</div>
         ${(post.video_urls || []).map((url) => renderVideoEmbed(url)).join('')}
       </article>
-      <aside class="card">
-        <h2>Table Notes</h2>
-        <p class="body-text">This post is part of the ATMwithNoPIN™ poker entertainment brand. It can be updated from the admin dashboard at any time.</p>
-        ${gallery ? `<div class="gallery" style="margin-top:1rem;">${gallery}</div>` : '<p class="body-text">No gallery images yet.</p>'}
-      </aside>
+      ${gallery ? `<aside class="card"><h2>Table Notes</h2><div class="gallery" style="margin-top:1rem;">${gallery}</div></aside>` : ''}
     </section>`);
 }
 
