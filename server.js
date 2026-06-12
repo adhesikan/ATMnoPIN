@@ -57,7 +57,7 @@ const pgPool = DATABASE_URL ? new Pool({
 }) : null;
 const sqliteDb = !DATABASE_URL ? new Database(SQLITE_DB_FILE) : null;
 
-function initializeDatabase() {
+async function initializeDatabase() {
   if (sqliteDb) {
     sqliteDb.exec(`
       CREATE TABLE IF NOT EXISTS blog_posts (
@@ -70,13 +70,13 @@ function initializeDatabase() {
   }
 
   if (pgPool) {
-    pgPool.query(`
+    await pgPool.query(`
       CREATE TABLE IF NOT EXISTS blog_posts (
         id TEXT PRIMARY KEY,
         data JSONB NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
-    `).catch(() => {});
+    `);
   }
 }
 
@@ -91,9 +91,6 @@ async function migrateLegacyPosts() {
     // Ignore legacy migration failures and fall back to the live DB store.
   }
 }
-
-initializeDatabase();
-migrateLegacyPosts().catch(() => {});
 
 function hash(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
@@ -816,30 +813,34 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/' || pathname === '/index.html') {
-    const posts = (await loadPosts()).filter((post) => post.status === 'published').sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at)).slice(0, 3);
+    const allPosts = (await loadPosts())
+      .filter((post) => post.status === 'published')
+      .sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
+    const heroPosts = allPosts.slice(0, 5);
     fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, data) => {
       if (err) {
         res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end('Homepage not found');
         return;
       }
-      const recentPosts = posts.map((post) => `
+      const recentPostsHtml = heroPosts.map((post) => `
         <article class="recent-post-tile">
           <p class="meta">${escapeHtml(new Date(post.published_at || post.created_at).toLocaleDateString())}</p>
           <h4>${escapeHtml(post.title)}</h4>
           <p>${escapeHtml(post.excerpt || 'Fresh table story coming soon.')}</p>
           <a href="/blog/${escapeHtml(post.slug)}">Read story →</a>
         </article>`).join('');
-      const html = data
-        .replace('<!-- BLOG_PREVIEW -->', `<section class="schedule" id="latest" style="border-top:1px solid #1a1a1a;"><p class="section-label">// Latest from the ATM</p><h2>Latest from the ATM</h2><p class="body-text" style="max-width:60ch;">Fresh table stories, tournament notes, and bad beats from the ATMwithNoPIN™ world.</p><div class="posts">${posts.map((post) => `
+      const allPostsHtml = allPosts.map((post) => `
           <article class="post-card" style="margin-top:.75rem;">
             ${post.featured_image_url ? `<img src="${escapeHtml(post.featured_image_url)}" alt="${escapeHtml(post.featured_image_alt || post.title)}" />` : ''}
             <p class="meta">${escapeHtml(new Date(post.published_at || post.created_at).toLocaleDateString())}</p>
             <h3 style="font-size:1.1rem; margin:.25rem 0;">${escapeHtml(post.title)}</h3>
             <p class="body-text">${escapeHtml(post.excerpt || '')}</p>
             <a href="/blog/${escapeHtml(post.slug)}" style="display:inline-block; margin-top:.5rem;">Read story →</a>
-          </article>`).join('') || '<div class="notice">No published posts yet. Publish your first story in the admin area.</div>'}</div></section>`)
-        .replace('<!-- RECENT_POSTS -->', recentPosts || '<div class="notice">No published posts yet.</div>')
+          </article>`).join('');
+      const html = data
+        .replace('<!-- BLOG_PREVIEW -->', `<section class="schedule" id="latest" style="border-top:1px solid #1a1a1a;"><p class="section-label">// Latest from the ATM</p><h2>Latest from the ATM</h2><p class="body-text" style="max-width:60ch;">Fresh table stories, tournament notes, and bad beats from the ATMwithNoPIN™ world.</p><div class="posts">${allPostsHtml || '<div class="notice">No published posts yet. Publish your first story in the admin area.</div>'}</div><div style="margin-top:1.5rem;"><a href="/blog" style="display:inline-block;color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View all stories on the blog →</a></div></section>`)
+        .replace('<!-- RECENT_POSTS -->', recentPostsHtml || '<div class="notice">No published posts yet.</div>')
         .replace(/ATM With No PIN — Dhezz/g, 'ATMwithNoPIN™ Poker | Official Site')
         .replace(/<title>ATM With No PIN — Dhezz<\/title>/, '<title>ATMwithNoPIN™ Poker | Official Site</title>');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -869,6 +870,15 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`ATM is open on port ${PORT} 🏧`);
+async function start() {
+  await initializeDatabase();
+  await migrateLegacyPosts();
+  server.listen(PORT, () => {
+    console.log(`ATM is open on port ${PORT} 🏧`);
+  });
+}
+
+start().catch((err) => {
+  console.error('Startup failed:', err);
+  process.exit(1);
 });
