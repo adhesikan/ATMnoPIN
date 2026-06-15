@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-A poker entertainment brand site for Dhesi "Dhezz" Ananchaperumal (`@ATMwithNoPIN`). The site is a Node.js-served static frontend with a server-rendered blog CMS, Firebase-powered chat and visitor tracking, and a merchandise shop page. Hosted on Railway at `atmwithnopin.com` (DNS via Namecheap).
+A poker entertainment brand site for Dhezz (`@ATMwithNoPIN`). The site is a Node.js-served static frontend with a server-rendered blog CMS, Firebase-powered chat and visitor tracking, and a merchandise shop page. Hosted on Railway at `atmwithnopin.com` (DNS via Namecheap).
 
 ## Stack
 
