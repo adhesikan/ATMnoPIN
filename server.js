@@ -92,6 +92,105 @@ async function migrateLegacyPosts() {
   }
 }
 
+const SEED_POSTS = [
+  {
+    id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    title: 'From ATM with No PIN... to ATM with $45,703',
+    slug: 'from-atm-with-no-pin-to-atm-with-45703',
+    excerpt: 'After a string of tournament bust-outs, I finally made a deep WSOP run, finished 8th for $45,703, and even made PokerNews wearing my ATMwithNoPIN hat. A reminder that poker is a roller coaster—and sometimes the ATM finally pays out.',
+    content: `# From ATM with No PIN... to ATM with $45,703
+
+For the past few weeks, I've been donating chips to the poker community like it was a charitable organization.
+
+Monster Stack? Busted.
+
+Bracelet event? Busted.
+
+Circuit event? Also busted.
+
+At one point I was convinced the dealers were just using my chips to make the stacks look prettier.
+
+Then something strange happened...
+
+I stopped busting.
+
+I survived Day 1.
+
+Then Day 2.
+
+Then Day 3.
+
+People actually started asking me how many chips I had instead of, "So... what are you playing next?"
+
+Even PokerNews decided I was worth writing about.
+
+Unfortunately, they only interviewed me after I was eliminated.
+
+The final hand?
+
+I had K♦Q♠ against 10♥10♦.
+
+I shoved.
+
+He called.
+
+The poker gods looked down, shrugged, and produced exactly zero kings and zero queens.
+
+Standard procedure.
+
+Still...
+
+**8th place.**
+
+**$45,703.**
+
+Not exactly the bracelet, but definitely enough to convince myself I'm a world-class player... at least until the next tournament starts.
+
+The best part?
+
+My ATMwithNoPIN hat made it into the PokerNews photos.
+
+Mission accomplished.
+
+People always ask what ATMwithNoPIN means.
+
+Simple.
+
+Sometimes you withdraw money from poker.
+
+Sometimes poker withdraws money from you.
+
+This week...
+
+The ATM actually paid out.
+
+See you at the Main Event.
+
+Let's see if we can make the ATM dispense six figures next time.`,
+    tags: ['WSOP', 'Poker', 'Tournament', 'Deep Run', 'Cash', 'PokerNews', 'ATMwithNoPIN', 'Texas Hold\'em'],
+    status: 'published',
+    featured_image_url: '',
+    featured_image_alt: 'Dhesikan Ananchaperumal at the WSOP wearing an ATMwithNoPIN hat.',
+    gallery_images: [],
+    video_urls: [],
+    created_at: '2026-06-27T12:00:00.000Z',
+    updated_at: '2026-06-27T12:00:00.000Z',
+    published_at: '2026-06-27T12:00:00.000Z',
+  },
+];
+
+async function seedDefaultPosts() {
+  try {
+    const existing = await loadPosts();
+    const existingSlugs = new Set(existing.map((p) => p.slug));
+    const toAdd = SEED_POSTS.filter((p) => !existingSlugs.has(p.slug));
+    if (!toAdd.length) return;
+    await savePosts([...toAdd, ...existing]);
+  } catch {
+    // Seed failures are non-fatal.
+  }
+}
+
 function hash(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
 }
@@ -994,6 +1093,7 @@ const server = http.createServer(async (req, res) => {
 async function start() {
   await initializeDatabase();
   await migrateLegacyPosts();
+  await seedDefaultPosts();
   server.listen(PORT, () => {
     console.log(`ATM is open on port ${PORT} 🏧`);
   });
