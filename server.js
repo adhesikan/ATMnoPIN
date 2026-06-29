@@ -276,7 +276,7 @@ const SEED_CHRONICLES = [
     tell: 'Shows up after shift to cheer',
     threat_level: 'Good vibes guaranteed',
     icon_type: '♦',
-    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Terrell', 'Rail Support', 'ATMNOPIN'],
+    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Terrell', 'Rail Support', 'Community Story', 'ATMNOPIN'],
     content: `Every poker player dreams of having a rail.
 
 Mine usually consists of one very enthusiastic dealer named Terrell.
@@ -326,7 +326,7 @@ One of these years we're going to have a very expensive celebration.
     tell: 'The hair and beard give it away',
     threat_level: 'Faith-based run good',
     icon_type: '♦',
-    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Dominick', 'Poker Jesus', 'Tournament Blessings', 'Poker Humor', 'ATMNOPIN'],
+    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Dominick', 'Poker Jesus', 'Tournament Blessings', 'Poker Humor', 'Community Story', 'ATMNOPIN'],
     content: `Every poker player has a routine before a tournament.
 
 Mine?
@@ -384,7 +384,7 @@ I'm convinced one day it will finally result in a bracelet.
     tell: 'Dry smile after the bad river',
     threat_level: 'Emotionally expensive',
     icon_type: '♦',
-    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Crazy Mike', 'Bad Beats', 'Poker Humor', 'River Cards', 'ATMNOPIN'],
+    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Crazy Mike', 'Bad Beats', 'Poker Humor', 'River Cards', 'Community Story', 'ATMNOPIN'],
     content: `Every poker room has one dealer who can make the entire table laugh.
 
 For me, that's Crazy Mike.
@@ -446,7 +446,7 @@ Our ongoing "argument" has become part of the entertainment every time I sit at 
     tell: 'Already solving the next problem',
     threat_level: 'Final Table Level management',
     icon_type: '♣',
-    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Floor Spotlight', 'Floor Staff', 'Frank', 'Behind the Scenes', 'ATMNOPIN'],
+    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Floor Spotlight', 'Floor Staff', 'Frank', 'Behind the Scenes', 'Community Story', 'ATMNOPIN'],
     content: `Most players only notice the floor when something goes wrong.
 
 I notice Frank because he's everywhere.
@@ -519,7 +519,7 @@ Some carry a seating list and a radio.
     tell: 'Always looks confident',
     threat_level: 'Bring extra buy-ins',
     icon_type: '♠',
-    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', '$2/$5 NLH', 'Cash Games', 'ATMNOPIN'],
+    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', 'Poker Friends', '$2/$5 NLH', 'Cash Games', 'Community Story', 'ATMNOPIN'],
     content: `Manny earned his nickname at the $2/$5 NLH tables at Foxwoods.
 
 Not because he plays like a computer.
@@ -565,7 +565,7 @@ The unsettling part is that sometimes he actually is holding something.
     tell: 'Looks at chips before calling',
     threat_level: 'Occasionally dangerous',
     icon_type: '♠',
-    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', '$2/$5 NLH', 'Cash Games', 'Poker Humor', 'ATMNOPIN'],
+    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', 'Poker Friends', '$2/$5 NLH', 'Cash Games', 'Poker Humor', 'Community Story', 'ATMNOPIN'],
     content: `The Tuna doesn't just call.
 
 The Tuna *believes*.
@@ -613,7 +613,7 @@ Tell: Looks at chips before calling. A tell that helps nobody, because the call 
     tell: 'Always has a rubber duck on his stack',
     threat_level: 'The duck is scarier',
     icon_type: '♠',
-    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', 'Poker Friends', '$2/$5 NLH', 'Cash Games', 'Poker Humor', 'ATMNOPIN'],
+    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', 'Poker Friends', '$2/$5 NLH', 'Cash Games', 'Poker Humor', 'Community Story', 'ATMNOPIN'],
     content: `The rubber duck sits on the stack.
 
 It always has.
@@ -667,7 +667,7 @@ Tell: Rubber duck visible on stack from any seat at the table.
     icon_type: '♥',
     cta_label: 'Submit Your Story',
     cta_href: '/request-feature',
-    tags: ['Community', 'Player Spotlight', 'Get Featured', 'Table Characters', 'Foxwoods', '$2/$5 NLH', 'ATMNOPIN'],
+    tags: ['Community', 'Player Spotlight', 'Get Featured', 'Table Characters', 'Foxwoods', '$2/$5 NLH', 'Community Story', 'ATMNOPIN'],
     content: `The ATMNOPIN universe is not a closed table.
 
 There is always one more seat.
@@ -716,7 +716,7 @@ Submit your profile and you might be the next Chronicle.
     tell: 'Already knows what table you need',
     threat_level: 'Professionally dangerous',
     icon_type: '♣',
-    tags: ['Foxwoods', 'Floor Spotlight', 'Floor Staff', 'Behind the Scenes', 'Poker Room', 'ATMNOPIN'],
+    tags: ['Foxwoods', 'Floor Spotlight', 'Floor Staff', 'Behind the Scenes', 'Poker Room', 'Community Story', 'ATMNOPIN'],
     content: `The floor at Foxwoods moves because people like Bhavin make it move.
 
 He gets players to tables. He resolves disputes. He handles the list when it's backed up, answers questions before they've been asked, and keeps track of details that most people haven't noticed.
@@ -758,7 +758,7 @@ Tell: Already knows what table you need before you ask.
     tell: 'Unfazed by chaos',
     threat_level: 'Untouchable',
     icon_type: '♣',
-    tags: ['Foxwoods', 'Floor Spotlight', 'Floor Staff', 'Behind the Scenes', 'Poker Room', 'ATMNOPIN'],
+    tags: ['Foxwoods', 'Floor Spotlight', 'Floor Staff', 'Behind the Scenes', 'Poker Room', 'Community Story', 'ATMNOPIN'],
     content: `Charlie has been there.
 
 The floor at Foxwoods on a busy Friday night is not a calm environment.
@@ -802,7 +802,7 @@ That alone deserves a Chronicle.
     tell: 'Same birthday as Dhezz',
     threat_level: 'Cosmic variance',
     icon_type: '♣',
-    tags: ['Foxwoods', 'Floor Spotlight', 'Floor Staff', 'Poker Humor', 'Behind the Scenes', 'ATMNOPIN'],
+    tags: ['Foxwoods', 'Floor Spotlight', 'Floor Staff', 'Poker Humor', 'Behind the Scenes', 'Community Story', 'ATMNOPIN'],
     content: `Steve shares the same birthday as Dhezz.
 
 This should, theoretically, mean something.
@@ -849,7 +849,7 @@ The universe may be playing a very long con.
     tell: 'Too calm before the river',
     threat_level: 'Board texture expert',
     icon_type: '♦',
-    tags: ['Foxwoods', 'Dealer Spotlight', 'Bad Beats', 'River Cards', 'Poker Room', 'ATMNOPIN'],
+    tags: ['Foxwoods', 'Dealer Spotlight', 'Bad Beats', 'River Cards', 'Poker Room', 'Community Story', 'ATMNOPIN'],
     content: `Felix has professional poker dealer calm.
 
 He has seen every board texture. Every bad beat. Every river suckout.
@@ -893,7 +893,7 @@ His specialty is the delivery of drama, handled with absolute professionalism.
     tell: 'Voice gets serious',
     threat_level: 'Stack movement imminent',
     icon_type: '♦',
-    tags: ['Foxwoods', 'Dealer Spotlight', 'Poker Room', 'All In', 'Cash Games', 'ATMNOPIN'],
+    tags: ['Foxwoods', 'Dealer Spotlight', 'Poker Room', 'All In', 'Cash Games', 'Community Story', 'ATMNOPIN'],
     content: `Ray has perfect timing.
 
 Not comedy timing.
@@ -943,7 +943,7 @@ He keeps dealing.
     tell: 'The game suddenly gets expensive',
     threat_level: 'Pot inflation specialist',
     icon_type: '♦',
-    tags: ['Foxwoods', 'Dealer Spotlight', 'Poker Room', 'Cash Games', 'Poker Humor', 'ATMNOPIN'],
+    tags: ['Foxwoods', 'Dealer Spotlight', 'Poker Room', 'Cash Games', 'Poker Humor', 'Community Story', 'ATMNOPIN'],
     content: `Jenny enters the rotation with calm confidence.
 
 Then, almost immediately, someone puts too many chips in the middle.
@@ -991,7 +991,7 @@ Absolutely.
     tell: 'Orders another sugary drink before the river',
     threat_level: 'Very low... until he actually enters a pot',
     icon_type: '♠',
-    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', '$2/$5 NLH', 'Poker Humor', 'Table Characters', 'Sugar Stacker', 'Ducky Jay', 'ATMNOPIN'],
+    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', 'Poker Friends', '$2/$5 NLH', 'Poker Humor', 'Table Characters', 'Sugar Stacker', 'Ducky Jay', 'Community Story', 'ATMNOPIN'],
     content: `Every poker room has one player whose chip stacks make the dealers slightly uncomfortable.
 
 At Foxwoods, that player is Eric.
@@ -1073,6 +1073,1524 @@ But the laughs are always +EV.
     created_at: '2026-06-29T10:00:00.000Z',
     updated_at: '2026-06-29T10:00:00.000Z',
     published_at: '2026-06-29T10:00:00.000Z',
+  },
+
+  // ─── TOURNAMENT REPORTS ───
+  {
+    id: 'c016-atm-45703-wsop-2025',
+    title: 'Tournament Report: From ATMNOPIN to ATM with $45,703',
+    slug: 'tournament-report-atm-45703-wsop-8th-place',
+    excerpt: 'After a string of bust-outs, the ATM finally paid out. 8th place. $45,703. PokerNews. One very expensive hand of K-Q vs pocket tens.',
+    category: 'Tournament Reports',
+    person_type: 'player',
+    poker_room: 'Horseshoe / WSOP',
+    specialty: 'Deep runs and dramatic exits',
+    tell: 'Still shoves K-Q on the river',
+    threat_level: 'Proven final table capable',
+    icon_type: '♠',
+    cta_label: 'Read Full Story →',
+    cta_href: '/blog/from-atm-with-no-pin-to-atm-with-45703',
+    tags: ['Tournament Reports', 'WSOP', 'Deep Run', 'Final Table', 'Best Cash', '$45703', 'Horseshoe', 'Community Story', 'ATMNOPIN'],
+    content: `The Monster Stack had already been cruel. Multiple bracelet events had already claimed chips. Then something strange happened.
+
+The chips stopped leaving.
+
+Day 1 survived.
+
+Day 2 survived.
+
+Day 3 survived.
+
+PokerNews actually wanted an interview — which they scheduled, reasonably, right after elimination.
+
+The final hand: K♦Q♠ vs 10♥10♦. Shoved. Called. The board produced zero kings and zero queens.
+
+Standard procedure.
+
+8th place. $45,703.
+
+Not the bracelet. But enough to confirm the dream is not completely ridiculous.
+
+The full story is in the blog.`,
+    status: 'published',
+    featured_on_home: true,
+    featured_image_url: '',
+    featured_image_alt: 'Dhezz, 8th place at WSOP, $45,703',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'ATM with $45,703',
+    crew_role: 'Player',
+    crew_quote: '',
+    created_at: '2025-07-15T12:00:00.000Z',
+    updated_at: '2025-07-15T12:00:00.000Z',
+    published_at: '2025-07-15T12:00:00.000Z',
+  },
+  {
+    id: 'c017-monster-stack-four-bullets-wsop-2026',
+    title: 'Tournament Report: Monster Stack 2026 — Four Bullets and a Receipt',
+    slug: 'tournament-report-monster-stack-2026-four-bullets',
+    excerpt: 'Four bullets, four dreams, and one very expensive education in tournament poker.',
+    category: 'Tournament Reports',
+    person_type: 'player',
+    poker_room: 'Horseshoe / WSOP',
+    specialty: 'Firing multiple bullets with maximum confidence',
+    tell: 'Orders chips before the previous entry fee clears',
+    threat_level: 'Dangerous to the bankroll',
+    icon_type: '♠',
+    tags: ['Tournament Reports', 'WSOP', 'Monster Stack', 'Re-Entry', 'Poker Lessons', 'Horseshoe', 'Community Story', 'ATMNOPIN'],
+    content: `The Monster Stack sounded simple.
+
+Big field.
+
+Big prize pool.
+
+Big opportunity.
+
+Naturally, that meant firing multiple bullets and learning that "one more try" is the most expensive phrase in tournament poker.
+
+Every entry began with confidence.
+
+Every exit came with a slightly different explanation.
+
+Bullet one: Running good until not.
+
+Bullet two: A cooler that felt personal.
+
+Bullet three: Better position, same result.
+
+Bullet four: The one that was definitely going to be different.
+
+By the end, the only thing truly stacked was the receipt.
+
+**Lesson learned:** The Monster Stack has a monster appetite.
+
+**ATMNOPIN Rating:**
+
+- Entry 1: Full confidence
+- Entry 2: Adjusted confidence
+- Entry 3: Cautious confidence
+- Entry 4: Pure spite
+- Total lessons: 4
+- Total bracelets: 0`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Monster Stack WSOP 2026',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'Four Bullets',
+    crew_role: 'Player',
+    crew_quote: '',
+    created_at: '2026-06-10T10:00:00.000Z',
+    updated_at: '2026-06-10T10:00:00.000Z',
+    published_at: '2026-06-10T10:00:00.000Z',
+  },
+  {
+    id: 'c018-bracelet-event-500-nut-flush-wsop-2026',
+    title: 'Tournament Report: The $500 Bracelet Event — Nut Flush Draw, No Bracelet',
+    slug: 'tournament-report-500-bracelet-event-nut-flush-draw',
+    excerpt: 'The draw was beautiful. The board was not. Another bracelet event ends on the flop.',
+    category: 'Tournament Reports',
+    person_type: 'player',
+    poker_room: 'Horseshoe / WSOP',
+    specialty: 'Maximum equity exits',
+    tell: 'Still believes flush draws are destiny',
+    threat_level: 'Correctly valued draws, wrong outcomes',
+    icon_type: '♠',
+    tags: ['Tournament Reports', 'WSOP', 'Bracelet Event', 'Bust Out', 'Bad Beats', 'Flush Draw', 'Horseshoe', 'Community Story', 'ATMNOPIN'],
+    content: `There are moments in poker when the hand looks too good to fold.
+
+Nut flush draw.
+
+Plenty of outs.
+
+Maximum confidence.
+
+Possibly a short speech about equity.
+
+Then the board refuses to cooperate and suddenly the $500 bracelet event is over.
+
+The dream was alive on the flop.
+
+Technically alive on the turn.
+
+By the river, it was available only in memory.
+
+**Hand breakdown:**
+
+- Preflop: Beautiful.
+- Flop: Nut flush draw acquired. Confidence: Maximum.
+- Turn: Still drawing. Confidence: Sustained.
+- River: Board brick. Confidence: Elsewhere.
+
+The bracelet remains unowned.
+
+The draw remains justified.
+
+**ATMNOPIN Rating:**
+
+- Draw Quality: Nut level
+- Board Cooperation: 0/5
+- Tournament Duration: Too short
+- Bracelet Status: Still pending`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: '$500 WSOP Bracelet Event 2026',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'Nut Flush Dhezz',
+    crew_role: 'Player',
+    crew_quote: '',
+    created_at: '2026-06-05T10:00:00.000Z',
+    updated_at: '2026-06-05T10:00:00.000Z',
+    published_at: '2026-06-05T10:00:00.000Z',
+  },
+  {
+    id: 'c019-circuit-event-1700-another-story-2026',
+    title: 'Tournament Report: The $1,700 Circuit Event — Another Attempt, Another Story',
+    slug: 'tournament-report-1700-circuit-event-another-story',
+    excerpt: 'Not every tournament ends with chips. Some end with content.',
+    category: 'Tournament Reports',
+    person_type: 'player',
+    poker_room: 'Horseshoe / WSOP',
+    specialty: 'Converting bust-outs into content',
+    tell: 'Already thinking about what to write on the walk out',
+    threat_level: 'Poker storyteller threat level: high',
+    icon_type: '♠',
+    tags: ['Tournament Reports', 'Circuit Event', 'Bust Out', 'Poker Journey', 'Community Story', 'ATMNOPIN'],
+    content: `The $1,700 Circuit event had all the ingredients.
+
+Buy-in paid.
+
+Seat assigned.
+
+Hope restored.
+
+Then poker did what poker does.
+
+No dramatic winner photo.
+
+No trophy.
+
+Just another reminder that sometimes the best thing you take from a tournament is the story you get to write on the way out.
+
+The entry fee was not wasted.
+
+It became content.
+
+In the ATMNOPIN economy, that counts as a return on investment.
+
+**ATMNOPIN Rating:**
+
+- Tournament Result: Content
+- Buy-In ROI: Narrative
+- Next Event Confidence: Fully restored
+- Content Quality: Improving`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: '$1,700 Circuit Event',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'The Content Creator',
+    crew_role: 'Player',
+    crew_quote: '',
+    created_at: '2026-04-15T10:00:00.000Z',
+    updated_at: '2026-04-15T10:00:00.000Z',
+    published_at: '2026-04-15T10:00:00.000Z',
+  },
+  {
+    id: 'c020-23rd-place-deep-run-wsop-2025',
+    title: 'Tournament Report: 23rd Out of 3,300+ — The Run That Made the Next One Possible',
+    slug: 'tournament-report-23rd-place-3300-field-deep-run',
+    excerpt: 'Close enough to believe. Painful enough to remember. Good enough to come back and try again.',
+    category: 'Tournament Reports',
+    person_type: 'player',
+    poker_room: 'Horseshoe / WSOP',
+    specialty: 'Deep run pain tolerance',
+    tell: 'Signs up for the next event before the last one settles',
+    threat_level: 'Proven deep run capability',
+    icon_type: '♠',
+    tags: ['Tournament Reports', 'Deep Run', 'WSOP', 'Poker Journey', 'Horseshoe', 'Community Story', 'ATMNOPIN'],
+    content: `Before the $45,703 cash.
+
+Before the final table energy.
+
+Before the ATM finally paid out.
+
+There was this.
+
+23rd out of more than 3,300 entries.
+
+Close enough to believe.
+
+Painful enough to remember.
+
+Good enough to come back.
+
+That is how tournament poker gets you.
+
+It gives you just enough proof that the dream is not ridiculous.
+
+Then it charges another buy-in.
+
+The finish line was visible from 23rd place.
+
+22 players were between it and this seat.
+
+Next time, the distance closes.
+
+**ATMNOPIN Rating:**
+
+- Field Size: Massive
+- Finish: 23rd
+- Pain Level: Significant
+- Motivation Generated: Maximum`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Deep run, 23rd place, WSOP',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'The 23rd',
+    crew_role: 'Player',
+    crew_quote: '',
+    created_at: '2025-06-20T10:00:00.000Z',
+    updated_at: '2025-06-20T10:00:00.000Z',
+    published_at: '2025-06-20T10:00:00.000Z',
+  },
+  {
+    id: 'c021-main-event-watch-big-one-wsop-2026',
+    title: 'Tournament Report: Main Event Watch — The Big One',
+    slug: 'tournament-report-main-event-watch-wsop-2026',
+    excerpt: 'Every poker player says they are ready for the Main Event. The cards will decide how funny that statement is.',
+    category: 'Tournament Reports',
+    person_type: 'player',
+    poker_room: 'Horseshoe / WSOP',
+    specialty: 'Patience and avoiding punts',
+    tell: 'Extra careful before every decision. Then shoves turn.',
+    threat_level: 'World Series ready',
+    icon_type: '♠',
+    tags: ['Tournament Reports', 'WSOP', 'Main Event', 'Poker Journey', 'Horseshoe', 'Community Story', 'ATMNOPIN'],
+    content: `The Main Event is different.
+
+The room feels bigger.
+
+The stacks feel deeper.
+
+The decisions feel heavier.
+
+The dream feels slightly less ridiculous.
+
+For ATMNOPIN, the mission is simple:
+
+Show up.
+
+Stay patient.
+
+Avoid punting.
+
+Maybe bluff once.
+
+Probably regret it.
+
+But show up.
+
+Every player who has ever held a chip has thought about this tournament.
+
+The $10,000 buy-in is the most expensive reminder that the dream exists.
+
+Updates will continue as the journey unfolds.
+
+**ATMNOPIN Rating:**
+
+- Readiness: Optimistic
+- Patience: Work in progress
+- Bluff frequency target: One (1)
+- Bracelet timeline: Under negotiation`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'WSOP Main Event 2026',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'Main Event Dhezz',
+    crew_role: 'Player',
+    crew_quote: '',
+    created_at: '2026-06-27T08:00:00.000Z',
+    updated_at: '2026-06-27T08:00:00.000Z',
+    published_at: '2026-06-27T08:00:00.000Z',
+  },
+  // ─── POKER HUMOR ───
+  {
+    id: 'c022-atm-temporarily-out-of-service-2026',
+    title: 'The ATM Is Temporarily Out of Service',
+    slug: 'poker-humor-atm-temporarily-out-of-service',
+    excerpt: 'Some days the ATM pays out. Some days it just displays an error message and asks you to try again later.',
+    category: 'Poker Humor',
+    person_type: '',
+    poker_room: '',
+    specialty: 'Error messages and existential poker variance',
+    tell: 'Mutters "try again later" after each hand',
+    threat_level: 'On tilt. Handle with care.',
+    icon_type: '♠',
+    tags: ['Poker Humor', 'Tournament Life', 'Bad Beats', 'Variance', 'ATMwithNoPIN', 'ATMNOPIN'],
+    content: `Poker players love to say they are "due."
+
+Due for a hand.
+
+Due for a run.
+
+Due for a double-up.
+
+Due for the dealer to stop personally attacking them.
+
+But poker has a cruel sense of humor.
+
+Sometimes you arrive confident, caffeinated, and emotionally prepared to become the main character.
+
+Then three hours later you are walking through the casino wondering if a sandwich counts as bankroll management.
+
+That is when the ATM is temporarily out of service.
+
+No cash available.
+
+No PIN accepted.
+
+Please contact customer support.
+
+Unfortunately, customer support is also on break.
+
+The good news: ATMs eventually restock.
+
+The bad news: The fee to try again is another buy-in.`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'The ATM is temporarily out of service',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-05-20T10:00:00.000Z',
+    updated_at: '2026-05-20T10:00:00.000Z',
+    published_at: '2026-05-20T10:00:00.000Z',
+  },
+  {
+    id: 'c023-poker-job-14-hours-paid-2026',
+    title: 'Poker Is the Only Job Where Getting Paid Means You Were Miserable for 14 Hours',
+    slug: 'poker-humor-only-job-14-hours-miserable',
+    excerpt: 'Tournament poker: where success means sitting in one chair long enough to question every life decision.',
+    category: 'Poker Humor',
+    person_type: '',
+    poker_room: '',
+    specialty: 'Productive suffering',
+    tell: 'Still negotiating with lower back by Level 8',
+    threat_level: 'Dangerous to spines',
+    icon_type: '♠',
+    tags: ['Poker Humor', 'Tournament Reports', 'WSOP', 'Long Days', 'Tournament Life', 'ATMNOPIN'],
+    content: `In most jobs, if you work 14 hours, someone thanks you.
+
+In poker, if you work 14 hours, someone rivers a straight and asks if you had ace-king.
+
+Tournament poker is strange because the better you do, the longer you suffer.
+
+You start the day excited.
+
+By dinner break, you are negotiating with your lower back.
+
+By Level 12, you are emotionally attached to a bottle of water and two granola bars from the gift shop.
+
+And if you finally make the money, everyone says congratulations — which is poker language for "enjoy another seven hours."
+
+The prize pool sounds generous until you divide it by the number of hours you spent in a chair developing an opinion on every seat cushion in the casino.
+
+Still worth it.
+
+Probably.`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Tournament poker: 14 hours, one chair',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-05-25T10:00:00.000Z',
+    updated_at: '2026-05-25T10:00:00.000Z',
+    published_at: '2026-05-25T10:00:00.000Z',
+  },
+  {
+    id: 'c024-genius-until-the-river-2026',
+    title: 'Every Poker Player Is a Genius Until the River',
+    slug: 'poker-humor-genius-until-the-river',
+    excerpt: 'Before the river, everyone has a plan. After the river, everyone has a story.',
+    category: 'Poker Humor',
+    person_type: '',
+    poker_room: '',
+    specialty: 'Post-river analysis and victim statements',
+    tell: '"How does he get there?" heard after every bad river',
+    threat_level: 'Lethal to egos',
+    icon_type: '♠',
+    tags: ['Poker Humor', 'River Cards', 'Table Talk', 'Bad Beats', 'Cash Games', 'ATMNOPIN'],
+    content: `The flop is where poker players become analysts.
+
+The turn is where they become mathematicians.
+
+The river is where they become victims.
+
+Before the last card comes, everyone understands ranges, blockers, equity, and table image.
+
+After the river, the analysis gets considerably simpler:
+
+"How does he get there?"
+
+That question has powered more poker conversations than electricity.
+
+It implies that the other player made an error. That calling with 7-4 suited was somehow wrong, even though it resulted in a win.
+
+It implies the universe made a mistake.
+
+It implies the river personally targeted someone.
+
+None of this is true.
+
+The river is indifferent.
+
+The genius theory, however, is eternal.`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Genius until the river',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-05-28T10:00:00.000Z',
+    updated_at: '2026-05-28T10:00:00.000Z',
+    published_at: '2026-05-28T10:00:00.000Z',
+  },
+  {
+    id: 'c025-things-poker-players-say-every-session-2026',
+    title: 'Things Poker Players Say Every Session',
+    slug: 'poker-humor-things-poker-players-say-every-session',
+    excerpt: '"I\'m leaving after one orbit" and other lies told under casino lighting.',
+    category: 'Poker Humor',
+    person_type: '',
+    poker_room: '',
+    specialty: 'Cataloguing poker table mythology',
+    tell: 'Says "I knew you had it" regardless of what was held',
+    threat_level: 'Psychologically accurate',
+    icon_type: '♠',
+    tags: ['Poker Humor', 'Table Talk', 'Cash Games', 'One Orbit', 'ATMNOPIN'],
+    content: `Every poker session has a soundtrack.
+
+"I knew you had it."
+
+"I almost folded."
+
+"I put you exactly on that."
+
+"I'm leaving after one orbit."
+
+"I was priced in."
+
+"That's my favorite hand."
+
+"Nice hand."
+
+The last one is often delivered with the emotional warmth of a parking ticket.
+
+"I knew you had it" is the most popular phrase in poker, spoken by people who absolutely did not know what the opponent had and are recalibrating history in real time.
+
+"I'm leaving after one orbit" is a promise made sincerely and forgotten completely by the time the button arrives.
+
+"Nice hand" requires no translation.
+
+Every player knows what it means.
+
+Every player has said it.
+
+Every player will say it again.`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Things poker players say every session',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-06-01T10:00:00.000Z',
+    updated_at: '2026-06-01T10:00:00.000Z',
+    published_at: '2026-06-01T10:00:00.000Z',
+  },
+  {
+    id: 'c026-suspicious-river-bets-anonymous-2026',
+    title: 'Suspicious River Bets Anonymous',
+    slug: 'poker-humor-suspicious-river-bets-anonymous',
+    excerpt: 'A support group for players who knew they were beat but paid anyway for the story.',
+    category: 'Poker Humor',
+    person_type: '',
+    poker_room: '',
+    specialty: 'Hero calls and expensive decisions',
+    tell: 'Calls suspicious river bets "research"',
+    threat_level: 'Bankroll-managed curiosity',
+    icon_type: '♠',
+    tags: ['Poker Humor', 'River Bets', 'Hero Calls', 'Bad Beats', 'Cash Games', 'ATMNOPIN'],
+    content: `Welcome to Suspicious River Bets Anonymous.
+
+We are here because we saw the river bet, felt the danger, heard the alarms, processed the warning signs, and still said, "I have to see it."
+
+No, we did not have to see it.
+
+Yes, we saw it anyway.
+
+The river bet was large.
+
+The sizing communicated value.
+
+The opponent's posture communicated value.
+
+The entire betting sequence communicated value.
+
+We called anyway.
+
+The first step is admitting the river bet was never suspicious.
+
+It was value.
+
+It was always value.
+
+We knew it was value.
+
+We paid to confirm what we already knew.
+
+The second step is deciding whether the information gained was worth the price.
+
+We are still working on the second step.
+
+Meeting adjourned.`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Suspicious River Bets Anonymous',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-06-03T10:00:00.000Z',
+    updated_at: '2026-06-03T10:00:00.000Z',
+    published_at: '2026-06-03T10:00:00.000Z',
+  },
+  // ─── CASH GAMES ───
+  {
+    id: 'c027-guy-raises-every-button-foxwoods-2026',
+    title: 'The Guy Who Raises Every Button',
+    slug: 'cash-games-the-guy-who-raises-every-button',
+    excerpt: 'Every table has one. Every orbit confirms it.',
+    category: 'Cash Games',
+    person_type: '',
+    poker_room: 'Foxwoods',
+    specialty: 'Button raise frequency',
+    tell: 'Reaches for chips the moment the button arrives',
+    threat_level: 'Exploitable. Eventually.',
+    icon_type: '♠',
+    tags: ['Cash Games', 'Foxwoods', '$2/$5 NLH', 'Aggressive Players', 'Button Raises', 'Table Reads', 'ATMNOPIN'],
+    content: `Every table has one player who treats the button like a legal obligation to raise.
+
+Folded to him in position?
+
+Raise.
+
+Three limpers ahead?
+
+Raise.
+
+93 offsuit, everyone already in, bad texture coming?
+
+Raise. With conviction.
+
+The tells are consistent. The frequency is clockwork. The adjustments require patience.
+
+Stop complaining about the raises.
+
+Start trapping.
+
+Let him hang himself with the rope he brings to every orbit.
+
+The correct adjustment is simple in theory and emotionally difficult in practice because it requires:
+
+1. Letting him take the pot now
+2. Waiting for a real hand
+3. Not tilting when he shows 93o and wins anyway
+
+Step 3 is the hardest part.
+
+**ATMNOPIN Rating:**
+
+- Button Raise Frequency: Maximum
+- Hand Quality: Variable
+- Exploitability: Confirmed
+- Patience Required: Significant`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'The button raise specialist at Foxwoods',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-04-10T10:00:00.000Z',
+    updated_at: '2026-04-10T10:00:00.000Z',
+    published_at: '2026-04-10T10:00:00.000Z',
+  },
+  {
+    id: 'c028-human-slot-machines-foxwoods-2026',
+    title: 'Playing Against Human Slot Machines',
+    slug: 'cash-games-playing-against-human-slot-machines',
+    excerpt: 'Some players do not have ranges. They have weather patterns.',
+    category: 'Cash Games',
+    person_type: '',
+    poker_room: 'Foxwoods',
+    specialty: 'Loose-passive table reads',
+    tell: 'Chips go in regardless of action',
+    threat_level: 'Profitable with patience',
+    icon_type: '♠',
+    tags: ['Cash Games', 'Foxwoods', '$2/$5 NLH', 'Loose Players', 'Poker Humor', 'Table Selection', 'ATMNOPIN'],
+    content: `At some tables, you are not playing poker.
+
+You are playing against human slot machines.
+
+Chips go in.
+
+Lights flash.
+
+Nobody knows what is happening.
+
+Every hand has jackpot energy.
+
+These players are dangerous because they can have anything. The range is genuinely everything. A semi-bluff doesn't exist. A value bet doesn't exist. There is only chips in the middle and hope.
+
+They are also profitable because of the same reason.
+
+The trick is surviving the noise long enough to get paid.
+
+You will lose some pots you "should" win.
+
+You will win some pots that make no logical sense.
+
+The math is still in your favor.
+
+The emotional experience is not always.
+
+**ATMNOPIN Rating:**
+
+- Opponent Predictability: 0/5
+- Profitability Over Time: High
+- Short-Term Sanity: Variable
+- Table Selection Grade: A+`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Loose players at Foxwoods cash games',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-04-20T10:00:00.000Z',
+    updated_at: '2026-04-20T10:00:00.000Z',
+    published_at: '2026-04-20T10:00:00.000Z',
+  },
+  {
+    id: 'c029-when-the-nit-finally-raises-foxwoods-2026',
+    title: 'When the Nit Finally Raises',
+    slug: 'cash-games-when-the-nit-finally-raises',
+    excerpt: 'The whole table suddenly remembers they have errands.',
+    category: 'Cash Games',
+    person_type: '',
+    poker_room: 'Foxwoods',
+    specialty: 'Tight range recognition',
+    tell: 'Whole table folds or reconsiders their hand',
+    threat_level: 'Maximum credibility',
+    icon_type: '♠',
+    tags: ['Cash Games', 'Foxwoods', '$2/$5 NLH', 'Tight Players', 'Poker Humor', 'Table Reads', 'ATMNOPIN'],
+    content: `A loose player raises and everyone debates.
+
+A nit raises and everyone becomes slightly religious.
+
+Suddenly ace-queen looks suspicious.
+
+Pocket tens feel like a trap.
+
+Even pocket kings start checking the exits.
+
+The player who has folded seventeen hands in a row, who has shown exactly one hand in two hours and it was aces, who has not entered a pot voluntarily since the restaurant shift changed — that player raises.
+
+And now everyone is very interested in folding.
+
+The correct strategy is usually respect, caution, and acknowledgment that this particular player is not raising with a hand that needs help from the board.
+
+The incorrect strategy is calling with second pair because you "had a read."
+
+Nobody has a read.
+
+The nit has aces.
+
+**ATMNOPIN Rating:**
+
+- Nit Raise Frequency: Rare
+- Hand Quality When Raising: Extreme
+- Fold Equity: Substantial
+- Table Response: Universal caution`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'The nit finally raises at the cash game',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-05-01T10:00:00.000Z',
+    updated_at: '2026-05-01T10:00:00.000Z',
+    published_at: '2026-05-01T10:00:00.000Z',
+  },
+  {
+    id: 'c030-why-25-is-never-just-25-foxwoods-2026',
+    title: 'Why $2/$5 Is Never Just $2/$5',
+    slug: 'cash-games-why-25-is-never-just-25',
+    excerpt: 'The blinds say $2/$5. The pot says emotional damage.',
+    category: 'Cash Games',
+    person_type: '',
+    poker_room: 'Foxwoods',
+    specialty: 'Blind level reality distortion',
+    tell: '"It\'s just $2/$5" said before a $600 pot',
+    threat_level: 'Financially significant',
+    icon_type: '♠',
+    tags: ['Cash Games', 'Foxwoods', '$2/$5 NLH', 'Poker Humor', 'Table Dynamics', 'ATMNOPIN'],
+    content: `New players see $2/$5 and think the game sounds reasonable.
+
+Two dollars.
+
+Five dollars.
+
+Manageable stakes. A relaxing evening.
+
+Then someone straddles.
+
+Someone raises to $30 over the straddle.
+
+Three people call.
+
+Someone three-bets to $95.
+
+Two calls.
+
+The flop comes with two flush draws and a pair on board.
+
+The first check is a trap.
+
+The second check is also a trap.
+
+Someone bets $200.
+
+Someone raises to $500.
+
+Now there is a used car in the middle of the table and everyone is very focused.
+
+That is when you realize $2/$5 is not a number.
+
+It is a warning label.
+
+**ATMNOPIN Rating:**
+
+- Starting Stakes: $2/$5
+- Average Pot Size: Your imagination
+- Emotional Volatility: High
+- "Just $2/$5" Accuracy: 0%`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'The $2/$5 NLH cash game at Foxwoods',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-05-10T10:00:00.000Z',
+    updated_at: '2026-05-10T10:00:00.000Z',
+    published_at: '2026-05-10T10:00:00.000Z',
+  },
+  // ─── BAD BEATS ───
+  {
+    id: 'c031-ak-vs-99-coin-flip-personal-2026',
+    title: 'AK vs 99: The Classic Coin Flip That Feels Personal',
+    slug: 'bad-beats-ak-vs-99-coin-flip-feels-personal',
+    excerpt: 'It\'s called a flip, but somehow losing it always feels like a personal attack.',
+    category: 'Bad Beats',
+    person_type: '',
+    poker_room: '',
+    specialty: 'Losing mathematically neutral spots',
+    tell: 'Explains the exact percentages immediately after',
+    threat_level: 'Variance is the actual opponent',
+    icon_type: '♠',
+    tags: ['Bad Beats', 'Tournament Reports', 'AK', 'Coin Flip', 'Variance', 'Tournament Life', 'ATMNOPIN'],
+    content: `Ace-king against pocket nines.
+
+Everyone knows the math.
+
+It's a flip.
+
+47% vs 53%.
+
+Standard.
+
+Everyone says "standard" because it is.
+
+Then the board runs out nine-high and pocket nines win and suddenly "standard" feels like something the universe chose specifically.
+
+Tournament poker has a special way of making mathematically fair outcomes feel personally targeted.
+
+The chips go in ahead.
+
+The chips come out behind.
+
+The nine had no idea this was a big moment.
+
+The nine was simply being a nine.
+
+The nine will never understand what it has taken from you.
+
+**ATMNOPIN Rating:**
+
+- Mathematical Fairness: Confirmed
+- Emotional Experience: Contested
+- "Standard" Comfort Level: Minimal
+- Next tournament registered: Immediately`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'AK vs 99 coin flip',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-06-15T10:00:00.000Z',
+    updated_at: '2026-06-15T10:00:00.000Z',
+    published_at: '2026-06-15T10:00:00.000Z',
+  },
+  {
+    id: 'c032-nut-flush-draw-maximum-equity-minimum-joy-2026',
+    title: 'Nut Flush Draw: Maximum Equity, Minimum Joy',
+    slug: 'bad-beats-nut-flush-draw-maximum-equity-minimum-joy',
+    excerpt: 'Sometimes the prettiest draw becomes the ugliest walk to the exit.',
+    category: 'Bad Beats',
+    person_type: '',
+    poker_room: 'Horseshoe / WSOP',
+    specialty: 'Drawing dead with maximum outs',
+    tell: 'Still believes the next flush will hit',
+    threat_level: 'Psychologically expensive',
+    icon_type: '♠',
+    tags: ['Bad Beats', 'WSOP', 'Horseshoe', 'Flush Draw', 'Bust Out', 'Tournament Reports', 'ATMNOPIN'],
+    content: `The nut flush draw is dangerous because it looks like destiny.
+
+Nine outs.
+
+Two cards to come.
+
+Sometimes two cards to come at once.
+
+You can see the card.
+
+You can feel the double-up.
+
+You can already imagine stacking chips and making a brief speech about running good.
+
+Then the dealer finishes the board and none of those imaginary chips arrive.
+
+The flop was beautiful.
+
+The turn kept hope alive.
+
+The river checked every box except the one that contained the flush card.
+
+The draw was real.
+
+The confidence was real.
+
+The exit was also real.
+
+There is nothing wrong with getting it in ahead or as a draw with equity.
+
+There is also nothing right about how it feels when the board misses.
+
+**ATMNOPIN Rating:**
+
+- Draw Quality: Nut level
+- Outs: Nine (9)
+- Board Cooperation: 0%
+- Recovery Time: 48 hours minimum`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Nut flush draw, WSOP',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-06-08T10:00:00.000Z',
+    updated_at: '2026-06-08T10:00:00.000Z',
+    published_at: '2026-06-08T10:00:00.000Z',
+  },
+  {
+    id: 'c033-pocket-kings-are-temporary-2026',
+    title: 'Pocket Kings Are Temporary',
+    slug: 'bad-beats-pocket-kings-are-temporary',
+    excerpt: 'Kings feel powerful until the board starts making other plans.',
+    category: 'Bad Beats',
+    person_type: '',
+    poker_room: '',
+    specialty: 'Managing second-best hands',
+    tell: 'Stares at the ace on the flop for three full seconds',
+    threat_level: 'Emotionally volatile before the flop',
+    icon_type: '♠',
+    tags: ['Bad Beats', 'Cash Games', 'Pocket Kings', 'Coolers', 'Variance', 'ATMNOPIN'],
+    content: `Pocket kings look beautiful before the flop.
+
+The best hand most players will ever be dealt.
+
+Second only to aces, which you never have when you want them.
+
+Then the flop arrives.
+
+Sometimes the ace arrives with it.
+
+Or the set appears somewhere across the table.
+
+Or someone with a hand that should have been folded two streets ago stays in long enough to become a genius by the river.
+
+That is the life cycle of pocket kings:
+
+Excitement.
+
+Concern.
+
+A brief period of mathematical denial.
+
+Pain.
+
+The grief passes.
+
+Usually.
+
+**ATMNOPIN Rating:**
+
+- Pre-flop Beauty: Maximum
+- Post-ace-flop Beauty: Significantly reduced
+- Set-under-set Survival Rate: Not great
+- Recovery: One session minimum`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Pocket kings — the second-best starting hand',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-05-15T10:00:00.000Z',
+    updated_at: '2026-05-15T10:00:00.000Z',
+    published_at: '2026-05-15T10:00:00.000Z',
+  },
+  // ─── VEGAS ADVENTURES ───
+  {
+    id: 'c034-walking-18-miles-wsop-2026',
+    title: 'Walking 18 Miles Between Tournaments',
+    slug: 'vegas-adventures-walking-18-miles-between-tournaments',
+    excerpt: 'In Las Vegas, every poker trip secretly includes a fitness program.',
+    category: 'Vegas Adventures',
+    person_type: '',
+    poker_room: 'Horseshoe / WSOP',
+    specialty: 'Unplanned cardio',
+    tell: 'Checking step count between every level',
+    threat_level: 'Calves are dangerous',
+    icon_type: '♠',
+    tags: ['Vegas Adventures', 'WSOP', 'Horseshoe', 'Poker Travel', 'Tournament Life', 'ATMNOPIN'],
+    content: `Nobody tells you that WSOP preparation includes cardio.
+
+You think the challenge is the tournament.
+
+You prepare for the poker.
+
+Then you realize the real opponent is the walk from your room to registration, then to the poker room, then to the food court that somehow relocated since yesterday, then back to your room because you forgot your card protector, then back to the poker room because the tournament starts in four minutes.
+
+By end of Day 1, your step count is elite.
+
+By Day 2, you have developed strong opinions about every elevator in the building.
+
+By Day 3, if you make it, you have earned the chips and the posture.
+
+The fitness side effect of tournament poker is never mentioned in the buy-in process.
+
+It should be in the footnotes somewhere.
+
+**ATMNOPIN Rating:**
+
+- Distance Walked Per WSOP Day: Significant
+- Poker Fitness Side Effects: Unplanned
+- Step Count: Championship Level
+- Return on Investment: Variable`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Walking between tournaments at WSOP Las Vegas',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-06-20T10:00:00.000Z',
+    updated_at: '2026-06-20T10:00:00.000Z',
+    published_at: '2026-06-20T10:00:00.000Z',
+  },
+  {
+    id: 'c035-casino-food-is-a-bluff-2026',
+    title: 'Casino Food Is a Bluff',
+    slug: 'vegas-adventures-casino-food-is-a-bluff',
+    excerpt: 'It looks convenient. That is how they get you.',
+    category: 'Vegas Adventures',
+    person_type: '',
+    poker_room: '',
+    specialty: 'Overpriced convenience theory',
+    tell: 'Orders the $22 sandwich because time is running out',
+    threat_level: 'Dangerous to the food budget',
+    icon_type: '♠',
+    tags: ['Vegas Adventures', 'Casino Food', 'Poker Travel', 'WSOP', 'Poker Humor', 'ATMNOPIN'],
+    content: `Casino food understands position.
+
+It waits until you are tired, hungry, tilted from three straight bad beats, and running low on tournament break time.
+
+Then it charges you like it has the nuts.
+
+The sandwich costs what a buy-in should cost.
+
+The bottled water costs more than the sandwich should cost.
+
+The coffee has premium pricing because it is not just coffee, it is casino coffee, and the casino has leverage.
+
+You pay anyway because the next level starts in twelve minutes and apparently bankroll management does not apply to food decisions made between poker hands.
+
+The irony is that you would fold a bad hand in the poker room without blinking.
+
+But here you are paying $22 for a turkey wrap.
+
+Casino food has position.
+
+Casino food wins.
+
+**ATMNOPIN Rating:**
+
+- Convenience: Confirmed
+- Value: Contested
+- Necessity: Tournament break driven
+- Fold Frequency: Zero`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Casino food during WSOP',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-06-22T10:00:00.000Z',
+    updated_at: '2026-06-22T10:00:00.000Z',
+    published_at: '2026-06-22T10:00:00.000Z',
+  },
+  {
+    id: 'c036-registration-line-wsop-2026',
+    title: 'The Longest Registration Line in Poker History',
+    slug: 'vegas-adventures-longest-registration-line-wsop',
+    excerpt: 'Before you can bust out of the tournament, you must first survive the line.',
+    category: 'Vegas Adventures',
+    person_type: '',
+    poker_room: 'Horseshoe / WSOP',
+    specialty: 'Patience before the patience tournament begins',
+    tell: 'Phone battery at 12% by the time they reach the desk',
+    threat_level: 'Tests composure before cards are dealt',
+    icon_type: '♠',
+    tags: ['Vegas Adventures', 'WSOP', 'Horseshoe', 'Registration', 'Tournament Life', 'ATMNOPIN'],
+    content: `WSOP registration is its own tournament.
+
+The blinds do not go up.
+
+But your patience definitely goes down.
+
+Everyone in line believes today is the event where things change.
+
+Some have prepared.
+
+Some have read solver work.
+
+Some are just confident in a way that cannot be supported by evidence.
+
+All of them are checking their phones every thirty seconds because maybe the line has somehow moved while they looked away.
+
+The line has not moved.
+
+The line is long.
+
+The line is patient.
+
+The line has more experience with this than any of the players in it.
+
+The tournament has not started yet and already the event is testing something.
+
+**ATMNOPIN Rating:**
+
+- Line Management: Extensive experience
+- Phone Battery Drain: Significant
+- Pre-tournament Composure: Negotiated
+- Tables Reached: Eventually`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'WSOP registration line',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-06-18T10:00:00.000Z',
+    updated_at: '2026-06-18T10:00:00.000Z',
+    published_at: '2026-06-18T10:00:00.000Z',
+  },
+  {
+    id: 'c037-horseshoe-hall-of-fame-poker-room-2026',
+    title: 'The Horseshoe Hall of Fame Poker Room',
+    slug: 'vegas-adventures-horseshoe-hall-of-fame-poker-room',
+    excerpt: 'Where legends are made, fortunes are lost, and Dhezz asks Poker Jesus for blessings.',
+    category: 'Vegas Adventures',
+    person_type: '',
+    poker_room: 'Horseshoe / WSOP',
+    specialty: 'Poker room reverence',
+    tell: 'Arrives early to secure pre-tournament Poker Jesus blessing',
+    threat_level: 'The room itself is the threat',
+    icon_type: '♠',
+    tags: ['Vegas Adventures', 'Horseshoe', 'WSOP', 'Hall of Fame Poker Room', 'Poker Room', 'Dominick', 'Poker Jesus', 'ATMNOPIN'],
+    content: `The Horseshoe Hall of Fame Poker Room has history.
+
+Bracelets.
+
+Legends.
+
+Deep runs.
+
+Bad beats.
+
+Moments where the cards lined up perfectly.
+
+Moments where they absolutely did not.
+
+For ATMNOPIN, the pre-tournament ritual begins before a single card is dealt.
+
+Find Dominick.
+
+Receive blessing.
+
+Hope the poker gods are listening.
+
+Then sit down and play poker.
+
+The room is different from other poker rooms. The history is embedded in the carpet, the lighting, the posture of the dealers, the quiet confidence of players who have made final tables here before.
+
+Walking in with a rack of chips and a goal is the easy part.
+
+Walking out with more than you arrived with is the project.
+
+The Hall of Fame Poker Room has seen both outcomes.
+
+It continues either way.
+
+**ATMNOPIN Rating:**
+
+- History: Abundant
+- Atmosphere: Championship level
+- Pre-tournament Blessing Success Rate: Under review
+- Bracelet Count: Pending`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Horseshoe Hall of Fame Poker Room, WSOP',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-06-17T10:00:00.000Z',
+    updated_at: '2026-06-17T10:00:00.000Z',
+    published_at: '2026-06-17T10:00:00.000Z',
+  },
+  // ─── BEHIND THE SCENES ───
+  {
+    id: 'c038-why-i-started-atmnopin-2026',
+    title: 'Why I Started ATMNOPIN',
+    slug: 'behind-the-scenes-why-i-started-atmnopin',
+    excerpt: 'Because poker gave me too many stories to keep losing quietly.',
+    category: 'Behind the Scenes',
+    person_type: '',
+    poker_room: '',
+    specialty: 'Poker pain converted to content',
+    tell: 'Takes notes after bad beats',
+    threat_level: 'Content creator activated',
+    icon_type: '♠',
+    tags: ['Behind the Scenes', 'ATMwithNoPIN', 'ATMNOPIN', 'Creator Journey', 'Poker Humor', 'ATMNOPIN'],
+    content: `ATMNOPIN started because poker is too funny to suffer through alone.
+
+Every session has a character.
+
+Every tournament has a plot twist.
+
+Every bad beat deserves a witness.
+
+The name came from the truth: sometimes you go to the ATM and there is no PIN. No access. No cash. Nothing works and you are standing there wondering how you got here.
+
+That is also what poker feels like after a long bust-out streak.
+
+But ATMs also pay out.
+
+Sometimes in large amounts.
+
+With interest.
+
+The goal is simple:
+
+Turn poker pain into entertainment.
+
+If the chips do not come back, at least the stories should.
+
+The brand is built on the idea that losing a hand can be worth something if you write it down honestly.
+
+ATMNOPIN is the collection of all of it — the wins, the coolers, the characters, the dealers, the floor staff, and the people who make the game worth playing.
+
+**ATMNOPIN Rating:**
+
+- Origin Story: Authentic
+- Content Strategy: Chaos-informed
+- Bankroll Status: Improving
+- Brand Vision: Clear`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Why ATMNOPIN started',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-01-15T10:00:00.000Z',
+    updated_at: '2026-01-15T10:00:00.000Z',
+    published_at: '2026-01-15T10:00:00.000Z',
+  },
+  {
+    id: 'c039-story-behind-the-hat-2026',
+    title: 'The Story Behind the Hat',
+    slug: 'behind-the-scenes-story-behind-the-hat',
+    excerpt: 'A poker brand is not official until it appears on a hat.',
+    category: 'Behind the Scenes',
+    person_type: '',
+    poker_room: '',
+    specialty: 'Branding via headwear',
+    tell: 'Wearing the hat everywhere, including bad beat situations',
+    threat_level: 'Branding fully operational',
+    icon_type: '♠',
+    tags: ['Behind the Scenes', 'Poker Hat', 'ATMwithNoPIN', 'ATMNOPIN', 'Branding', 'Creator Journey'],
+    content: `Every poker player needs a table image.
+
+Some choose sunglasses.
+
+Some choose silence.
+
+Some choose a very specific hooded sweatshirt they believe has superpowers.
+
+ATMNOPIN chose a hat.
+
+Not just any hat.
+
+The hat.
+
+Because when the cards are not cooperating, at least the branding can still be sharp.
+
+The hat has been to Foxwoods.
+
+The hat has been to the Horseshoe.
+
+The hat has been in WSOP poker rooms, at cash game tables, and in at least one PokerNews photo.
+
+The hat was present for the $45,703 run.
+
+The hat has seen things.
+
+The hat remains professional even when the player behind it is questioning life decisions.
+
+Every brand needs a symbol.
+
+ATMNOPIN found its hat.
+
+**ATMNOPIN Rating:**
+
+- Hat Quality: Premium
+- Table Image Contribution: Significant
+- Luck Transfer Properties: Pending investigation
+- Available in the shop: Yes`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'The ATMNOPIN hat — branding via headwear',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-02-10T10:00:00.000Z',
+    updated_at: '2026-02-10T10:00:00.000Z',
+    published_at: '2026-02-10T10:00:00.000Z',
+  },
+  {
+    id: 'c040-writing-chronicles-at-2am-2026',
+    title: 'Writing Chronicles at 2 AM',
+    slug: 'behind-the-scenes-writing-chronicles-at-2am',
+    excerpt: 'The best poker stories usually arrive after the worst poker sessions.',
+    category: 'Behind the Scenes',
+    person_type: '',
+    poker_room: '',
+    specialty: 'Turning tilt into prose',
+    tell: 'Opens notes app immediately after exiting tournament',
+    threat_level: 'Content quality highest under distress',
+    icon_type: '♠',
+    tags: ['Behind the Scenes', 'Chronicles', 'Poker Writing', 'Creator Journey', 'ATMNOPIN'],
+    content: `There is a special kind of creativity that appears after midnight.
+
+Usually after losing a pot.
+
+Sometimes after firing too many bullets in a re-entry tournament.
+
+Always after asking, "How did he call with that?"
+
+That is when Chronicles get written.
+
+Not from peace.
+
+From the specific emotional state that comes after a poker session has made clear that the universe is testing something.
+
+The best story ideas arrive in the parking structure.
+
+The best opening lines arrive somewhere between the poker room exit and the car.
+
+By the time home is reached, the first draft exists in some form.
+
+By 2 AM, it has been typed.
+
+By morning, it will probably be edited.
+
+Or it will be published exactly as written at 2 AM because sometimes emotional accuracy is more important than editorial polish.
+
+Chronicles are the archive of all of it.
+
+**ATMNOPIN Rating:**
+
+- Writing Inspiration Source: Emotional damage
+- Best Writing Hours: Late night, post-session
+- Editing Frequency: Variable
+- Chronicle Quality: Inversely correlated with session results`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Writing poker chronicles late at night',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-03-05T10:00:00.000Z',
+    updated_at: '2026-03-05T10:00:00.000Z',
+    published_at: '2026-03-05T10:00:00.000Z',
+  },
+  {
+    id: 'c041-turning-poker-into-entertainment-2026',
+    title: 'Turning Poker Into Entertainment',
+    slug: 'behind-the-scenes-turning-poker-into-entertainment',
+    excerpt: 'The cards decide the money. The stories decide the brand.',
+    category: 'Behind the Scenes',
+    person_type: '',
+    poker_room: '',
+    specialty: 'Loss-to-content conversion',
+    tell: 'Finds the angle in every hand, good or bad',
+    threat_level: 'Narrative value: Maximum',
+    icon_type: '♠',
+    tags: ['Behind the Scenes', 'Poker Entertainment', 'ATMwithNoPIN', 'ATMNOPIN', 'Creator Journey', 'Branding'],
+    content: `Poker results are hard to control.
+
+The stories are not.
+
+ATMNOPIN is built on that idea.
+
+Win or lose, the table always provides material.
+
+A strange call.
+
+A suspicious river.
+
+A dealer with perfect timing.
+
+A player with a rubber duck on his chip stack.
+
+A floor manager who somehow handles everything at once.
+
+A fellow fish who deposits chips with mechanical reliability.
+
+The game becomes content.
+
+The content becomes the community.
+
+The community becomes the brand.
+
+Every poker player experiences the same swings, the same coolers, the same moments of genius and the same moments of questionable judgment.
+
+Most players go through it silently.
+
+ATMNOPIN documents it.
+
+So that the next time someone says "you won't believe what happened," there is already a Chronicle for it.
+
+**ATMNOPIN Rating:**
+
+- Story Mining Efficiency: Maximum
+- Entertainment per Bust-Out: High
+- Brand Building Method: Session by session
+- Community Size: Growing`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Turning poker into entertainment — the ATMNOPIN brand',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: '',
+    crew_role: '',
+    crew_quote: '',
+    created_at: '2026-03-20T10:00:00.000Z',
+    updated_at: '2026-03-20T10:00:00.000Z',
+    published_at: '2026-03-20T10:00:00.000Z',
   },
 ];
 
@@ -2350,9 +3868,15 @@ function renderChronicleCard(c) {
     'Dealer Spotlight': 'chron-cat-dealer',
     'Floor Spotlight': 'chron-cat-floor',
     'Community Story': 'chron-cat-community',
+    'Tournament Reports': 'chron-cat-tournament',
+    'Poker Humor': 'chron-cat-humor',
+    'Cash Games': 'chron-cat-cash',
+    'Bad Beats': 'chron-cat-badbeats',
+    'Vegas Adventures': 'chron-cat-vegas',
+    'Behind the Scenes': 'chron-cat-bts',
   };
   const catClass = catClassMap[c.category] || '';
-  const searchStr = [c.title, c.crew_nickname, c.poker_room, c.category, c.specialty, c.tell, (c.tags || []).join(' '), c.excerpt]
+  const searchStr = [c.title, c.crew_nickname, c.poker_room, c.category, c.specialty, c.tell, (c.tags || []).join(' '), c.excerpt, String(c.content || '').slice(0, 600)]
     .filter(Boolean).join(' ').toLowerCase();
   const ctaHref = c.cta_href || `/chronicles/${escapeHtml(c.slug)}`;
   const ctaLabel = c.cta_label || 'Read Story →';
@@ -2374,7 +3898,13 @@ function renderChronicleCard(c) {
 function renderChroniclesListPage(chronicles) {
   const published = chronicles
     .filter((c) => c.status === 'published')
-    .sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
+    .sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (b.pinned && !a.pinned) return 1;
+      if (a.featured_on_home && !b.featured_on_home) return -1;
+      if (b.featured_on_home && !a.featured_on_home) return 1;
+      return new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at);
+    });
 
   const filterGroups = [
     { label: 'All', value: '', type: 'all' },
@@ -2384,7 +3914,7 @@ function renderChroniclesListPage(chronicles) {
     { label: 'Player Spotlight', value: 'Player Spotlight', type: 'cat' },
     { label: 'Dealer Spotlight', value: 'Dealer Spotlight', type: 'cat' },
     { label: 'Floor Spotlight', value: 'Floor Spotlight', type: 'cat' },
-    { label: 'Community Stories', value: 'Community Story', type: 'cat' },
+    { label: 'Community Stories', value: 'community story', type: 'tag' },
     { label: 'Fellow Fish', value: 'fellow fish', type: 'tag' },
     { label: 'Bad Beats', value: 'Bad Beats', type: 'cat' },
     { label: 'Poker Humor', value: 'Poker Humor', type: 'cat' },
@@ -2419,6 +3949,12 @@ function renderChroniclesListPage(chronicles) {
       .chron-cat-dealer{background:rgba(201,168,76,.1);color:var(--gold);border:1px solid rgba(201,168,76,.25);}
       .chron-cat-floor{background:rgba(100,160,255,.1);color:#88aaff;border:1px solid rgba(100,160,255,.25);}
       .chron-cat-community{background:rgba(255,120,120,.08);color:#ff8888;border:1px solid rgba(255,120,120,.2);}
+      .chron-cat-tournament{background:rgba(255,180,50,.1);color:#ffb84d;border:1px solid rgba(255,180,50,.25);}
+      .chron-cat-humor{background:rgba(200,100,255,.08);color:#cc88ff;border:1px solid rgba(200,100,255,.2);}
+      .chron-cat-cash{background:rgba(50,200,150,.08);color:#44ddaa;border:1px solid rgba(50,200,150,.2);}
+      .chron-cat-badbeats{background:rgba(255,80,80,.08);color:#ff6666;border:1px solid rgba(255,80,80,.2);}
+      .chron-cat-vegas{background:rgba(255,210,0,.08);color:#ffd700;border:1px solid rgba(255,210,0,.2);}
+      .chron-cat-bts{background:rgba(120,180,255,.08);color:#90b8ff;border:1px solid rgba(120,180,255,.2);}
       .chron-room{font-size:.68rem;color:var(--gray);letter-spacing:.05em;}
       .chron-title{font-family:'DM Serif Display',serif;font-size:1rem;line-height:1.3;margin:.15rem 0 0;}
       .chron-title a{color:var(--offwhite);text-decoration:none;}
@@ -2435,14 +3971,14 @@ function renderChroniclesListPage(chronicles) {
     <section class="hero">
       <p class="eyebrow">Foxwoods · Horseshoe · WSOP · The Table</p>
       <h1>Chronicles</h1>
-      <p class="body-text" style="max-width:60ch;">Player spotlights, dealer stories, floor staff legends, tournament runs, bad beats, and the people who make poker worth playing.</p>
+      <p class="body-text" style="max-width:60ch;">Stories from the ATMNOPIN poker universe — tournament runs, cash game chaos, player spotlights, dealer legends, floor staff heroes, bad beats, Vegas adventures, and the people who make poker worth playing.</p>
     </section>
     <div class="chron-controls">
       <input type="search" id="chronSearch" class="chron-search" placeholder="Search by name, nickname, poker room, specialty…" />
       <div class="chron-filter-wrap">${filterBtns}</div>
     </div>
     <div class="chron-grid" id="chronGrid">
-      ${cards || '<p class="chron-no-results">No chronicles published yet.</p>'}
+      ${cards || '<div class="chron-no-results"><p style="font-size:1rem;color:var(--offwhite);margin-bottom:.4rem;">No stories yet.</p><p class="small" style="color:#777;margin-bottom:1rem;">The ATM is loading. Check back soon or submit your own story.</p><a href="/request-feature" class="pill">Submit Your Story</a></div>'}
     </div>
     <div class="chron-load-wrap" id="chronLoadWrap" style="display:none;">
       <button type="button" class="chron-load-btn" id="chronLoadBtn">Load More Stories</button>
@@ -2468,7 +4004,7 @@ function renderChroniclesListPage(chronicles) {
         vis.slice(0, shown).forEach(function(c) { c.style.display = ''; });
         var nr = document.getElementById('chronNoRes');
         if (!vis.length) {
-          if (!nr) { nr = Object.assign(document.createElement('p'), {id:'chronNoRes',className:'chron-no-results',textContent:'No stories found.'}); document.getElementById('chronGrid').appendChild(nr); }
+          if (!nr) { nr = document.createElement('div'); nr.id='chronNoRes'; nr.className='chron-no-results'; nr.innerHTML='<p style="font-size:1rem;color:var(--offwhite);margin-bottom:.4rem;">No stories in this pile yet.</p><p class="small" style="color:#777;margin-bottom:1rem;">The ATM is loading. Check back soon or submit a story.</p><a href="/request-feature" class="pill">Submit Your Story</a>'; document.getElementById('chronGrid').appendChild(nr); }
         } else if (nr) nr.remove();
         document.getElementById('chronLoadWrap').style.display = vis.length > shown ? '' : 'none';
       }
