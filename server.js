@@ -969,6 +969,101 @@ Absolutely.
     updated_at: '2026-06-27T15:50:00.000Z',
     published_at: '2026-06-27T15:50:00.000Z',
   },
+  {
+    id: 'c015-eric-sugar-stacker-foxwoods-2026',
+    title: 'Player Spotlight: Eric — The Sugar Stacker',
+    slug: 'player-spotlight-eric-the-sugar-stacker',
+    excerpt: 'His chip stacks look like they survived an earthquake, his drinks contain enough sugar to power a small casino, and if he ever bluffs you... don\'t worry. He\'ll usually change his mind.',
+    category: 'Player Spotlight',
+    person_type: 'player',
+    poker_room: 'Foxwoods',
+    specialty: 'Building chip stacks that shouldn\'t exist',
+    tell: 'Orders another sugary drink before the river',
+    threat_level: 'Very low... until he actually enters a pot',
+    icon_type: '♠',
+    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', '$2/$5 NLH', 'Poker Humor', 'Table Characters', 'Sugar Stacker', 'Ducky Jay', 'ATMNOPIN'],
+    content: `Every poker room has one player whose chip stacks make the dealers slightly uncomfortable.
+
+At Foxwoods, that player is Eric.
+
+Nobody knows whether he's intentionally stacking his chips that way or whether gravity simply gives up when it reaches his seat. Towers lean in every direction. Half-stacks become quarter-stacks. Somewhere inside the pile is probably the actual amount he's playing.
+
+Despite the architectural challenges happening in front of him, Eric isn't hard to read.
+
+He plays tighter than airport security.
+
+If Eric voluntarily puts a lot of chips into the pot, everyone at the table quietly starts reconsidering their own hand.
+
+Now, every once in a while, Eric decides today is the day he's going to become a fearless poker bluffer.
+
+It usually lasts about fifteen seconds.
+
+He'll fire one bet...
+
+Look around the table...
+
+Receive one call...
+
+Then suddenly remember he had somewhere else to be.
+
+Mission aborted.
+
+The bluff has officially entered witness protection.
+
+What Eric lacks in bluff frequency, he more than makes up for in sugar consumption.
+
+Nobody has actually counted how many sugary drinks he goes through during a session, but local scientists believe Foxwoods keeps extra inventory whenever they know he's coming.
+
+His blood type may now qualify as Mountain Dew.
+
+Between hands, Eric has another favorite hobby:
+
+Interviewing Ducky Jay.
+
+Not about poker.
+
+Not about strategy.
+
+Dating.
+
+Every session eventually reaches the same conversation.
+
+"So... how's that girl?"
+
+Poor Jay can barely finish stacking his chips before Eric launches into another relationship update.
+
+The rest of the table gets free entertainment while Jay wonders how a poker session somehow turned into a dating podcast.
+
+Yet somehow, despite the leaning chip towers, conservative play, abandoned bluffs, sugar-fueled endurance, and relentless curiosity about Jay's love life...
+
+Eric remains one of the easiest guys to root for.
+
+The poker may be tight.
+
+The chip stacks may violate several engineering principles.
+
+But the laughs are always +EV.
+
+**ATMNOPIN Rating:**
+
+- Chip Stack Engineering: Impressively Unstable
+- Bluff Completion Rate: 0%
+- Sugar Intake: Clinically Notable
+- Dating Podcast Interruptions Per Session: 3-5
+- Threat Level: Very low... until he actually enters a pot`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Eric, The Sugar Stacker, at Foxwoods',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'The Sugar Stacker',
+    crew_role: 'Player',
+    crew_quote: '',
+    created_at: '2026-06-29T10:00:00.000Z',
+    updated_at: '2026-06-29T10:00:00.000Z',
+    published_at: '2026-06-29T10:00:00.000Z',
+  },
 ];
 
 async function seedDefaultChronicles() {
@@ -1138,6 +1233,35 @@ const SEED_SUBMISSIONS = [
     submitted_at: '2026-01-01T00:00:00.000Z',
   },
   {
+    id: 'crew-eric-sugar-stacker-001',
+    name: 'Eric',
+    nickname: 'The Sugar Stacker',
+    email: '',
+    city: 'Foxwoods, CT',
+    favorite_game: '$2/$5 NLH',
+    bio: 'Messy chip stacks, tight ranges, sugary drinks, and a dangerous curiosity about Ducky Jay\'s dating life. Has spent more time asking Jay about his love life than discussing the hand currently being played.',
+    biggest_accomplishment: 'Survived a session without completing a single bluff. Stacks still standing.',
+    funny_story: '',
+    bad_beat_story: '',
+    social_link: '/chronicles/player-spotlight-eric-the-sugar-stacker',
+    photo_url: '',
+    permission: true,
+    status: 'approved',
+    badge: 'Fellow Fish',
+    featured_on_home: false,
+    admin_notes: 'Foxwoods player personality.',
+    slug: 'eric-the-sugar-stacker',
+    player_type: 'crew',
+    suit: '♠',
+    tags: ['Players', 'Fellow Fish', 'Foxwoods', '$2/$5 NLH', 'Table Characters', 'Player Spotlight'],
+    specialty: 'Architectural chip instability',
+    tell: 'Bluff attempt ends after one call',
+    threat_level: 'Low variance, high sugar',
+    poker_room: 'Foxwoods Resort Casino',
+    created_at: '2026-06-29T10:00:00.000Z',
+    submitted_at: '2026-06-29T10:00:00.000Z',
+  },
+  {
     id: 'crew-seat-open-001',
     name: 'You?',
     nickname: 'TBD',
@@ -1178,6 +1302,9 @@ const HERO_PROFILES = [
   { id:'hp-jay', name:'Jay', nickname:'Ducky Jay', type:'player',
     summary:'The duck may be the real decision maker. Jay just brings the chips.',
     location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/players/jay-ducky-jay', cta:null },
+  { id:'hp-eric', name:'Eric', nickname:'The Sugar Stacker', type:'player',
+    summary:'Tight player. Messy stacks. Sugar-powered. Bluff attempts expire quickly.',
+    location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/chronicles/player-spotlight-eric-the-sugar-stacker', cta:'View Profile →' },
   { id:'hp-bhavin', name:'Bhavin', nickname:'The Connector', type:'floor',
     summary:'Gets players seated, keeps the room moving, and somehow handles everything at once.',
     location:'Foxwoods', badge:'Floor Staff', badgeClass:'hc-badge-floor', icon:'♣', href:'/community-wall', cta:'View Community →' },
