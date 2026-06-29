@@ -791,9 +791,10 @@ function renderLayout(title, body) {
     <nav>
       <a href="/" style="color:var(--green); font-weight:700; text-transform:uppercase; letter-spacing:.18em;">ATMwithNoPIN™</a>
       <ul class="nav-links">
-        <li><a href="/blog">Blog</a></li>
+        <li><a href="/blog">Stories</a></li>
         <li><a href="/chronicles">Chronicles</a></li>
         <li><a href="/community-wall">Community</a></li>
+        <li><a href="/inside-the-atm">Inside the ATM</a></li>
         <li><a href="/">Home</a></li>
       </ul>
     </nav>
@@ -1867,6 +1868,251 @@ function isSafeImage(fileName) {
   return /\.(jpg|jpeg|png|webp)$/i.test(fileName);
 }
 
+function renderInsideTheATMPage() {
+  return renderLayout('Inside the ATM | ATMwithNoPIN™', `
+<style>
+  .ita-hero{padding:2.5rem 0 2rem;border-bottom:1px solid #1e1e1e;}
+  .ita-hero .eyebrow{font-size:.6rem;letter-spacing:.25em;text-transform:uppercase;color:var(--green);margin-bottom:.75rem;}
+  .ita-h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3rem,8vw,5rem);line-height:1;color:var(--offwhite);margin-bottom:.75rem;}
+  .ita-lead{font-size:.88rem;color:#888;max-width:55ch;line-height:1.85;}
+  .ita-section{padding:2.5rem 0;border-top:1px solid #1e1e1e;margin-top:2.5rem;}
+  .ita-section:first-of-type{margin-top:0;}
+  .ita-label{font-size:.58rem;letter-spacing:.25em;text-transform:uppercase;color:var(--green);margin-bottom:.85rem;}
+  .ita-h2{font-family:'DM Serif Display',serif;font-size:clamp(1.7rem,3.5vw,2.4rem);color:var(--offwhite);margin-bottom:.65rem;line-height:1.2;}
+  .ita-h2 em{color:var(--gold);font-style:italic;}
+  .ita-body{font-size:.8rem;line-height:1.9;color:#888;max-width:52ch;}
+  /* About */
+  .ita-about{display:grid;grid-template-columns:1fr 1fr;gap:2.5rem;margin-top:1.75rem;align-items:start;}
+  .dhezz-portrait{border:1px solid #1e1e1e;overflow:hidden;}
+  .dhezz-portrait img{width:100%;display:block;transition:transform .4s;}
+  .dhezz-portrait:hover img{transform:scale(1.02);}
+  .portrait-caption{padding:.9rem 1.1rem;background:#0d0d0d;border-top:1px solid #1e1e1e;}
+  .caption-tag{font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--green);display:block;margin-bottom:.35rem;}
+  .portrait-caption p{font-family:'DM Serif Display',serif;font-style:italic;font-size:.84rem;color:var(--offwhite);line-height:1.6;}
+  .caption-sub{display:block;margin-top:.35rem;font-size:.6rem;color:#555;letter-spacing:.08em;}
+  /* House Rules */
+  .rules-stack{display:flex;flex-direction:column;gap:.85rem;margin-top:1.25rem;}
+  .rule{padding:1.1rem;border:1px solid #1e1e1e;position:relative;overflow:hidden;transition:border-color .3s;}
+  .rule:hover{border-color:var(--green-dim);}
+  .rule::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--green);transform:scaleY(0);transition:transform .3s;transform-origin:bottom;}
+  .rule:hover::before{transform:scaleY(1);}
+  .rule-num{font-family:'Bebas Neue',sans-serif;font-size:.7rem;letter-spacing:.2em;color:var(--green);margin-bottom:.25rem;}
+  .rule-title{font-family:'DM Serif Display',serif;font-size:.98rem;color:var(--offwhite);margin-bottom:.25rem;}
+  .rule-body{font-size:.72rem;color:#666;line-height:1.7;}
+  /* Foxwoods */
+  .ita-fw-grid{display:grid;grid-template-columns:1fr 2fr;gap:1.5rem;margin-top:1.5rem;}
+  .fw-left{background:var(--felt);padding:2.5rem;position:relative;overflow:hidden;}
+  .fw-left::before{content:'♠';position:absolute;bottom:-1rem;right:-1rem;font-size:8rem;color:rgba(0,200,83,0.06);pointer-events:none;}
+  .fw-left h3{font-family:'DM Serif Display',serif;font-size:clamp(1.6rem,3vw,2.6rem);color:var(--offwhite);margin-bottom:.4rem;}
+  .fw-left h3 em{color:var(--green);}
+  .fw-tag{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--green-dim);line-height:1.6;}
+  .fw-right{padding:1.75rem;border:1px solid #1e1e1e;background:#0c0c0c;display:flex;flex-direction:column;gap:1.1rem;justify-content:center;}
+  .fw-quote{font-family:'DM Serif Display',serif;font-size:clamp(1rem,1.8vw,1.4rem);font-style:italic;color:var(--offwhite);line-height:1.4;padding-left:1.1rem;border-left:3px solid var(--green);}
+  .fw-body{font-size:.78rem;line-height:1.9;color:#888;}
+  .fw-punchline{font-family:'DM Serif Display',serif;font-size:.95rem;font-style:italic;color:var(--gold);}
+  .fw-stats{display:flex;gap:2rem;padding-top:1.1rem;border-top:1px solid #1e1e1e;flex-wrap:wrap;}
+  .fw-stat-num{font-family:'Bebas Neue',sans-serif;font-size:1.9rem;color:var(--green);line-height:1;}
+  .fw-stat-label{font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:#555;}
+  /* Schedule */
+  .sched-grid{display:grid;gap:1px;background:#1a1a1a;margin-top:1.25rem;}
+  .sched-row{display:grid;grid-template-columns:100px 1fr 110px 130px;gap:1.25rem;padding:1.1rem 1.25rem;background:var(--black);align-items:center;transition:background .2s;}
+  .sched-row:hover{background:#0e0e0e;}
+  .sched-row.hdr{font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;color:#444;background:#080808;}
+  .sched-date{font-size:.74rem;color:var(--green);}
+  .sched-venue{font-size:.76rem;color:var(--offwhite);}
+  .sched-game{font-size:.68rem;color:#666;}
+  .sched-status{display:inline-block;padding:3px 8px;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:2px;}
+  .s-likely{background:rgba(201,168,76,.12);color:var(--gold);border:1px solid rgba(201,168,76,.3);}
+  .s-tbd{background:#111;color:#444;border:1px solid #222;}
+  .no-sched{padding:1.75rem;text-align:center;color:#444;font-size:.72rem;border:1px dashed #222;margin-top:1px;}
+  /* Staff */
+  .staff-role-label{font-size:.56rem;letter-spacing:.25em;text-transform:uppercase;color:var(--green);padding-bottom:.45rem;border-bottom:1px solid #1a1a1a;margin:2rem 0 1rem;}
+  .staff-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#1a1a1a;}
+  .staff-card{background:#0a0a0a;padding:1.4rem;transition:background .2s;display:flex;flex-direction:column;gap:.65rem;}
+  .staff-card:hover{background:#0e0e0e;}
+  .staff-top{display:flex;align-items:center;gap:.8rem;}
+  .staff-initial{width:40px;height:40px;border:1px solid #2a2a2a;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--green);flex-shrink:0;}
+  .staff-name{font-family:'Bebas Neue',sans-serif;font-size:1.25rem;letter-spacing:.1em;color:var(--offwhite);line-height:1;}
+  .staff-role{font-size:.54rem;letter-spacing:.18em;text-transform:uppercase;color:#555;margin-top:.1rem;}
+  .staff-quote{font-family:'DM Serif Display',serif;font-style:italic;font-size:.76rem;color:#666;line-height:1.6;padding-left:.7rem;border-left:2px solid #1e1e1e;}
+  .staff-banter{display:flex;flex-direction:column;gap:.12rem;padding:.45rem .65rem;background:#111;border:1px solid #1a1a1a;}
+  .banter-label{font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:#333;}
+  .banter-text{font-size:.7rem;color:var(--offwhite);line-height:1.5;}
+  .staff-footer{margin-top:1.75rem;padding:1.1rem;border:1px solid #1a1a1a;text-align:center;font-size:.68rem;color:#444;font-style:italic;line-height:1.8;}
+  /* Crew */
+  .crew-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#1a1a1a;margin-top:1.25rem;}
+  .crew-card{background:var(--black);padding:1.6rem;transition:background .2s;border-left:3px solid transparent;}
+  .crew-card:hover{background:#0d0d0d;border-left-color:var(--green);}
+  .crew-card-open{border-left:3px solid #1a1a1a!important;}
+  .crew-card-open:hover{border-left-color:#2a2a2a!important;}
+  .crew-header{display:flex;align-items:center;gap:.9rem;margin-bottom:.9rem;}
+  .crew-suit{font-size:2rem;color:var(--green);line-height:1;}
+  .crew-name{font-family:'Bebas Neue',sans-serif;font-size:1.55rem;letter-spacing:.08em;color:var(--offwhite);line-height:1;}
+  .crew-alias{font-family:'DM Serif Display',serif;font-style:italic;font-size:.8rem;color:var(--gold);margin-top:.12rem;}
+  .crew-bio{font-size:.72rem;line-height:1.8;color:#666;margin-bottom:1.1rem;}
+  .crew-stats{display:flex;flex-direction:column;gap:.35rem;}
+  .crew-stat{display:flex;justify-content:space-between;align-items:center;padding:.3rem 0;border-top:1px solid #111;font-size:.62rem;}
+  .cs-label{color:#333;letter-spacing:.1em;text-transform:uppercase;font-size:.56rem;}
+  .cs-val{color:var(--offwhite);text-align:right;}
+  .cs-green{color:var(--green);}.cs-gold{color:var(--gold);}
+  /* Hall */
+  .hall-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#1a1a1a;margin-top:1.25rem;}
+  .winner-card{background:var(--black);padding:1.6rem;transition:background .2s;}
+  .winner-card:hover{background:#0d0d0d;}
+  .winner-rank{font-family:'Bebas Neue',sans-serif;font-size:2.6rem;color:#1a1a1a;line-height:1;margin-bottom:.35rem;}
+  .winner-rank.gold{color:rgba(201,168,76,.4);}.winner-rank.silver{color:rgba(180,180,180,.3);}.winner-rank.bronze{color:rgba(140,90,50,.3);}
+  .winner-name{font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--offwhite);}
+  .winner-amount{color:var(--green);font-size:.8rem;margin-top:.2rem;}
+  .winner-note{font-size:.66rem;color:#555;margin-top:.35rem;line-height:1.5;}
+  .hall-cta{margin-top:1.5rem;text-align:center;font-size:.7rem;color:#555;}
+  /* Responsive */
+  @media(max-width:980px){
+    .ita-about{grid-template-columns:1fr;}
+    .ita-fw-grid{grid-template-columns:1fr;}
+    .sched-row{grid-template-columns:1fr 1fr;gap:.65rem;}
+    .sched-row.hdr{display:none;}
+    .staff-grid{grid-template-columns:1fr;}
+    .crew-grid{grid-template-columns:1fr;}
+    .hall-grid{grid-template-columns:1fr;}
+  }
+</style>
+
+<div class="ita-hero">
+  <p class="eyebrow">// The ATM Universe</p>
+  <h1 class="ita-h1">Inside the ATM</h1>
+  <p class="ita-lead">The people, places, rules, and ridiculous stories behind ATMwithNoPIN™ — from the Foxwoods home base to wherever the action takes us next.</p>
+  <div style="margin-top:1.5rem;display:flex;gap:1rem;flex-wrap:wrap;">
+    <a href="/chronicles" class="pill">Chronicles →</a>
+    <a href="/community-wall" class="pill">Community Wall →</a>
+    <a href="/blog" class="pill">Stories →</a>
+  </div>
+</div>
+
+<div class="ita-section">
+  <p class="ita-label">// About ATMwithNoPIN™</p>
+  <h2 class="ita-h2">Who is <em>Dhezz</em>?</h2>
+  <div class="ita-about">
+    <div>
+      <p class="ita-body">Find Dhezz at Foxwoods, WSOP stops, and $2/$5 NLH games across the Northeast. The brand follows his poker journey through live updates, photos, videos, table stories, and occasional questionable calls.</p>
+      <p class="ita-body" style="margin-top:.8rem;">ATMwithNoPIN™ keeps the table humor intact — the fish jokes, the bad beat stories, and the confidence that somehow always feels one hand away from turning into a legendary session.</p>
+      <div style="margin-top:1.75rem;">
+        <p class="ita-label">// House Rules</p>
+        <div class="rules-stack">
+          <div class="rule"><div class="rule-num">01</div><div class="rule-title">No PIN. No Problem.</div><div class="rule-body">Just sit down. The chips have already started moving in your direction. Think of it as contactless payment.</div></div>
+          <div class="rule"><div class="rule-num">02</div><div class="rule-title">Good Times Included</div><div class="rule-body">Every session comes with commentary, self-deprecating analysis of every fold, and at least one hand history that will haunt you.</div></div>
+          <div class="rule"><div class="rule-num">03</div><div class="rule-title">The Table Is Better With Dhezz</div><div class="rule-body">Ask anyone who's sat with him. The vibes are immaculate. The poker decisions, less so.</div></div>
+          <div class="rule"><div class="rule-num">04</div><div class="rule-title">Results May Vary. Entertainment Won't.</div><div class="rule-body">He cannot guarantee you'll win money. He can guarantee you'll have a story to tell your poker group chat later.</div></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="dhezz-portrait">
+        <img src="/dhezz.jpeg" alt="Dhezz at the poker table" loading="lazy">
+        <div class="portrait-caption">
+          <span class="caption-tag">&#x2756; Actual Photo — Not Staged</span>
+          <p>"That stack? Gone in 20 minutes.<br>The hat? Still on his head.<br>The smile? Never left."</p>
+          <span class="caption-sub">— Every Foxwoods dealer, probably</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="ita-section">
+  <p class="ita-label">// Home Base</p>
+  <h2 class="ita-h2">Foxwoods <em>Resort Casino</em></h2>
+  <div class="ita-fw-grid">
+    <div class="fw-left">
+      <h3>Foxwoods<br><em>Resort Casino</em></h3>
+      <div class="fw-tag">Mashantucket, CT &mdash; The ATM's Natural Habitat</div>
+    </div>
+    <div class="fw-right">
+      <div class="fw-quote">Where legends are made, fortunes are lost, and Dhezz shows up anyway.</div>
+      <p class="fw-body">The greatest poker room in the Northeast, if only because the ATM with No PIN calls it home. Come find him at the $2/$5 table.</p>
+      <p class="fw-punchline">He'll be the one smiling while his chips disappear.</p>
+      <div class="fw-stats">
+        <div><div class="fw-stat-num">$2/$5</div><div class="fw-stat-label">His game</div></div>
+        <div><div class="fw-stat-num">&#x221E;</div><div class="fw-stat-label">Buy-ins</div></div>
+        <div><div class="fw-stat-num">0</div><div class="fw-stat-label">Regrets</div></div>
+        <div><div class="fw-stat-num">100%</div><div class="fw-stat-label">Still smiling</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="ita-section">
+  <p class="ita-label">// ATM Deployment Schedule</p>
+  <h2 class="ita-h2">Find Me <em>at the Tables</em></h2>
+  <div class="sched-grid">
+    <div class="sched-row hdr"><span>Date</span><span>Venue</span><span>Game</span><span>Status</span></div>
+    <div class="sched-row">
+      <div class="sched-date">TBD</div>
+      <div class="sched-venue">Foxwoods Resort Casino<span style="display:block;font-size:.62rem;color:#444;margin-top:2px;">Mashantucket, CT</span></div>
+      <div class="sched-game">$2/$5 NLH</div>
+      <div><span class="sched-status s-likely">Likely</span></div>
+    </div>
+    <div class="sched-row">
+      <div class="sched-date">TBD</div>
+      <div class="sched-venue">Traveling<span style="display:block;font-size:.62rem;color:#444;margin-top:2px;">Casino TBD</span></div>
+      <div class="sched-game">$2/$5 NLH</div>
+      <div><span class="sched-status s-tbd">TBD</span></div>
+    </div>
+  </div>
+  <div class="no-sched">&#x1F4E1; &nbsp; Follow on social for real-time session announcements — "The ATM is open."</div>
+</div>
+
+<div class="ita-section">
+  <p class="ita-label">// The Real MVPs</p>
+  <h2 class="ita-h2">Foxwoods Staff — <em>The Unsung Heroes</em></h2>
+  <p class="ita-body">They deal the cards, run the floor, and somehow still show up knowing Dhezz is coming. This one's for the people who make the Foxwoods poker room the greatest place to donate chips in the Northeast.</p>
+  <div class="staff-role-label">// Floor Staff</div>
+  <div class="staff-grid">
+    <div class="staff-card"><div class="staff-top"><div class="staff-initial">B</div><div><div class="staff-name">Bhavin</div><div class="staff-role">Floor</div></div></div><div class="staff-quote">"The man who helps Dhezz get seated faster than Dhezz can lose his chips."</div><div class="staff-banter"><span class="banter-label">What Dhezz says:</span><span class="banter-text">"Thank you, Bhavin."</span></div><div class="staff-banter"><span class="banter-label">What Bhavin does:</span><span class="banter-text">Helps anyway. Every time. A true professional.</span></div></div>
+    <div class="staff-card"><div class="staff-top"><div class="staff-initial" style="color:#c44;">C</div><div><div class="staff-name">Charlie</div><div class="staff-role">Floor</div></div></div><div class="staff-quote">"Foxwoods' most secure employee. No severance package could save him from Dhezz's commentary."</div><div class="staff-banter"><span class="banter-label">What Dhezz says:</span><span class="banter-text">"Fire Charlie! No Severance!"</span></div><div class="staff-banter"><span class="banter-label">What Charlie does:</span><span class="banter-text">Shows up again tomorrow. Unfazed. Untouchable. Undefeated.</span></div></div>
+    <div class="staff-card"><div class="staff-top"><div class="staff-initial" style="color:var(--gold);">S</div><div><div class="staff-name">Steve</div><div class="staff-role">Floor</div></div></div><div class="staff-quote">"Born on the same day and month as Dhezz. The universe's most suspicious coincidence."</div><div class="staff-banter"><span class="banter-label">What they share:</span><span class="banter-text">Same birthday. That's where the similarities end.</span></div><div class="staff-banter"><span class="banter-label">Fun fact:</span><span class="banter-text">Steve has kept his chips. Dhezz has not.</span></div></div>
+  </div>
+  <div class="staff-role-label">// The Dealers — Artists of Chaos</div>
+  <div class="staff-grid">
+    <div class="staff-card"><div class="staff-top"><div class="staff-initial">F</div><div><div class="staff-name">Felix</div><div class="staff-role">Dealer</div></div></div><div class="staff-quote">"A man of eternal optimism, matching Dhezz's energy beat for beat."</div><div class="staff-banter"><span class="banter-label">Dhezz says:</span><span class="banter-text">"Coming Soon."</span></div><div class="staff-banter"><span class="banter-label">Felix fires back:</span><span class="banter-text">"Very Soon." &#x1F0CF;</span></div></div>
+    <div class="staff-card"><div class="staff-top"><div class="staff-initial" style="color:#c44;">R</div><div><div class="staff-name">Ray</div><div class="staff-role">Dealer</div></div></div><div class="staff-quote">"The dealer who gives as good as he gets. Mutual respect at its finest."</div><div class="staff-banter"><span class="banter-label">Dhezz says:</span><span class="banter-text">"You suck, Ray."</span></div><div class="staff-banter"><span class="banter-label">Ray fires back:</span><span class="banter-text">"You suck." No hesitation. No apology.</span></div></div>
+    <div class="staff-card"><div class="staff-top"><div class="staff-initial" style="color:var(--gold);">J</div><div><div class="staff-name">Jenny</div><div class="staff-role">Dealer</div></div></div><div class="staff-quote">"The zen master of the felt. One word. Always the right one."</div><div class="staff-banter"><span class="banter-label">Dhezz, panicking:</span><span class="banter-text">*does something impulsive*</span></div><div class="staff-banter"><span class="banter-label">Jenny, calmly:</span><span class="banter-text">"Patience." &#x1F9D8;</span></div></div>
+    <div class="staff-card"><div class="staff-top"><div class="staff-initial">S</div><div><div class="staff-name">Saku</div><div class="staff-role">Dealer</div></div></div><div class="staff-quote">"Prescribed the only known cure for Dhezz's chip-losing condition."</div><div class="staff-banter"><span class="banter-label">The situation:</span><span class="banter-text">Dhezz about to give away his stack. Again.</span></div><div class="staff-banter"><span class="banter-label">Saku's prescription:</span><span class="banter-text">"Fevicol." — Hold on to your chips, man.</span></div></div>
+    <div class="staff-card"><div class="staff-top"><div class="staff-initial" style="color:var(--green);">D</div><div><div class="staff-name">Dave</div><div class="staff-role">Dealer</div></div></div><div class="staff-quote">"The only dealer who gets his own personalized greeting. Every. Single. Time."</div><div class="staff-banter"><span class="banter-label">Dhezz, every time:</span><span class="banter-text">"Behave, Dave." &#x1F604;</span></div><div class="staff-banter"><span class="banter-label">Dave's response:</span><span class="banter-text">*deals another bad beat* Mission not accomplished.</span></div></div>
+  </div>
+  <div class="staff-footer">&#x2660; &nbsp; To all the Foxwoods poker room staff — thank you for the memories, the laughs, and for not banning Dhezz yet. You are the real winners here.</div>
+</div>
+
+<div class="ita-section">
+  <p class="ita-label">// The Usual Suspects</p>
+  <h2 class="ita-h2">The Crew — <em>Fellow Fish</em></h2>
+  <p class="ita-body">Every ATM needs its ecosystem. Meet the rest of the table — equally dangerous, equally entertaining, equally unlikely to fold when they should.</p>
+  <div class="crew-grid">
+    <div class="crew-card"><div class="crew-header"><div class="crew-suit">&#x2663;</div><div><div class="crew-name">Manny</div><div class="crew-alias">"The Machine"</div></div></div><div class="crew-bio">Deposits chips like clockwork. Consistent. Reliable. Unstoppable. You could set your watch to the moment he shoves the river with second pair.</div><div class="crew-stats"><div class="crew-stat"><span class="cs-label">Specialty</span><span class="cs-val">Mechanical chip donations</span></div><div class="crew-stat"><span class="cs-label">Tell</span><span class="cs-val">Always looks confident</span></div><div class="crew-stat"><span class="cs-label">Threat Level</span><span class="cs-val cs-green">Bring extra buy-ins</span></div></div></div>
+    <div class="crew-card"><div class="crew-header"><div class="crew-suit" style="color:#c44;">&#x2666;</div><div><div class="crew-name">Jamie</div><div class="crew-alias">"The Tuna"</div></div></div><div class="crew-bio">A classic fish. Never sees it coming — not the bluff, not the set, not the straight on the board. An eternal optimist who believes every hand is the one.</div><div class="crew-stats"><div class="crew-stat"><span class="cs-label">Specialty</span><span class="cs-val">Calling with nothing</span></div><div class="crew-stat"><span class="cs-label">Tell</span><span class="cs-val">Looks at chips before calling</span></div><div class="crew-stat"><span class="cs-label">Threat Level</span><span class="cs-val cs-gold">Occasionally dangerous</span></div></div></div>
+    <div class="crew-card"><div class="crew-header"><div class="crew-suit" style="color:var(--green);">&#x2660;</div><div><div class="crew-name">Jay</div><div class="crew-alias">"Ducky Jay"</div></div></div><div class="crew-bio">The only player whose card protector has better poker instincts than he does. Jay shows up, stacks his chips, places the duck on top — and then gets out of the way.</div><div class="crew-stats"><div class="crew-stat"><span class="cs-label">Specialty</span><span class="cs-val">Letting the duck decide</span></div><div class="crew-stat"><span class="cs-label">Tell</span><span class="cs-val">Always has a rubber duck on his stack</span></div><div class="crew-stat"><span class="cs-label">Threat Level</span><span class="cs-val cs-gold">The duck is scarier</span></div></div></div>
+    <div class="crew-card crew-card-open"><div class="crew-header"><div class="crew-suit" style="color:#333;">&#x2660;</div><div><div class="crew-name">You?</div><div class="crew-alias">"TBD"</div></div></div><div class="crew-bio">The crew has one seat open. Foxwoods. $2/$5. Come sit down, make some bad decisions, and earn your nickname.</div><div class="crew-stats"><div class="crew-stat"><span class="cs-label">Specialty</span><span class="cs-val">Unknown — yet</span></div><div class="crew-stat"><span class="cs-label">Tell</span><span class="cs-val">To be discovered</span></div><div class="crew-stat"><span class="cs-label">Threat Level</span><span class="cs-val" style="color:#333;">Unrated</span></div></div></div>
+  </div>
+</div>
+
+<div class="ita-section">
+  <p class="ita-label">// Hall of Winners</p>
+  <h2 class="ita-h2">The Leaderboard of <em>Grateful Recipients</em></h2>
+  <div class="hall-grid">
+    <div class="winner-card"><div class="winner-rank gold">01</div><div class="winner-name">Manny "The Machine"</div><div class="winner-amount">Clockwork. Every time.</div><div class="winner-note">Deposits so reliably he should be registered as a financial institution. The undisputed champion of giving Dhezz's chips a new home.</div></div>
+    <div class="winner-card"><div class="winner-rank silver">02</div><div class="winner-name">Jamie "The Tuna"</div><div class="winner-amount">Never saw it coming.</div><div class="winner-note">Called every bet, folded none, won somehow. A mystery wrapped in an enigma wrapped in a bad poker hand.</div></div>
+    <div class="winner-card"><div class="winner-rank bronze">03</div><div class="winner-name">Seat Available</div><div class="winner-amount">—</div><div class="winner-note">Third place is wide open. Foxwoods. $2/$5. You know what to do.</div></div>
+  </div>
+  <div class="hall-cta">&#x1F3C6; &nbsp; Won a big pot off Dhezz? DM him on social to claim your spot on the leaderboard.</div>
+</div>
+
+<div style="margin-top:2.5rem;padding:2rem;background:#0c0c0c;border:1px solid #1e1e1e;display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
+  <div style="padding:1.25rem;border:1px solid #1e1e1e;background:var(--black);"><p style="font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green);margin-bottom:.45rem;">Chronicles</p><p style="font-size:.78rem;color:#888;margin-bottom:.7rem;">Stories from dealers, floor staff, and poker life at the Hall of Fame Poker Room.</p><a href="/chronicles" style="color:var(--green);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;">Read Chronicles →</a></div>
+  <div style="padding:1.25rem;border:1px solid #1e1e1e;background:var(--black);"><p style="font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green);margin-bottom:.45rem;">Community</p><p style="font-size:.78rem;color:#888;margin-bottom:.7rem;">Poker players from the ATMwithNoPIN universe — their stories, bad beats, and badges.</p><a href="/community-wall" style="color:var(--green);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;">View Community →</a></div>
+  <div style="padding:1.25rem;border:1px solid #1e1e1e;background:var(--black);"><p style="font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:.45rem;">Get Featured</p><p style="font-size:.78rem;color:#888;margin-bottom:.7rem;">Got a story? Submit your profile and join the ATMwithNoPIN community wall.</p><a href="/request-feature" style="color:var(--gold);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;">Request Feature →</a></div>
+</div>
+`);
+}
+
 const server = http.createServer(async (req, res) => {
   const parsed = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsed.pathname;
@@ -2118,6 +2364,12 @@ const server = http.createServer(async (req, res) => {
     }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderBlogPostPage(post));
+    return;
+  }
+
+  if (pathname === '/inside-the-atm') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderInsideTheATMPage());
     return;
   }
 
@@ -2426,21 +2678,28 @@ const server = http.createServer(async (req, res) => {
         res.end('Homepage not found');
         return;
       }
-      const recentPostsHtml = heroPosts.map((post) => `
-        <article class="recent-post-tile">
-          <p class="meta">${escapeHtml(new Date(post.published_at || post.created_at).toLocaleDateString())}</p>
-          <h4>${escapeHtml(post.title)}</h4>
-          <p>${escapeHtml(post.excerpt || 'Fresh table story coming soon.')}</p>
-          <a href="/blog/${escapeHtml(post.slug)}">Read story →</a>
-        </article>`).join('');
-      const allPostsHtml = pubPosts.map((post) => `
-          <article class="post-card" style="margin-top:.75rem;">
-            ${post.featured_image_url ? `<img src="${escapeHtml(post.featured_image_url)}" alt="${escapeHtml(post.featured_image_alt || post.title)}" />` : ''}
-            <p class="meta">${escapeHtml(new Date(post.published_at || post.created_at).toLocaleDateString())}</p>
-            <h3 style="font-size:1.1rem; margin:.25rem 0;">${escapeHtml(post.title)}</h3>
-            <p class="body-text">${escapeHtml(post.excerpt || '')}</p>
-            <a href="/blog/${escapeHtml(post.slug)}" style="display:inline-block; margin-top:.5rem;">Read story →</a>
-          </article>`).join('');
+      const featPost = pubPosts[0];
+      const compactPosts = pubPosts.slice(1, 4);
+      const featuredHtml = featPost ? `
+        <div class="featured-story-card">
+          <div class="fs-image">
+            ${featPost.featured_image_url
+              ? `<img src="${escapeHtml(featPost.featured_image_url)}" alt="${escapeHtml(featPost.featured_image_alt || featPost.title)}" loading="lazy">`
+              : `<div class="fs-no-image">♠</div>`}
+          </div>
+          <div class="fs-content">
+            <div class="fs-date">${escapeHtml(new Date(featPost.published_at || featPost.created_at).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}))}</div>
+            <div class="fs-title"><a href="/blog/${escapeHtml(featPost.slug)}">${escapeHtml(featPost.title)}</a></div>
+            <p class="fs-excerpt">${escapeHtml((featPost.excerpt || '').slice(0, 180))}${(featPost.excerpt || '').length > 180 ? '…' : ''}</p>
+            <a href="/blog/${escapeHtml(featPost.slug)}" class="fs-cta">Read Story →</a>
+          </div>
+        </div>
+        ${compactPosts.length ? `<div class="compact-stories">${compactPosts.map((p) => `
+          <div class="compact-story">
+            <div class="cs-date">${escapeHtml(new Date(p.published_at || p.created_at).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}))}</div>
+            <div class="cs-title"><a href="/blog/${escapeHtml(p.slug)}">${escapeHtml(p.title)}</a></div>
+            <a href="/blog/${escapeHtml(p.slug)}" class="cs-link">Read →</a>
+          </div>`).join('')}</div>` : ''}` : '<div class="notice">No published posts yet.</div>';
       const chronPreviewHtml = featChron.length ? featChron.map((c) => `
           <article class="hof-preview-card">
             <div class="hof-preview-cat">${escapeHtml(c.category || 'Chronicles')}</div>
@@ -2496,8 +2755,8 @@ const server = http.createServer(async (req, res) => {
         </div>
       </section>`;
       const html = data
-        .replace('<!-- BLOG_PREVIEW -->', `<section class="schedule" id="latest" style="border-top:1px solid #1a1a1a;"><p class="section-label">// Latest from the ATM</p><h2>Latest from the ATM</h2><p class="body-text" style="max-width:60ch;">Fresh table stories, tournament notes, and bad beats from the ATMwithNoPIN™ world.</p><div class="posts">${allPostsHtml || '<div class="notice">No published posts yet. Publish your first story in the admin area.</div>'}</div><div style="margin-top:1.5rem;"><a href="/blog" style="display:inline-block;color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View all stories on the blog →</a></div></section>`)
-        .replace('<!-- RECENT_POSTS -->', recentPostsHtml || '<div class="notice">No published posts yet.</div>')
+        .replace('<!-- BLOG_PREVIEW -->', `<div class="section-divider"><div class="hp-section" id="stories"><p class="section-label">// Latest from the ATM</p><h2>Latest Stories</h2>${featuredHtml}<div class="section-cta-row"><a href="/blog" class="section-cta-link">View all stories →</a></div></div></div>`)
+        .replace('<!-- RECENT_POSTS -->', '')
         .replace('<!-- CHRONICLES_PREVIEW -->', chronSection)
         .replace('<!-- COMMUNITY_PREVIEW -->', communitySection)
         .replace(/ATM With No PIN — Dhezz/g, 'ATMwithNoPIN™ Poker | Official Site')

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta name="description" content="Official home of ATMwithNoPIN™ Poker, the poker entertainment brand of Dhezz." />
+  <meta name="description" content="ATMwithNoPIN™ — official poker entertainment brand of Dhezz. Table stories, tournament results, and the occasional suspicious river call." />
   <title>ATMwithNoPIN™ Poker | Official Site</title>
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
@@ -20,12 +20,13 @@
       --offwhite: #f0ece0;
       --gray: #888;
       --card-white: #fafaf5;
+      --max-w: 1280px;
     }
 
     html { scroll-behavior: smooth; }
 
     body {
-      background-color: var(--black);
+      background: var(--black);
       color: var(--offwhite);
       font-family: 'DM Mono', monospace;
       overflow-x: hidden;
@@ -48,174 +49,143 @@
       background: var(--green);
       color: var(--black);
       font-family: 'DM Mono', monospace;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: 500;
       letter-spacing: 0.08em;
       overflow: hidden;
       white-space: nowrap;
-      padding: 6px 0;
+      padding: 5px 0;
       position: sticky;
       top: 0;
       z-index: 99;
     }
-    .ticker-track {
-      display: inline-block;
-      animation: ticker 30s linear infinite;
-    }
+    .ticker-track { display: inline-block; animation: ticker 32s linear infinite; }
     .ticker-track span { margin: 0 3rem; }
-    @keyframes ticker {
-      from { transform: translateX(0); }
-      to { transform: translateX(-50%); }
-    }
+    @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
     /* ─── NAV ─── */
+    .nav-outer { border-bottom: 1px solid #1a1a1a; }
     nav {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1.2rem 2.5rem;
-      border-bottom: 1px solid #1a1a1a;
+      padding: 1.1rem 2.5rem;
+      max-width: var(--max-w);
+      margin: 0 auto;
       position: relative;
-      z-index: 10;
+      z-index: 50;
     }
-    .nav-logo {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem;
-      color: var(--green);
-      text-decoration: none;
-    }
-    .site-logo {
-      display: block;
-      width: auto;
-      max-height: 40px;
-    }
+    .nav-logo { display: inline-flex; align-items: center; color: var(--green); text-decoration: none; }
+    .site-logo { display: block; width: auto; max-height: 36px; }
     .nav-links {
       display: flex;
-      gap: 2rem;
+      gap: 1.75rem;
       list-style: none;
+      align-items: center;
     }
     .nav-links a {
       text-decoration: none;
       color: var(--gray);
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       transition: color 0.2s;
     }
     .nav-links a:hover { color: var(--offwhite); }
+    .nav-cta {
+      background: var(--green) !important;
+      color: var(--black) !important;
+      padding: 0.38rem 0.9rem;
+    }
+    .nav-cta:hover { background: #00ff6a !important; }
+    .nav-toggle {
+      display: none;
+      background: none;
+      border: 1px solid #2a2a2a;
+      color: var(--offwhite);
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 0.35rem 0.65rem;
+      line-height: 1;
+    }
 
     /* ─── HERO ─── */
     .hero {
-      min-height: 92vh;
+      min-height: 88vh;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 0;
-      position: relative;
-      overflow: hidden;
+      max-width: var(--max-w);
+      margin: 0 auto;
     }
-
     .hero-left {
       display: flex;
       flex-direction: column;
       justify-content: center;
-      padding: 5rem 4rem 5rem 5rem;
-      position: relative;
-      z-index: 2;
+      padding: 5rem 4rem 5rem 2.5rem;
     }
-
     .eyebrow {
-      font-size: 0.7rem;
+      font-size: 0.62rem;
       letter-spacing: 0.25em;
       text-transform: uppercase;
       color: var(--green);
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
       opacity: 0;
-      animation: fadeUp 0.6s ease forwards 0.2s;
+      animation: fadeUp 0.6s ease forwards 0.15s;
     }
-
     h1 {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: clamp(4.5rem, 8vw, 8rem);
-      line-height: 0.9;
+      font-size: clamp(3.6rem, 7vw, 7rem);
+      line-height: 0.93;
       letter-spacing: 0.03em;
       color: var(--offwhite);
       opacity: 0;
-      animation: fadeUp 0.7s ease forwards 0.4s;
+      animation: fadeUp 0.7s ease forwards 0.3s;
     }
     h1 .accent { color: var(--green); }
-    h1 .italic {
-      font-family: 'DM Serif Display', serif;
-      font-style: italic;
-      color: var(--gold);
-    }
-
+    h1 .italic { font-family: 'DM Serif Display', serif; font-style: italic; color: var(--gold); }
     .hero-sub {
-      margin-top: 2rem;
-      font-size: 0.85rem;
-      line-height: 1.8;
+      margin-top: 1.75rem;
+      font-size: 0.82rem;
+      line-height: 1.85;
       color: var(--gray);
-      max-width: 38ch;
+      max-width: 44ch;
       opacity: 0;
-      animation: fadeUp 0.7s ease forwards 0.6s;
+      animation: fadeUp 0.7s ease forwards 0.5s;
     }
-    .hero-sub strong { color: var(--offwhite); }
-    .hero-brand-line {
-      margin-top: 1rem;
-      font-size: 0.78rem;
-      line-height: 1.7;
-      color: var(--offwhite);
-      max-width: 42ch;
-      opacity: 0;
-      animation: fadeUp 0.7s ease forwards 0.55s;
-    }
-
     .hero-cta {
       display: flex;
-      gap: 1rem;
-      margin-top: 2.5rem;
+      gap: 0.75rem;
+      margin-top: 2.25rem;
+      flex-wrap: wrap;
       opacity: 0;
-      animation: fadeUp 0.7s ease forwards 0.8s;
+      animation: fadeUp 0.7s ease forwards 0.7s;
     }
     .btn {
-      padding: 0.75rem 1.8rem;
+      padding: 0.7rem 1.6rem;
       font-family: 'DM Mono', monospace;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       border: none;
       cursor: pointer;
       text-decoration: none;
       transition: all 0.2s;
+      display: inline-block;
     }
-    .btn-primary {
-      background: var(--green);
-      color: var(--black);
-      font-weight: 500;
-    }
-    .btn-primary:hover {
-      background: #00ff6a;
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0,200,83,0.3);
-    }
-    .btn-ghost {
-      background: transparent;
-      color: var(--offwhite);
-      border: 1px solid #2a2a2a;
-    }
+    .btn-primary { background: var(--green); color: var(--black); font-weight: 500; }
+    .btn-primary:hover { background: #00ff6a; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,200,83,0.25); }
+    .btn-ghost { background: transparent; color: var(--offwhite); border: 1px solid #2a2a2a; }
     .btn-ghost:hover { border-color: var(--offwhite); }
 
-    /* ─── HERO RIGHT — ATM VISUAL ─── */
+    /* ─── HERO RIGHT — ATM CARD ─── */
     .hero-right {
       display: flex;
       align-items: center;
       justify-content: center;
-      position: relative;
       background: var(--felt);
+      position: relative;
       overflow: hidden;
     }
-
-    /* Felt texture */
     .hero-right::before {
       content: '';
       position: absolute;
@@ -224,113 +194,34 @@
         repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px),
         radial-gradient(ellipse at center, #1a4a2e 0%, #0a2016 100%);
     }
-
     .atm-card {
       position: relative;
       z-index: 2;
-      width: 380px;
-      max-width: 100%;
+      width: 340px;
+      max-width: 90%;
       background: linear-gradient(135deg, #1c1c1c 0%, #2a2a2a 100%);
       border-radius: 18px;
-      padding: 1.25rem;
-      box-shadow:
-        0 40px 80px rgba(0,0,0,0.6),
-        0 0 0 1px rgba(255,255,255,0.06),
-        inset 0 1px 0 rgba(255,255,255,0.1);
+      padding: 1.5rem;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.1);
       animation: float 4s ease-in-out infinite;
     }
-    .recent-posts-card { display:flex; flex-direction:column; gap:.75rem; }
-    .recent-posts-card h3 { font-family:'DM Serif Display',serif; font-size:1.1rem; line-height:1.2; color:var(--offwhite); }
-    .recent-posts-scroll {
-      max-height: 380px;
-      overflow-y: auto;
-      display:flex;
-      flex-direction:column;
-      gap:.65rem;
-      padding-right:.2rem;
-    }
-    .recent-post-tile {
-      border:1px solid #2a2a2a;
-      border-radius:12px;
-      background:#121212;
-      padding:.75rem;
-    }
-    .recent-post-tile .meta { margin-bottom:.2rem; }
-    .recent-post-tile h4 { font-family:'DM Serif Display',serif; font-size:1rem; color:var(--offwhite); margin-bottom:.25rem; }
-    .recent-post-tile p { color:#c8c8c8; font-size:.78rem; line-height:1.45; }
-    .recent-post-tile a { color:var(--green); font-size:.72rem; text-transform:uppercase; letter-spacing:.12em; }
-    .recent-post-controls { display:flex; gap:.5rem; justify-content:flex-end; }
-    .mini-btn {
-      border:1px solid #2a2a2a;
-      background:#111;
-      color:var(--offwhite);
-      border-radius:999px;
-      padding:.35rem .55rem;
-      font-size:.65rem;
-      text-transform:uppercase;
-      letter-spacing:.12em;
-      cursor:pointer;
-    }
-    @keyframes float {
-      0%, 100% { transform: translateY(0px) rotate(-2deg); }
-      50% { transform: translateY(-14px) rotate(-2deg); }
-    }
     .card-chip {
-      width: 42px;
-      height: 32px;
+      width: 42px; height: 32px;
       background: linear-gradient(135deg, var(--gold), #8a6a20);
       border-radius: 5px;
-      margin-bottom: 1.5rem;
+      margin-bottom: 2rem;
       position: relative;
     }
-    .card-chip::after {
-      content: '';
-      position: absolute;
-      inset: 6px;
-      border: 1px solid rgba(0,0,0,0.3);
-      border-radius: 2px;
-    }
-    .card-number {
-      font-family: 'DM Mono', monospace;
-      font-size: 1rem;
-      letter-spacing: 0.2em;
-      color: var(--offwhite);
-      margin-bottom: 1.5rem;
-      opacity: 0.9;
-    }
-    .card-bottom {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-    }
-    .card-name {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.2rem;
-      letter-spacing: 0.15em;
-      color: var(--offwhite);
-    }
-    .card-tagline {
-      font-size: 0.55rem;
-      letter-spacing: 0.1em;
-      color: var(--green);
-      text-transform: uppercase;
-    }
-    .no-pin-badge {
-      background: var(--green);
-      color: var(--black);
-      font-size: 0.6rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      padding: 4px 8px;
-      border-radius: 3px;
-      text-transform: uppercase;
-    }
+    .card-chip::after { content: ''; position: absolute; inset: 6px; border: 1px solid rgba(0,0,0,0.3); border-radius: 2px; }
+    .card-number { font-size: 0.95rem; letter-spacing: 0.2em; color: var(--offwhite); margin-bottom: 2rem; opacity: 0.85; }
+    .card-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
+    .card-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 0.15em; color: var(--offwhite); }
+    .card-tagline { font-size: 0.52rem; letter-spacing: 0.1em; color: var(--green); text-transform: uppercase; margin-top: 0.2rem; }
+    .no-pin-badge { background: var(--green); color: var(--black); font-size: 0.58rem; font-weight: 600; letter-spacing: 0.1em; padding: 4px 8px; border-radius: 3px; text-transform: uppercase; }
 
-    /* scatter cards behind */
     .scatter-card {
       position: absolute;
-      width: 120px;
-      height: 80px;
+      width: 110px; height: 75px;
       background: var(--card-white);
       border-radius: 8px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.4);
@@ -338,7 +229,7 @@
       align-items: center;
       justify-content: center;
       font-family: 'DM Serif Display', serif;
-      font-size: 1.6rem;
+      font-size: 1.5rem;
       font-weight: bold;
     }
     .sc1 { top: 15%; left: 8%; transform: rotate(-15deg); color: #cc2200; animation: float 5s ease-in-out infinite 0.5s; }
@@ -346,10 +237,8 @@
     .sc3 { bottom: 15%; left: 12%; transform: rotate(8deg); color: #cc2200; animation: float 5.5s ease-in-out infinite 0.2s; }
     .sc4 { bottom: 20%; right: 8%; transform: rotate(-10deg); color: #0a0a0a; animation: float 4s ease-in-out infinite 0.8s; }
 
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+    @keyframes float { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-14px) rotate(-2deg); } }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
     /* ─── STATS BAR ─── */
     .stats-bar {
@@ -358,595 +247,164 @@
       display: grid;
       grid-template-columns: repeat(4, 1fr);
     }
-    .stat {
-      padding: 2rem;
-      border-right: 1px solid #1a1a1a;
-      text-align: center;
-    }
+    .stat { padding: 2rem; border-right: 1px solid #1a1a1a; text-align: center; }
     .stat:last-child { border-right: none; }
-    .stat-num {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 2.8rem;
-      color: var(--green);
-      letter-spacing: 0.05em;
-      line-height: 1;
-    }
-    .stat-label {
-      font-size: 0.65rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--gray);
-      margin-top: 0.4rem;
-    }
+    .stat-num { font-family: 'Bebas Neue', sans-serif; font-size: 2.8rem; color: var(--green); letter-spacing: 0.05em; line-height: 1; }
+    .stat-label { font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gray); margin-top: 0.4rem; }
 
-    /* ─── ABOUT ─── */
-    .about {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0;
-    }
-    .about-text {
-      padding: 5rem;
-      border-right: 1px solid #1a1a1a;
-    }
-    .section-label {
-      font-size: 0.65rem;
-      letter-spacing: 0.25em;
-      text-transform: uppercase;
-      color: var(--green);
-      margin-bottom: 1.5rem;
-    }
-    h2 {
-      font-family: 'DM Serif Display', serif;
-      font-size: clamp(2rem, 3.5vw, 3rem);
-      line-height: 1.2;
-      color: var(--offwhite);
-      margin-bottom: 1.5rem;
-    }
+    /* ─── SHARED SECTION UTILITIES ─── */
+    /* Used by server-injected sections (chronicles, community, blog) */
+    .schedule { padding: 5rem 2.5rem; max-width: var(--max-w); margin: 0 auto; }
+    .section-label { font-size: 0.62rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--green); margin-bottom: 1.25rem; }
+    h2 { font-family: 'DM Serif Display', serif; font-size: clamp(1.9rem, 3.5vw, 2.8rem); line-height: 1.15; color: var(--offwhite); margin-bottom: 0.75rem; }
     h2 em { color: var(--gold); font-style: italic; }
-    .body-text {
-      font-size: 0.82rem;
-      line-height: 1.9;
-      color: #999;
-      max-width: 45ch;
-    }
-    .body-text + .body-text { margin-top: 1rem; }
+    .body-text { font-size: 0.82rem; line-height: 1.9; color: #999; max-width: 56ch; }
+    .notice { border: 1px solid #1e1e1e; background: #111; padding: 0.8rem; color: var(--offwhite); border-radius: 12px; font-size: 0.82rem; }
 
-    .about-rules {
-      padding: 5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-    .rule {
-      padding: 1.5rem;
+    /* ─── HP SECTION (homepage content sections) ─── */
+    .hp-section { padding: 5rem 2.5rem; max-width: var(--max-w); margin: 0 auto; }
+    .section-divider { border-top: 1px solid #1a1a1a; }
+
+    /* ─── FEATURED STORY ─── */
+    .featured-story-card {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
       border: 1px solid #1e1e1e;
-      position: relative;
+      border-radius: 16px;
       overflow: hidden;
-      transition: border-color 0.3s;
-    }
-    .rule:hover { border-color: var(--green-dim); }
-    .rule::before {
-      content: '';
-      position: absolute;
-      left: 0; top: 0; bottom: 0;
-      width: 3px;
-      background: var(--green);
-      transform: scaleY(0);
-      transition: transform 0.3s;
-      transform-origin: bottom;
-    }
-    .rule:hover::before { transform: scaleY(1); }
-    .rule-num {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 0.75rem;
-      letter-spacing: 0.2em;
-      color: var(--green);
-      margin-bottom: 0.4rem;
-    }
-    .rule-title {
-      font-family: 'DM Serif Display', serif;
-      font-size: 1.1rem;
-      color: var(--offwhite);
-      margin-bottom: 0.4rem;
-    }
-    .rule-body { font-size: 0.75rem; color: var(--gray); line-height: 1.7; }
-
-    /* ─── SCHEDULE ─── */
-    .schedule { padding: 5rem; border-top: 1px solid #1a1a1a; }
-    .schedule-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      margin-bottom: 3rem;
-    }
-    .schedule-grid { display: grid; gap: 1px; background: #1a1a1a; }
-    .schedule-row {
-      display: grid;
-      grid-template-columns: 120px 1fr 120px 140px;
-      gap: 2rem;
-      padding: 1.5rem 2rem;
-      background: var(--black);
-      align-items: center;
-      transition: background 0.2s;
-    }
-    .schedule-row:hover { background: #0e0e0e; }
-    .schedule-row.header {
-      font-size: 0.6rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--gray);
-      background: #080808;
-    }
-    .sched-date { font-family: 'DM Mono', monospace; font-size: 0.78rem; color: var(--green); }
-    .sched-venue { font-size: 0.82rem; color: var(--offwhite); }
-    .sched-game { font-size: 0.72rem; color: var(--gray); }
-    .sched-status {
-      display: inline-block;
-      padding: 4px 10px;
-      font-size: 0.6rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      border-radius: 2px;
-    }
-    .status-confirmed { background: rgba(0,200,83,0.15); color: var(--green); border: 1px solid var(--green-dim); }
-    .status-likely { background: rgba(201,168,76,0.12); color: var(--gold); border: 1px solid rgba(201,168,76,0.3); }
-    .status-tbd { background: #111; color: var(--gray); border: 1px solid #222; }
-    .no-schedule {
-      padding: 3rem;
-      text-align: center;
-      color: var(--gray);
-      font-size: 0.8rem;
-      letter-spacing: 0.1em;
-      border: 1px dashed #222;
-    }
-
-    /* ─── HALL OF WINNERS ─── */
-    .hall { padding: 5rem; border-top: 1px solid #1a1a1a; background: #070707; }
-    .hall-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1px;
-      background: #1a1a1a;
-      margin-top: 3rem;
-    }
-    .winner-card {
-      background: var(--black);
-      padding: 2rem;
-      transition: background 0.2s;
-    }
-    .winner-card:hover { background: #0d0d0d; }
-    .winner-rank {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 3rem;
-      color: #1a1a1a;
-      line-height: 1;
-      margin-bottom: 0.5rem;
-    }
-    .winner-rank.gold { color: rgba(201,168,76,0.4); }
-    .winner-rank.silver { color: rgba(180,180,180,0.3); }
-    .winner-rank.bronze { color: rgba(140,90,50,0.3); }
-    .winner-name { font-family: 'DM Serif Display', serif; font-size: 1.3rem; color: var(--offwhite); }
-    .winner-amount { color: var(--green); font-size: 0.85rem; margin-top: 0.3rem; }
-    .winner-note { font-size: 0.7rem; color: var(--gray); margin-top: 0.5rem; line-height: 1.5; }
-    .hall-cta {
+      background: #0c0c0c;
       margin-top: 2rem;
-      text-align: center;
-      font-size: 0.75rem;
-      color: var(--gray);
     }
-
-    /* ─── STAFF SECTION ─── */
-    .staff-section {
-      padding: 5rem;
-      border-top: 1px solid #1a1a1a;
-      background: #070707;
-    }
-    .staff-intro { margin-bottom: 3rem; }
-    .staff-role-label {
-      font-size: 0.6rem;
-      letter-spacing: 0.25em;
-      text-transform: uppercase;
-      color: var(--green);
-      margin-bottom: 1.5rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid #1a1a1a;
-    }
-    .staff-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1px;
-      background: #1a1a1a;
-    }
-    .staff-card {
-      background: #0a0a0a;
-      padding: 1.8rem;
-      transition: background 0.2s;
-      display: flex;
-      flex-direction: column;
-      gap: 0.8rem;
-    }
-    .staff-card:hover { background: #0e0e0e; }
-    .staff-top {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 0.3rem;
-    }
-    .staff-initial {
-      width: 44px;
-      height: 44px;
-      border: 1px solid #2a2a2a;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.4rem;
-      letter-spacing: 0.05em;
-      color: var(--green);
-      flex-shrink: 0;
-    }
-    .staff-name {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.4rem;
-      letter-spacing: 0.1em;
-      color: var(--offwhite);
-      line-height: 1;
-    }
-    .staff-role {
-      font-size: 0.58rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--gray);
-      margin-top: 0.2rem;
-    }
-    .staff-quote {
-      font-family: 'DM Serif Display', serif;
-      font-style: italic;
-      font-size: 0.82rem;
-      color: var(--gray);
-      line-height: 1.6;
-      padding-left: 0.8rem;
-      border-left: 2px solid #1e1e1e;
-    }
-    .staff-banter {
-      display: flex;
-      flex-direction: column;
-      gap: 0.2rem;
-      padding: 0.6rem 0.8rem;
-      background: #111;
-      border: 1px solid #1a1a1a;
-    }
-    .banter-label {
-      font-size: 0.58rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #444;
-    }
-    .banter-text {
-      font-size: 0.75rem;
-      color: var(--offwhite);
-      line-height: 1.5;
-    }
-    .staff-footer {
-      margin-top: 3rem;
-      padding: 1.5rem;
-      border: 1px solid #1a1a1a;
-      text-align: center;
-      font-size: 0.72rem;
-      color: var(--gray);
-      font-style: italic;
-      line-height: 1.8;
-    }
-
-    /* ─── FOXWOODS FEATURE ─── */
-    .foxwoods-feature {
-      display: grid;
-      grid-template-columns: 1fr 2fr;
-      border-top: 1px solid #1a1a1a;
-      border-bottom: 1px solid #1a1a1a;
-      overflow: hidden;
-    }
-    .fw-left {
+    .fs-image { position: relative; background: var(--felt); overflow: hidden; min-height: 280px; }
+    .fs-image img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.4s ease; }
+    .fs-image:hover img { transform: scale(1.03); }
+    .fs-no-image {
+      width: 100%; min-height: 280px;
       background: var(--felt);
-      padding: 4rem 3rem;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      position: relative;
-      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 5rem; color: rgba(0,200,83,0.08);
     }
-    .fw-left::before {
-      content: '♠';
-      position: absolute;
-      bottom: -1rem;
-      right: -1rem;
-      font-size: 10rem;
-      color: rgba(0,200,83,0.06);
-      line-height: 1;
-      pointer-events: none;
-    }
-    .fw-left h2 {
-      font-size: clamp(2.5rem, 4vw, 4rem);
-      color: var(--offwhite);
-      margin-bottom: 0.8rem;
-    }
-    .fw-left h2 em { color: var(--green); }
-    .fw-tag {
-      font-size: 0.65rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--green-dim);
-      margin-top: 0.5rem;
-      line-height: 1.6;
-    }
-    .fw-right {
-      padding: 4rem;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 1.5rem;
-      border-left: 1px solid #1a1a1a;
-    }
-    .fw-quote {
-      font-family: 'DM Serif Display', serif;
-      font-size: clamp(1.3rem, 2.2vw, 1.8rem);
-      font-style: italic;
-      color: var(--offwhite);
-      line-height: 1.4;
-      padding-left: 1.5rem;
-      border-left: 3px solid var(--green);
-    }
-    .fw-body {
-      font-size: 0.82rem;
-      line-height: 1.9;
-      color: var(--gray);
-      max-width: 52ch;
-    }
-    .fw-punchline {
-      font-family: 'DM Serif Display', serif;
-      font-size: 1.1rem;
-      font-style: italic;
-      color: var(--gold);
-    }
-    .fw-stats {
-      display: flex;
-      gap: 2rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid #1a1a1a;
-      flex-wrap: wrap;
-    }
-    .fw-stat { display: flex; flex-direction: column; gap: 0.2rem; }
-    .fw-stat-num {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 2rem;
-      color: var(--green);
-      line-height: 1;
-      letter-spacing: 0.05em;
-    }
-    .fw-stat-label {
-      font-size: 0.6rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--gray);
-    }
+    .fs-content { padding: 2.5rem; display: flex; flex-direction: column; justify-content: center; }
+    .fs-date { font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--green); margin-bottom: 0.75rem; }
+    .fs-title { font-family: 'DM Serif Display', serif; font-size: clamp(1.25rem, 2.5vw, 1.8rem); line-height: 1.2; color: var(--offwhite); margin-bottom: 1rem; }
+    .fs-title a { color: inherit; text-decoration: none; }
+    .fs-title a:hover { color: var(--green); }
+    .fs-excerpt { font-size: 0.78rem; line-height: 1.85; color: #888; margin-bottom: 1.5rem; }
+    .fs-cta { display: inline-block; background: var(--green); color: var(--black); padding: 0.6rem 1.4rem; font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; font-family: 'DM Mono', monospace; transition: background 0.2s; align-self: flex-start; }
+    .fs-cta:hover { background: #00ff6a; }
 
-    /* ─── THE CREW ─── */
-    .crew-grid {
+    .compact-stories {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 1px;
       background: #1a1a1a;
-      margin-top: 0;
+      margin-top: 1px;
+      border-radius: 0 0 16px 16px;
+      overflow: hidden;
     }
-    .crew-card {
-      background: var(--black);
-      padding: 2rem;
-      transition: background 0.2s;
-      border-left: 3px solid transparent;
-    }
-    .crew-card:hover { background: #0d0d0d; border-left-color: var(--green); }
-    .crew-card-open { border-left: 3px solid #1a1a1a !important; }
-    .crew-card-open:hover { border-left-color: #2a2a2a !important; }
-    .crew-header {
-      display: flex;
-      align-items: center;
+    .compact-story { background: #0c0c0c; padding: 1.25rem 1.5rem; transition: background 0.2s; }
+    .compact-story:hover { background: #111; }
+    .cs-date { font-size: 0.58rem; color: var(--green); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.5rem; }
+    .cs-title { font-family: 'DM Serif Display', serif; font-size: 0.9rem; line-height: 1.3; color: var(--offwhite); margin-bottom: 0.6rem; }
+    .cs-title a { color: inherit; text-decoration: none; }
+    .cs-title a:hover { color: var(--green); }
+    .cs-link { font-size: 0.62rem; color: var(--green); text-transform: uppercase; letter-spacing: 0.1em; text-decoration: none; }
+    .section-cta-row { margin-top: 2rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+    .section-cta-link { color: var(--green); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.12em; text-decoration: none; }
+    .section-cta-link:hover { color: var(--offwhite); }
+
+    /* ─── TOURNAMENT JOURNEY ─── */
+    .tournament-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 1rem;
-      margin-bottom: 1.2rem;
+      margin-top: 2rem;
     }
-    .crew-photo {
-      width: 100%;
-      height: 220px;
-      object-fit: cover;
-      border-radius: 12px;
-      border: 1px solid #111;
-      margin-bottom: 1.2rem;
-    }
-    .crew-suit {
-      font-size: 2.5rem;
-      color: var(--green);
-      line-height: 1;
-    }
-    .crew-name {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.8rem;
-      letter-spacing: 0.08em;
-      color: var(--offwhite);
-      line-height: 1;
-    }
-    .crew-alias {
-      font-family: 'DM Serif Display', serif;
-      font-style: italic;
-      font-size: 0.85rem;
-      color: var(--gold);
-      margin-top: 0.2rem;
-    }
-    .crew-bio {
-      font-size: 0.75rem;
-      line-height: 1.8;
-      color: var(--gray);
-      margin-bottom: 1.5rem;
-    }
-    .crew-stats { display: flex; flex-direction: column; gap: 0.5rem; }
-    .crew-stat {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.4rem 0;
-      border-top: 1px solid #111;
-      font-size: 0.68rem;
-    }
-    .cs-label { color: #444; letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.6rem; }
-    .cs-val { color: var(--offwhite); text-align: right; }
-    .cs-green { color: var(--green); }
-    .cs-gold { color: var(--gold); }
+    .t-card { border: 1px solid #1e1e1e; background: #0c0c0c; border-radius: 14px; padding: 1.75rem; transition: border-color 0.2s; }
+    .t-card:hover { border-color: var(--green-dim); }
+    .t-label { font-size: 0.58rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green); margin-bottom: 0.75rem; }
+    .t-num { font-family: 'Bebas Neue', sans-serif; font-size: 2.4rem; color: var(--offwhite); letter-spacing: 0.05em; line-height: 1; margin-bottom: 0.4rem; }
+    .t-num.gold { color: var(--gold); }
+    .t-desc { font-size: 0.75rem; color: var(--gray); line-height: 1.65; }
 
     /* ─── FOLLOW ─── */
-    .follow {
-      padding: 5rem;
-      border-top: 1px solid #1a1a1a;
+    .follow-section {
+      padding: 5rem 2.5rem;
+      max-width: var(--max-w);
+      margin: 0 auto;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 5rem;
+      gap: 4rem;
       align-items: center;
     }
-    .follow h2 { margin-bottom: 1rem; }
-    .social-links { display: flex; flex-direction: column; gap: 1rem; }
+    .social-links { display: flex; flex-direction: column; gap: 0.85rem; margin-top: 1.75rem; }
     .social-link {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
+      display: flex; align-items: center; gap: 1rem;
       padding: 1rem 1.5rem;
       border: 1px solid #1e1e1e;
-      text-decoration: none;
-      color: var(--offwhite);
-      font-size: 0.78rem;
-      letter-spacing: 0.08em;
+      text-decoration: none; color: var(--offwhite);
+      font-size: 0.78rem; letter-spacing: 0.08em;
       transition: all 0.2s;
     }
-    .social-link:hover {
-      border-color: var(--green);
-      color: var(--green);
-      transform: translateX(6px);
-    }
-    .social-icon { font-size: 1.1rem; width: 24px; }
-    .social-handle { margin-left: auto; color: var(--gray); font-size: 0.7rem; }
-
-    .tagline-block {
-      padding: 2.5rem;
-      border: 1px solid #1e1e1e;
-      position: relative;
-    }
+    .social-link:hover { border-color: var(--green); color: var(--green); transform: translateX(5px); }
+    .social-icon { font-size: 1rem; width: 22px; }
+    .social-handle { margin-left: auto; color: var(--gray); font-size: 0.68rem; }
+    .tagline-block { padding: 2.5rem; border: 1px solid #1e1e1e; position: relative; }
     .tagline-block::before {
       content: '"';
-      position: absolute;
-      top: -1.5rem;
-      left: 1.5rem;
+      position: absolute; top: -1.25rem; left: 1.5rem;
       font-family: 'DM Serif Display', serif;
-      font-size: 5rem;
-      color: var(--green);
-      line-height: 1;
+      font-size: 4.5rem; color: var(--green); line-height: 1;
     }
-    .tagline-text {
-      font-family: 'DM Serif Display', serif;
-      font-size: 1.5rem;
-      font-style: italic;
-      color: var(--offwhite);
-      line-height: 1.4;
-    }
-    .tagline-attr {
-      margin-top: 1rem;
-      font-size: 0.7rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--gray);
-    }
+    .tagline-text { font-family: 'DM Serif Display', serif; font-size: 1.35rem; font-style: italic; color: var(--offwhite); line-height: 1.4; }
+    .tagline-attr { margin-top: 1rem; font-size: 0.68rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gray); }
 
     /* ─── FOOTER ─── */
+    .footer-outer { border-top: 1px solid #1a1a1a; }
     footer {
-      border-top: 1px solid #1a1a1a;
-      padding: 2rem 4rem;
+      padding: 2rem 2.5rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.65rem;
+      font-size: 0.62rem;
       letter-spacing: 0.1em;
       color: #444;
+      max-width: var(--max-w);
+      margin: 0 auto;
     }
-    .footer-logo {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 1rem;
-      letter-spacing: 0.2em;
-      color: #333;
-    }
+    .footer-logo { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 0.2em; color: #333; }
 
     /* ─── RESPONSIVE ─── */
-    @media (max-width: 900px) {
-      .hero { grid-template-columns: 1fr; min-height: auto; }
-      .hero-right { height: 380px; }
-      .hero-left { padding: 3rem 2rem; }
-      .stats-bar { grid-template-columns: repeat(2,1fr); }
-      .stat:nth-child(2) { border-right: none; }
-      .about { grid-template-columns: 1fr; }
-      .about-text { border-right: none; border-bottom: 1px solid #1a1a1a; padding: 3rem 2rem; }
-      .about-rules { padding: 3rem 2rem; }
-      .schedule { padding: 3rem 2rem; }
-      .schedule-row { grid-template-columns: 1fr 1fr; gap: 0.8rem; font-size: 0.75rem; }
-      .schedule-row.header { display: none; }
-      .hall { padding: 3rem 2rem; }
-      .hall-grid { grid-template-columns: 1fr; }
-      .crew-grid { grid-template-columns: 1fr; }
-      .follow { grid-template-columns: 1fr; gap: 2rem; padding: 3rem 2rem; }
-      .staff-section { padding: 3rem 2rem; }
-      .staff-grid { grid-template-columns: 1fr; }
-      .fw-left { padding: 3rem 2rem; }
-      .fw-right { padding: 3rem 2rem; border-left: none; border-top: 1px solid #1a1a1a; }
+    @media (max-width: 980px) {
       nav { padding: 1rem 1.5rem; }
-      .nav-links { gap: 1rem; }
+      .nav-toggle { display: block; }
+      .nav-links {
+        display: none;
+        flex-direction: column;
+        position: absolute;
+        top: 100%;
+        left: 0; right: 0;
+        background: #0d0d0d;
+        border-bottom: 1px solid #1a1a1a;
+        padding: 1.25rem 1.5rem;
+        gap: 1.1rem;
+        z-index: 49;
+      }
+      .nav-links.open { display: flex; }
+      .hero { grid-template-columns: 1fr; min-height: auto; }
+      .hero-left { padding: 3rem 1.5rem; }
+      .hero-right { height: 300px; }
+      h1 { font-size: clamp(3rem, 12vw, 5rem); }
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .stat:nth-child(2) { border-right: none; }
+      .hp-section, .schedule { padding: 3.5rem 1.5rem; }
+      .featured-story-card { grid-template-columns: 1fr; }
+      .fs-image { min-height: 220px; }
+      .compact-stories { grid-template-columns: 1fr; }
+      .tournament-grid { grid-template-columns: 1fr; }
+      .follow-section { grid-template-columns: 1fr; gap: 2rem; padding: 3rem 1.5rem; }
       footer { flex-direction: column; gap: 0.5rem; text-align: center; padding: 1.5rem; }
-    }
-
-    /* ─── DHEZZ PORTRAIT ─── */
-    .dhezz-portrait {
-      border: 1px solid #1e1e1e;
-      overflow: hidden;
-      position: relative;
-      background: #f0ece0;
-    }
-    .dhezz-portrait img {
-      width: 100%;
-      display: block;
-      filter: none;
-      background: #f0ece0;
-      transition: transform 0.4s ease;
-    }
-    .dhezz-portrait:hover img { transform: scale(1.02); }
-    .portrait-caption {
-      padding: 1.2rem 1.5rem;
-      background: #0d0d0d;
-      border-top: 1px solid #1e1e1e;
-    }
-    .caption-tag {
-      font-size: 0.55rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--green);
-      display: block;
-      margin-bottom: 0.5rem;
-    }
-    .portrait-caption p {
-      font-family: 'DM Serif Display', serif;
-      font-style: italic;
-      font-size: 0.9rem;
-      color: var(--offwhite);
-      line-height: 1.6;
-    }
-    .caption-sub {
-      display: block;
-      margin-top: 0.5rem;
-      font-size: 0.65rem;
-      color: var(--gray);
-      letter-spacing: 0.08em;
+      .ticker-wrap { font-size: 0.62rem; }
     }
   </style>
 </head>
@@ -957,75 +415,71 @@
     <div class="ticker-track">
       <span>🏧 ATM ONLINE — NO PIN REQUIRED</span>
       <span>♠ DHEZZ IS IN THE BUILDING</span>
-      <span>💸 $2/$5 NLH — FOXWOODS & BEYOND</span>
+      <span>💸 $2/$5 NLH — FOXWOODS &amp; BEYOND</span>
       <span>♦ EASY MONEY. JUST SIT DOWN.</span>
       <span>🃏 MAKING BAD DECISIONS SINCE FOREVER</span>
-      <span>♣ NEXT SESSION: CHECK SCHEDULE BELOW</span>
+      <span>♣ NEXT SESSION: FOLLOW ON SOCIAL</span>
       <span>♥ PLEASE. TAKE MY CHIPS. I INSIST.</span>
       <span>🏧 ATM ONLINE — NO PIN REQUIRED</span>
       <span>♠ DHEZZ IS IN THE BUILDING</span>
-      <span>💸 $2/$5 NLH — FOXWOODS & BEYOND</span>
+      <span>💸 $2/$5 NLH — FOXWOODS &amp; BEYOND</span>
       <span>♦ EASY MONEY. JUST SIT DOWN.</span>
       <span>🃏 MAKING BAD DECISIONS SINCE FOREVER</span>
-      <span>♣ NEXT SESSION: CHECK SCHEDULE BELOW</span>
+      <span>♣ NEXT SESSION: FOLLOW ON SOCIAL</span>
       <span>♥ PLEASE. TAKE MY CHIPS. I INSIST.</span>
     </div>
   </div>
 
   <!-- NAV -->
-  <nav>
-    <a href="/" class="nav-logo"><img src="/logo.svg" alt="ATM With No PIN" class="site-logo"></a>
-    <ul class="nav-links">
-      <li><a href="/blog" class="btn btn-primary" style="padding:.45rem .7rem; font-size:.72rem;">Latest Updates</a></li>
-      <li><a href="/chronicles">Chronicles</a></li>
-      <li><a href="/community-wall">Community</a></li>
-      <li><a href="/chat.html">💬 Chat</a></li>
-      <li><a href="/shop.html">Shop 🏧</a></li>
-      <li><a href="#about">About</a></li>
-      <li><a href="#schedule">Find Me</a></li>
-      <li><a href="#foxwoods">Foxwoods</a></li>
-      <li><a href="#staff">The Staff</a></li>
-      <li><a href="#crew">The Crew</a></li>
-      <li><a href="#hall">Hall of Winners</a></li>
-      <li><a href="#follow">Follow</a></li>
-    </ul>
-  </nav>
+  <div class="nav-outer">
+    <nav>
+      <a href="/" class="nav-logo"><img src="/logo.svg" alt="ATM With No PIN" class="site-logo"></a>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">☰</button>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="/blog">Stories</a></li>
+        <li><a href="/chronicles">Chronicles</a></li>
+        <li><a href="/community-wall">Community</a></li>
+        <li><a href="/shop.html">Shop</a></li>
+        <li><a href="/inside-the-atm">Inside the ATM</a></li>
+        <li><a href="https://www.youtube.com/@ATMwithNoPIN" target="_blank" rel="noopener">Videos</a></li>
+        <li><a href="#follow" class="nav-cta">Follow</a></li>
+      </ul>
+    </nav>
+  </div>
 
   <!-- HERO -->
-  <section class="hero">
+  <section class="hero" id="home">
     <div class="hero-left">
-      <p class="eyebrow">ATMwithNoPIN™ Poker &bull; Official poker entertainment brand</p>
-      <p class="hero-brand-line">Official poker entertainment brand of Dhezz.</p>
-      <p class="hero-brand-line">Tournament updates, poker stories, casino adventures, and content from the friendliest ATM at the table.</p>
+      <p class="eyebrow">ATMwithNoPIN™ Poker &bull; Official poker entertainment brand of Dhezz</p>
       <h1>
-        THE ATM<br>
-        <span class="italic">with</span><br>
-        <span class="accent">no pin.</span>
+        POKER IS<br>
+        <span class="italic">expensive.</span><br>
+        <span class="accent">Entertainment</span><br>
+        is free.
       </h1>
-      <p class="hero-sub">
-        ATMwithNoPIN™ Poker is the poker entertainment brand built around Dhezz — a recreational poker player, tournament grinder, and professional caller of suspicious river bets.
-        Expect live updates, table stories, and the occasional very confident bluff from Foxwoods to the next $2/$5 stop.
-      </p>
+      <p class="hero-sub">Table stories, tournament results, and the occasional suspicious river call — live from the felt.</p>
       <div class="hero-cta">
-        <a href="/blog" class="btn btn-primary">Latest Updates</a>
-        <a href="#schedule" class="btn btn-primary">Find the ATM 🏧</a>
-        <a href="/shop.html" class="btn btn-primary">Shop the Merch</a>
-        <a href="#about" class="btn btn-ghost">Why tho?</a>
+        <a href="/blog" class="btn btn-primary">Read Latest Story</a>
+        <a href="https://www.youtube.com/@ATMwithNoPIN" target="_blank" rel="noopener" class="btn btn-ghost">Watch Videos</a>
+        <a href="#follow" class="btn btn-ghost">Follow the Journey</a>
       </div>
     </div>
     <div class="hero-right">
-      <div class="atm-card recent-posts-card">
-        <p class="section-label">// Latest updates</p>
-        <h3>Recent blog titles</h3>
-        <p class="body-text" style="font-size:.72rem;">Scroll through the newest stories from the ATM table.</p>
-        <div class="recent-posts-scroll" id="recentPostsScroll">
-          <!-- RECENT_POSTS -->
-        </div>
-        <div class="recent-post-controls">
-          <button type="button" class="mini-btn" onclick="document.getElementById('recentPostsScroll').scrollBy({top:-140,behavior:'smooth'})">▲ Up</button>
-          <button type="button" class="mini-btn" onclick="document.getElementById('recentPostsScroll').scrollBy({top:140,behavior:'smooth'})">▼ Down</button>
+      <div class="atm-card">
+        <div class="card-chip"></div>
+        <div class="card-number">●●●● ●●●● ●●●● 2525</div>
+        <div class="card-bottom">
+          <div>
+            <div class="card-name">DHEZZ</div>
+            <div class="card-tagline">ATM with No PIN</div>
+          </div>
+          <div class="no-pin-badge">NO PIN</div>
         </div>
       </div>
+      <div class="scatter-card sc1">A♠</div>
+      <div class="scatter-card sc2">K♥</div>
+      <div class="scatter-card sc3">Q♦</div>
+      <div class="scatter-card sc4">J♣</div>
     </div>
   </section>
 
@@ -1049,462 +503,100 @@
     </div>
   </div>
 
-  <!-- BRAND STATEMENT -->
-  <section class="schedule" id="brand" style="border-top:1px solid #1a1a1a;">
-    <p class="section-label">// Brand Statement</p>
-    <h2>ATMwithNoPIN™ is a poker entertainment brand built around the table persona of Dhezz — a recreational poker player, tournament grinder, and professional caller of suspicious river bets.</h2>
-    <p class="body-text" style="max-width:62ch;">The brand keeps the funny, self-deprecating tone of the table while making it clear that ATMwithNoPIN™ is a poker entertainment identity, not just a punchline.</p>
-  </section>
-
-  <!-- ABOUT -->
-  <section class="about" id="about">
-    <div class="about-text">
-      <p class="section-label">// About ATMwithNoPIN™</p>
-      <h2>About ATMwithNoPIN™</h2>
-      <p class="body-text">
-        Find Dhezz at Foxwoods, WSOP stops, and $2/$5 NLH games across the Northeast. The brand follows his poker journey through live updates, photos, videos, table stories, and occasional questionable calls.
-      </p>
-      <p class="body-text">
-        ATMwithNoPIN™ keeps the table humor intact — the fish jokes, the bad beat stories, and the confidence that somehow always feels one hand away from turning into a legendary session.
-      </p>
-      <p class="body-text">
-        It is a poker entertainment brand built around the table persona of Dhezz, with enough self-awareness to make the chips disappear and the stories last longer.
-      </p>
-    </div>
-    <div class="about-rules">
-      <div class="dhezz-portrait">
-        <img src="/dhezz.jpeg" alt="Dhezz at the poker table — ATM with No PIN" />
-        <div class="portrait-caption">
-          <span class="caption-tag">&#x2756; Actual Photo — Not Staged</span>
-          <p>"That stack? Gone in 20 minutes.<br>The hat? Still on his head.<br>The smile? Never left."</p>
-          <span class="caption-sub">— Every Foxwoods dealer, probably</span>
-        </div>
-      </div>
-      <p class="section-label" style="margin-top:0.5rem;">// House Rules</p>
-      <div class="rule">
-        <div class="rule-num">01</div>
-        <div class="rule-title">No PIN. No Problem.</div>
-        <div class="rule-body">Just sit down. The chips have already started moving in your direction. Think of it as contactless payment.</div>
-      </div>
-      <div class="rule">
-        <div class="rule-num">02</div>
-        <div class="rule-title">Good Times Included</div>
-        <div class="rule-body">Every session comes with commentary, self-deprecating analysis of every fold, and at least one hand history that will haunt you.</div>
-      </div>
-      <div class="rule">
-        <div class="rule-num">03</div>
-        <div class="rule-title">The Table Is Better With Dhezz</div>
-        <div class="rule-body">Ask anyone who's sat with him. The vibes are immaculate. The poker decisions, less so.</div>
-      </div>
-      <div class="rule">
-        <div class="rule-num">04</div>
-        <div class="rule-title">Results May Vary. Entertainment Won't.</div>
-        <div class="rule-body">He cannot guarantee you'll win money. He can guarantee you'll have a story to tell your poker group chat later.</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- SCHEDULE -->
-  <section class="schedule" id="schedule">
-    <div class="schedule-header">
-      <div>
-        <p class="section-label">// ATM Deployment Schedule</p>
-        <h2>Find Me<br><em>at the Tables</em></h2>
-      </div>
-      <a href="#follow" class="btn btn-ghost" style="font-size:0.7rem;">Get Notified →</a>
-    </div>
-
-    <div class="schedule-grid">
-      <div class="schedule-row header">
-        <span>Date</span>
-        <span>Venue</span>
-        <span>Game</span>
-        <span>Status</span>
-      </div>
-      <div class="schedule-row">
-        <div class="sched-date">TBD</div>
-        <div class="sched-venue">Foxwoods Resort Casino<span style="display:block;font-size:0.68rem;color:#555;margin-top:2px;">Mashantucket, CT</span></div>
-        <div class="sched-game">$2/$5 NLH</div>
-        <div><span class="sched-status status-likely">Likely</span></div>
-      </div>
-      <div class="schedule-row">
-        <div class="sched-date">TBD</div>
-        <div class="sched-venue">Traveling<span style="display:block;font-size:0.68rem;color:#555;margin-top:2px;">Casino TBD</span></div>
-        <div class="sched-game">$2/$5 NLH</div>
-        <div><span class="sched-status status-tbd">TBD</span></div>
-      </div>
-    </div>
-    <div class="no-schedule" style="margin-top:1px;">
-      📡 &nbsp; Follow on social for real-time session announcements — "The ATM is open."
-    </div>
-  </section>
-
-  <!-- FOXWOODS FEATURE -->
-  <section class="foxwoods-feature" id="foxwoods">
-    <div class="fw-left">
-      <p class="section-label">// Home Base</p>
-      <h2>Foxwoods<br>Resort Casino</h2>
-      <div class="fw-tag">Mashantucket, CT &mdash; The ATM's Natural Habitat</div>
-    </div>
-    <div class="fw-right">
-      <div class="fw-quote">
-        Foxwoods Resort Casino — where legends are made, fortunes are lost, and Dhezz shows up anyway.
-      </div>
-      <p class="fw-body">
-        The greatest poker room in the Northeast, if only because the ATM with No PIN calls it home. Come find him at the $2/$5 table.
-      </p>
-      <p class="fw-punchline">
-        He'll be the one smiling while his chips disappear.
-      </p>
-      <div class="fw-stats">
-        <div class="fw-stat">
-          <span class="fw-stat-num">$2/$5</span>
-          <span class="fw-stat-label">His game</span>
-        </div>
-        <div class="fw-stat">
-          <span class="fw-stat-num">∞</span>
-          <span class="fw-stat-label">Buy-ins</span>
-        </div>
-        <div class="fw-stat">
-          <span class="fw-stat-num">0</span>
-          <span class="fw-stat-label">Regrets</span>
-        </div>
-        <div class="fw-stat">
-          <span class="fw-stat-num">100%</span>
-          <span class="fw-stat-label">Still smiling</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- STAFF APPRECIATION -->
-  <section class="staff-section" id="staff">
-    <div class="staff-intro">
-      <p class="section-label">// The Real MVPs</p>
-      <h2>Foxwoods Staff —<br><em>The Unsung Heroes</em></h2>
-      <p class="body-text" style="max-width:55ch;">They deal the cards, run the floor, and somehow still show up knowing Dhezz is coming. This one's for the people who make the Foxwoods poker room the greatest place to donate chips in the Northeast.</p>
-    </div>
-
-    <!-- FLOOR STAFF -->
-    <div class="staff-role-label">// Floor Staff</div>
-    <div class="staff-grid">
-
-      <div class="staff-card">
-        <div class="staff-top">
-          <div class="staff-initial">B</div>
-          <div>
-            <div class="staff-name">Bhavin</div>
-            <div class="staff-role">Floor</div>
-          </div>
-        </div>
-        <div class="staff-quote">"The man who helps Dhezz get seated faster than Dhezz can lose his chips."</div>
-        <div class="staff-banter">
-          <span class="banter-label">What Dhezz says:</span>
-          <span class="banter-text">"Thank you, Bhavin."</span>
-        </div>
-        <div class="staff-banter">
-          <span class="banter-label">What Bhavin does:</span>
-          <span class="banter-text">Helps anyway. Every time. A true professional.</span>
-        </div>
-      </div>
-
-      <div class="staff-card">
-        <div class="staff-top">
-          <div class="staff-initial" style="color:var(--red);">C</div>
-          <div>
-            <div class="staff-name">Charlie</div>
-            <div class="staff-role">Floor</div>
-          </div>
-        </div>
-        <div class="staff-quote">"Foxwoods' most secure employee. No severance package could save him from Dhezz's commentary."</div>
-        <div class="staff-banter">
-          <span class="banter-label">What Dhezz says:</span>
-          <span class="banter-text">"Fire Charlie! No Severance!"</span>
-        </div>
-        <div class="staff-banter">
-          <span class="banter-label">What Charlie does:</span>
-          <span class="banter-text">Shows up again tomorrow. Unfazed. Untouchable. Undefeated.</span>
-        </div>
-      </div>
-
-      <div class="staff-card">
-        <div class="staff-top">
-          <div class="staff-initial" style="color:var(--gold);">S</div>
-          <div>
-            <div class="staff-name">Steve</div>
-            <div class="staff-role">Floor</div>
-          </div>
-        </div>
-        <div class="staff-quote">"Born on the same day and month as Dhezz. The universe's most suspicious coincidence."</div>
-        <div class="staff-banter">
-          <span class="banter-label">What they share:</span>
-          <span class="banter-text">Same birthday. That's where the similarities end.</span>
-        </div>
-        <div class="staff-banter">
-          <span class="banter-label">Fun fact:</span>
-          <span class="banter-text">Steve has kept his chips. Dhezz has not.</span>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- DEALERS -->
-    <div class="staff-role-label" style="margin-top:3rem;">// The Dealers — Artists of Chaos</div>
-    <div class="staff-grid">
-
-      <div class="staff-card">
-        <div class="staff-top">
-          <div class="staff-initial">F</div>
-          <div>
-            <div class="staff-name">Felix</div>
-            <div class="staff-role">Dealer</div>
-          </div>
-        </div>
-        <div class="staff-quote">"A man of eternal optimism, matching Dhezz's energy beat for beat."</div>
-        <div class="staff-banter">
-          <span class="banter-label">Dhezz says:</span>
-          <span class="banter-text">"Coming Soon."</span>
-        </div>
-        <div class="staff-banter">
-          <span class="banter-label">Felix fires back:</span>
-          <span class="banter-text">"Very Soon." 🃏</span>
-        </div>
-      </div>
-
-      <div class="staff-card">
-        <div class="staff-top">
-          <div class="staff-initial" style="color:var(--red);">R</div>
-          <div>
-            <div class="staff-name">Ray</div>
-            <div class="staff-role">Dealer</div>
-          </div>
-        </div>
-        <div class="staff-quote">"The dealer who gives as good as he gets. Mutual respect at its finest."</div>
-        <div class="staff-banter">
-          <span class="banter-label">Dhezz says:</span>
-          <span class="banter-text">"You suck, Ray."</span>
-        </div>
-        <div class="staff-banter">
-          <span class="banter-label">Ray fires back:</span>
-          <span class="banter-text">"You suck." No hesitation. No apology.</span>
-        </div>
-      </div>
-
-      <div class="staff-card">
-        <div class="staff-top">
-          <div class="staff-initial" style="color:var(--gold);">J</div>
-          <div>
-            <div class="staff-name">Jenny</div>
-            <div class="staff-role">Dealer</div>
-          </div>
-        </div>
-        <div class="staff-quote">"The zen master of the felt. One word. Always the right one."</div>
-        <div class="staff-banter">
-          <span class="banter-label">Dhezz, panicking:</span>
-          <span class="banter-text">*does something impulsive*</span>
-        </div>
-        <div class="staff-banter">
-          <span class="banter-label">Jenny, calmly:</span>
-          <span class="banter-text">"Patience." 🧘</span>
-        </div>
-      </div>
-
-      <div class="staff-card">
-        <div class="staff-top">
-          <div class="staff-initial">S</div>
-          <div>
-            <div class="staff-name">Saku</div>
-            <div class="staff-role">Dealer</div>
-          </div>
-        </div>
-        <div class="staff-quote">"Prescribed the only known cure for Dhezz's chip-losing condition."</div>
-        <div class="staff-banter">
-          <span class="banter-label">The situation:</span>
-          <span class="banter-text">Dhezz about to give away his stack. Again.</span>
-        </div>
-        <div class="staff-banter">
-          <span class="banter-label">Saku's prescription:</span>
-          <span class="banter-text">"Fevicol." — Hold on to your chips, man. 🧴</span>
-        </div>
-      </div>
-
-      <div class="staff-card">
-        <div class="staff-top">
-          <div class="staff-initial" style="color:var(--green);">D</div>
-          <div>
-            <div class="staff-name">Dave</div>
-            <div class="staff-role">Dealer</div>
-          </div>
-        </div>
-        <div class="staff-quote">"The only dealer who gets his own personalized greeting. Every. Single. Time."</div>
-        <div class="staff-banter">
-          <span class="banter-label">Dhezz, every time Dave sits down:</span>
-          <span class="banter-text">"Behave, Dave." 😄</span>
-        </div>
-        <div class="staff-banter">
-          <span class="banter-label">Dave's response:</span>
-          <span class="banter-text">*deals another bad beat* Mission not accomplished.</span>
-        </div>
-      </div>
-
-    </div>
-
-    <div class="staff-footer">
-      ♠ &nbsp; To all the Foxwoods poker room staff — thank you for the memories, the laughs, and for not banning Dhezz yet. You are the real winners here.
-    </div>
-  </section>
-
-  <!-- THE CREW -->
-  <section class="hall" id="crew" style="border-top:1px solid #1a1a1a;">
-    <p class="section-label">// The Usual Suspects</p>
-    <h2>The Crew —<br><em>Fellow Fish</em></h2>
-    <p class="body-text" style="max-width:55ch;margin-bottom:3rem;">Every ATM needs its ecosystem. Meet the rest of the table — equally dangerous, equally entertaining, equally unlikely to fold when they should.</p>
-    <div class="crew-grid">
-
-      <div class="crew-card">
-        <div class="crew-header">
-          <div class="crew-suit">♣</div>
-          <div>
-            <div class="crew-name">Manny</div>
-            <div class="crew-alias">"The Machine"</div>
-          </div>
-        </div>
-        <div class="crew-bio">Deposits chips like clockwork. Consistent. Reliable. Unstoppable. You could set your watch to the moment he shoves the river with second pair. A true force of nature at the felt.</div>
-        <div class="crew-stats">
-          <div class="crew-stat"><span class="cs-label">Specialty</span><span class="cs-val">Mechanical chip donations</span></div>
-          <div class="crew-stat"><span class="cs-label">Tell</span><span class="cs-val">Always looks confident</span></div>
-          <div class="crew-stat"><span class="cs-label">Threat Level</span><span class="cs-val cs-green">Bring extra buy-ins</span></div>
-        </div>
-      </div>
-
-      <div class="crew-card">
-        <div class="crew-header">
-          <div class="crew-suit" style="color:var(--red);">♦</div>
-          <div>
-            <div class="crew-name">Jamie</div>
-            <div class="crew-alias">"The Tuna"</div>
-          </div>
-        </div>
-        <div class="crew-bio">A classic fish. Never sees it coming — not the bluff, not the set, not the straight on the board. An eternal optimist who believes every hand is the one. Bless his heart and his chips.</div>
-        <div class="crew-stats">
-          <div class="crew-stat"><span class="cs-label">Specialty</span><span class="cs-val">Calling with nothing</span></div>
-          <div class="crew-stat"><span class="cs-label">Tell</span><span class="cs-val">Looks at chips before calling</span></div>
-          <div class="crew-stat"><span class="cs-label">Threat Level</span><span class="cs-val cs-gold">Occasionally dangerous</span></div>
-        </div>
-      </div>
-
-      <div class="crew-card">
-        <div class="crew-header">
-          <div class="crew-suit" style="color:var(--green);">♠</div>
-          <div>
-            <div class="crew-name">Jay</div>
-            <div class="crew-alias">"Ducky Jay"</div>
-          </div>
-        </div>
-        <div class="crew-bio">The only player at Foxwoods whose card protector has better poker instincts than he does. Jay shows up, stacks his chips, places the duck on top — and then gets out of the way. Honestly the smartest strategy at the table.</div>
-        <div class="crew-stats">
-          <div class="crew-stat"><span class="cs-label">Specialty</span><span class="cs-val">Keeping the seat warm while the duck makes decisions</span></div>
-          <div class="crew-stat"><span class="cs-label">Tell</span><span class="cs-val">Always has a rubber duck on his chip stack</span></div>
-          <div class="crew-stat"><span class="cs-label">Threat Level</span><span class="cs-val cs-gold">The duck is significantly scarier</span></div>
-        </div>
-      </div>
-
-      <div class="crew-card crew-card-open">
-        <div class="crew-header">
-          <div class="crew-suit" style="color:#333;">♠</div>
-          <div>
-            <div class="crew-name">You?</div>
-            <div class="crew-alias">"TBD"</div>
-          </div>
-        </div>
-        <div class="crew-bio">The crew has one seat open. Foxwoods. $2/$5. Come sit down, make some bad decisions, and earn your nickname. The ATM welcomes all denominations.</div>
-        <div class="crew-stats">
-          <div class="crew-stat"><span class="cs-label">Specialty</span><span class="cs-val">Unknown — yet</span></div>
-          <div class="crew-stat"><span class="cs-label">Tell</span><span class="cs-val">To be discovered</span></div>
-          <div class="crew-stat"><span class="cs-label">Threat Level</span><span class="cs-val" style="color:#333;">Unrated</span></div>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- HALL OF WINNERS -->
-  <section class="hall" id="hall">
-    <p class="section-label">// Hall of Winners</p>
-    <h2>The Leaderboard of<br><em>Grateful Recipients</em></h2>
-    <div class="hall-grid">
-      <div class="winner-card">
-        <div class="winner-rank gold">01</div>
-        <div class="winner-name">Manny "The Machine"</div>
-        <div class="winner-amount">Clockwork. Every time.</div>
-        <div class="winner-note">Deposits so reliably he should be registered as a financial institution. The undisputed champion of giving Dhezz's chips a new home.</div>
-      </div>
-      <div class="winner-card">
-        <div class="winner-rank silver">02</div>
-        <div class="winner-name">Jamie "The Tuna"</div>
-        <div class="winner-amount">Never saw it coming.</div>
-        <div class="winner-note">Called every bet, folded none, won somehow. A mystery wrapped in an enigma wrapped in a bad poker hand. Somehow still at the table.</div>
-      </div>
-      <div class="winner-card">
-        <div class="winner-rank bronze">03</div>
-        <div class="winner-name">Seat Available</div>
-        <div class="winner-amount">—</div>
-        <div class="winner-note">Third place is wide open. Foxwoods. $2/$5. You know what to do.</div>
-      </div>
-    </div>
-    <div class="hall-cta">
-      🏆 &nbsp; Won a big pot off Dhezz? DM him on social to claim your spot on the leaderboard.
-    </div>
-  </section>
+  <!-- BLOG_PREVIEW -->
 
   <!-- CHRONICLES_PREVIEW -->
 
+  <!-- TOURNAMENT JOURNEY -->
+  <div class="section-divider">
+    <div class="hp-section">
+      <p class="section-label">// The Results</p>
+      <h2>Tournament Journey</h2>
+      <p class="body-text">From $2/$5 cash games to WSOP deep runs — tracking the mission in real time.</p>
+      <div class="tournament-grid">
+        <div class="t-card">
+          <div class="t-label">// WSOP 2025 Deep Run</div>
+          <div class="t-num gold">$45,703</div>
+          <div class="t-desc">Event 53 — $1,500 NLHE Millionaire Maker. 151st place out of 3,000+ entries. The biggest cash in ATMwithNoPIN™ history.</div>
+        </div>
+        <div class="t-card">
+          <div class="t-label">// Current Game</div>
+          <div class="t-num">$2/$5</div>
+          <div class="t-desc">The daily grind. NLH cash games at Foxwoods Resort Casino and select tournament stops across the Northeast.</div>
+        </div>
+        <div class="t-card">
+          <div class="t-label">// Next Mission</div>
+          <div class="t-num" style="font-size:1.8rem;padding-top:.2rem;">TBD</div>
+          <div class="t-desc">Follow on social for the next stop. The ATM goes where the action is.</div>
+        </div>
+      </div>
+      <div class="section-cta-row">
+        <a href="/blog" class="section-cta-link">Read all tournament stories →</a>
+      </div>
+    </div>
+  </div>
+
   <!-- COMMUNITY_PREVIEW -->
 
-  <!-- BLOG_PREVIEW -->
-  <section class="follow" id="follow">
-    <div>
-      <p class="section-label">// Follow the Fish</p>
-      <h2>Follow ATMwithNoPIN™</h2>
-      <p class="body-text" style="margin-top:0.5rem;">
-        X / Twitter, YouTube, and email updates for live session notes, poker stories, and the occasional suspicious river call.
-      </p>
-      <div class="social-links" style="margin-top:2rem;">
-        <a href="https://x.com/ATMwithNoPIN" target="_blank" class="social-link">
-          <span class="social-icon">𝕏</span>
-          <span>X / Twitter</span>
-          <span class="social-handle">@ATMwithNoPIN</span>
-        </a>
-        <a href="https://www.youtube.com/@ATMwithNoPIN" target="_blank" class="social-link">
-          <span class="social-icon">▶</span>
-          <span>YouTube</span>
-          <span class="social-handle">@ATMwithNoPIN</span>
-        </a>
-        <a href="mailto:hello@atmwithnopin.com" class="social-link">
-          <span class="social-icon">✉</span>
-          <span>Email</span>
-          <span class="social-handle">hello@atmwithnopin.com</span>
-        </a>
+  <!-- FOLLOW -->
+  <div class="section-divider" id="follow">
+    <div class="follow-section">
+      <div>
+        <p class="section-label">// Follow the Fish</p>
+        <h2>Follow ATMwithNoPIN™</h2>
+        <p class="body-text" style="margin-top:0.5rem;">Live session notes, tournament updates, and poker stories across X, YouTube, and TikTok.</p>
+        <div class="social-links">
+          <a href="https://x.com/ATMwithNoPIN" target="_blank" rel="noopener" class="social-link">
+            <span class="social-icon">𝕏</span>
+            <span>X / Twitter</span>
+            <span class="social-handle">@ATMwithNoPIN</span>
+          </a>
+          <a href="https://www.youtube.com/@ATMwithNoPIN" target="_blank" rel="noopener" class="social-link">
+            <span class="social-icon">▶</span>
+            <span>YouTube</span>
+            <span class="social-handle">@ATMwithNoPIN</span>
+          </a>
+          <a href="https://www.tiktok.com/@ATMwithNoPIN" target="_blank" rel="noopener" class="social-link">
+            <span class="social-icon">♪</span>
+            <span>TikTok</span>
+            <span class="social-handle">@ATMwithNoPIN</span>
+          </a>
+          <a href="mailto:hello@atmwithnopin.com" class="social-link">
+            <span class="social-icon">✉</span>
+            <span>Email</span>
+            <span class="social-handle">hello@atmwithnopin.com</span>
+          </a>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:1.5rem;">
+        <div class="tagline-block">
+          <p class="tagline-text">Everyone else is trying to find the fish at the table. I put up a website so you don't have to.</p>
+          <p class="tagline-attr">— Dhezz, ATMwithNoPIN™</p>
+        </div>
+        <div style="padding:1.5rem;border:1px solid #1e1e1e;background:#0c0c0c;">
+          <p style="font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green);margin-bottom:.5rem;">// Explore the brand universe</p>
+          <p style="font-size:.78rem;color:var(--gray);margin-bottom:1rem;">The people, places, and rules of ATMwithNoPIN — all in one place.</p>
+          <a href="/inside-the-atm" class="btn btn-primary" style="font-size:.66rem;padding:.55rem 1.1rem;">Inside the ATM →</a>
+        </div>
       </div>
     </div>
-    <div>
-      <div class="tagline-block">
-        <p class="tagline-text">
-          Everyone else is trying to find the fish at the table. I put up a website so you don't have to.
-        </p>
-        <p class="tagline-attr">— Dhezz, ATM With No PIN</p>
-      </div>
-    </div>
-  </section>
+  </div>
 
   <!-- FOOTER -->
-  <footer>
-    <div class="footer-logo">ATMwithNoPIN™</div>
-    <div>ATMwithNoPIN™ is a poker entertainment brand operated by Sunfish Technologies LLC. All rights reserved.</div>
-    <div>atmwithnopin.com &mdash; Dhezz &mdash; $2/$5 NLH</div>
-  </footer>
+  <div class="footer-outer">
+    <footer>
+      <div class="footer-logo">ATMwithNoPIN™</div>
+      <div>ATMwithNoPIN™ is a poker entertainment brand operated by Sunfish Technologies LLC. All rights reserved.</div>
+      <div>atmwithnopin.com &mdash; Dhezz &mdash; $2/$5 NLH</div>
+    </footer>
+  </div>
 
   <!-- Visitor Tracker -->
+  <script>
+    document.getElementById('navToggle').addEventListener('click', function() {
+      document.getElementById('navLinks').classList.toggle('open');
+    });
+  </script>
   <script type="module" src="/visitor-tracker.js"></script>
 </body>
 </html>
