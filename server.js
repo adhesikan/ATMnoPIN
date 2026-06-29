@@ -70,6 +70,11 @@ async function initializeDatabase() {
         data TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS player_submissions (
+        id TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
     `);
     return;
   }
@@ -82,6 +87,11 @@ async function initializeDatabase() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
       CREATE TABLE IF NOT EXISTS chronicles (
+        id TEXT PRIMARY KEY,
+        data JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS player_submissions (
         id TEXT PRIMARY KEY,
         data JSONB NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -484,6 +494,104 @@ function estimateReadingTime(content) {
   return Math.max(1, Math.ceil(words / 200));
 }
 
+const PLAYER_BADGES = ['Final Table Hero', 'Bad Beat Champion', 'River Victim', 'Poker Storyteller', 'Bubble Survivor', 'ATMwithNoPIN Legend'];
+
+const submissionRateLimit = new Map();
+function checkSubmissionRateLimit(ip) {
+  const now = Date.now();
+  const hour = 60 * 60 * 1000;
+  const times = (submissionRateLimit.get(ip) || []).filter((t) => now - t < hour);
+  if (times.length >= 3) return false;
+  times.push(now);
+  submissionRateLimit.set(ip, times);
+  return true;
+}
+
+function parseMultipartForm(bodyBuffer, boundary) {
+  const result = { fields: {}, files: {} };
+  const bodyStr = bodyBuffer.toString('binary');
+  const sep = `--${boundary}`;
+  const parts = bodyStr.split(sep);
+  for (const part of parts) {
+    if (!part.includes('Content-Disposition:')) continue;
+    const headerEnd = part.indexOf('\r\n\r\n');
+    if (headerEnd === -1) continue;
+    const headers = part.slice(0, headerEnd);
+    const rawContent = part.slice(headerEnd + 4);
+    const content = rawContent.endsWith('\r\n') ? rawContent.slice(0, -2) : rawContent;
+    const nameMatch = headers.match(/name="([^"]+)"/);
+    if (!nameMatch) continue;
+    const fieldName = nameMatch[1];
+    const filenameMatch = headers.match(/filename="([^"]+)"/);
+    if (filenameMatch && filenameMatch[1]) {
+      result.files[fieldName] = { filename: filenameMatch[1], data: Buffer.from(content, 'binary') };
+    } else {
+      result.fields[fieldName] = Buffer.from(content, 'binary').toString('utf8');
+    }
+  }
+  return result;
+}
+
+function readBodyBuffer(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+function playerProfileSlug(name, nickname) {
+  const base = slugify(nickname || name || 'player');
+  const suffix = crypto.randomBytes(3).toString('hex');
+  return `${base}-${suffix}`;
+}
+
+async function loadSubmissions() {
+  if (pgPool) {
+    const { rows } = await pgPool.query('SELECT id, data FROM player_submissions ORDER BY created_at DESC');
+    return rows.map((row) => row.data);
+  }
+  if (sqliteDb) {
+    const rows = sqliteDb.prepare('SELECT id, data FROM player_submissions ORDER BY created_at DESC').all();
+    return rows.map((row) => JSON.parse(row.data));
+  }
+  return [];
+}
+
+async function saveSubmissions(submissions) {
+  if (pgPool) {
+    const client = await pgPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM player_submissions');
+      for (const s of submissions) {
+        await client.query(
+          'INSERT INTO player_submissions (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data',
+          [s.id, s]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    return;
+  }
+  if (sqliteDb) {
+    const stmt = sqliteDb.prepare('INSERT INTO player_submissions (id, data) VALUES (?, ?)');
+    sqliteDb.exec('BEGIN IMMEDIATE');
+    sqliteDb.exec('DELETE FROM player_submissions');
+    for (const s of submissions) {
+      stmt.run(s.id, JSON.stringify(s));
+    }
+    sqliteDb.exec('COMMIT');
+    return;
+  }
+}
+
 function hash(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
 }
@@ -685,6 +793,7 @@ function renderLayout(title, body) {
       <ul class="nav-links">
         <li><a href="/blog">Blog</a></li>
         <li><a href="/chronicles">Chronicles</a></li>
+        <li><a href="/community-wall">Community</a></li>
         <li><a href="/">Home</a></li>
       </ul>
     </nav>
@@ -759,6 +868,7 @@ function renderAdminPage() {
     <div class="admin-tabs">
       <button class="admin-tab active" data-panel="blogPanel">Blog Posts</button>
       <button class="admin-tab" data-panel="chronPanel">Chronicles</button>
+      <button class="admin-tab" data-panel="communityPanel">Community</button>
     </div>
     <div id="blogPanel">
     <section class="grid">
@@ -1017,6 +1127,125 @@ function renderAdminPage() {
       cLoadList();
     </script>
     </div><!-- end chronPanel -->
+    <div id="communityPanel" style="display:none;">
+    <section class="grid">
+      <article class="card" style="grid-column:1/-1;">
+        <h2>Community Submissions</h2>
+        <div id="subStats" class="row" style="margin:.75rem 0;gap:.5rem;flex-wrap:wrap;"></div>
+        <div class="row" style="margin-bottom:.75rem;gap:.5rem;">
+          <button class="secondary" data-subfilter="all" id="sfAll">All</button>
+          <button class="secondary" data-subfilter="pending" id="sfPending">Pending</button>
+          <button class="secondary" data-subfilter="approved" id="sfApproved">Approved</button>
+          <button class="secondary" data-subfilter="rejected" id="sfRejected">Rejected</button>
+        </div>
+        <div id="subList" class="form-grid"></div>
+      </article>
+    </section>
+    <style>
+      .sub-card{border:1px solid #1e1e1e;background:#0c0c0c;border-radius:12px;overflow:hidden;margin-bottom:.5rem;}
+      .sub-header{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;cursor:pointer;}
+      .sub-thumb{width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid #2a2a2a;flex-shrink:0;}
+      .sub-thumb-ph{width:44px;height:44px;border-radius:50%;border:1px solid #2a2a2a;background:#0d2e1a;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--green);flex-shrink:0;}
+      .sub-info{flex:1;min-width:0;}
+      .sub-info strong{display:block;font-size:.88rem;}
+      .sub-info em{font-size:.78rem;color:var(--gold);}
+      .sub-pill{border-radius:999px;padding:.2rem .5rem;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;}
+      .sub-pending{background:rgba(201,168,76,.1);color:var(--gold);border:1px solid rgba(201,168,76,.3);}
+      .sub-approved{background:rgba(0,200,83,.1);color:var(--green);border:1px solid rgba(0,200,83,.3);}
+      .sub-rejected{background:rgba(200,50,50,.1);color:#e06060;border:1px solid rgba(200,50,50,.3);}
+      .sub-detail{padding:.75rem 1rem;border-top:1px solid #1a1a1a;display:none;}
+      .sub-field{margin-bottom:.5rem;}
+      .sub-field-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.15em;color:var(--gray);margin-bottom:.15rem;}
+      .sub-field-val{font-size:.82rem;color:var(--offwhite);}
+      .sub-actions{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.75rem;padding-top:.75rem;border-top:1px solid #1a1a1a;}
+    </style>
+    <script>
+    var subFilter = 'all';
+    var allSubs = [];
+    async function loadSubList() {
+      var res = await fetch('/api/admin/submissions');
+      allSubs = await res.json();
+      renderSubList();
+    }
+    function renderSubList() {
+      var filtered = subFilter === 'all' ? allSubs : allSubs.filter(function(s) { return s.status === subFilter; });
+      var pending = allSubs.filter(function(s) { return s.status === 'pending'; }).length;
+      var approved = allSubs.filter(function(s) { return s.status === 'approved'; }).length;
+      document.getElementById('subStats').innerHTML =
+        '<span class="sub-pill sub-pending">Pending: ' + pending + '</span>' +
+        '<span class="sub-pill sub-approved">Approved: ' + approved + '</span>' +
+        '<span class="sub-pill sub-rejected">Rejected: ' + (allSubs.length - pending - approved) + '</span>';
+      var badgeOptions = ${JSON.stringify(PLAYER_BADGES)}.map(function(b) { return '<option value="' + b + '">' + b + '</option>'; }).join('');
+      document.getElementById('subList').innerHTML = filtered.length ? filtered.map(function(s) {
+        var thumb = s.photo_url
+          ? '<img class="sub-thumb" src="' + s.photo_url + '" alt="" />'
+          : '<div class="sub-thumb-ph">' + ((s.nickname||s.name||'?')[0]||'?').toUpperCase() + '</div>';
+        var pill = '<span class="sub-pill sub-' + s.status + '">' + s.status + '</span>';
+        return '<div class="sub-card" id="sc-' + s.id + '">'
+          + '<div class="sub-header" data-subid="' + s.id + '" onclick="toggleSubDetail(\'' + s.id + '\')">'
+          + thumb + '<div class="sub-info"><strong>' + (s.name||'Unnamed') + '</strong>' + (s.nickname ? '<em>&quot;' + s.nickname + '&quot;</em>' : '') + '<p class="small">' + (s.city||'') + ' · ' + new Date(s.created_at).toLocaleDateString() + '</p></div>' + pill
+          + '</div>'
+          + '<div class="sub-detail" id="sd-' + s.id + '">'
+          + (s.email ? '<div class="sub-field"><div class="sub-field-lbl">Email</div><div class="sub-field-val">' + s.email + '</div></div>' : '')
+          + (s.favorite_game ? '<div class="sub-field"><div class="sub-field-lbl">Favorite Game</div><div class="sub-field-val">' + s.favorite_game + '</div></div>' : '')
+          + (s.biggest_accomplishment ? '<div class="sub-field"><div class="sub-field-lbl">Biggest Accomplishment</div><div class="sub-field-val">' + s.biggest_accomplishment + '</div></div>' : '')
+          + (s.funny_story ? '<div class="sub-field"><div class="sub-field-lbl">Funny Story</div><div class="sub-field-val">' + s.funny_story + '</div></div>' : '')
+          + (s.bad_beat_story ? '<div class="sub-field"><div class="sub-field-lbl">Bad Beat Story</div><div class="sub-field-val">' + s.bad_beat_story + '</div></div>' : '')
+          + (s.social_link ? '<div class="sub-field"><div class="sub-field-lbl">Social Link</div><div class="sub-field-val"><a href="' + s.social_link + '" target="_blank" rel="noopener">' + s.social_link + '</a></div></div>' : '')
+          + (s.admin_notes ? '<div class="sub-field"><div class="sub-field-lbl">Admin Notes</div><div class="sub-field-val">' + s.admin_notes + '</div></div>' : '')
+          + '<div class="sub-actions">'
+          + (s.status !== 'approved' ? '<select id="badge-' + s.id + '" style="width:auto;padding:.4rem .6rem;font-size:.72rem;"><option value="">No Badge</option>' + badgeOptions + '</select>' : '')
+          + (s.status !== 'approved' ? '<button class="secondary" onclick="subApprove(\'' + s.id + '\')">Approve</button>' : '')
+          + (s.status !== 'rejected' ? '<button class="secondary" onclick="subReject(\'' + s.id + '\')">Reject</button>' : '')
+          + '<button class="secondary" onclick="subToggleHome(\'' + s.id + '\')">' + (s.featured_on_home ? 'Unfeature Home' : 'Feature Home') + '</button>'
+          + '<input id="notes-' + s.id + '" type="text" style="width:auto;flex:1;min-width:120px;padding:.4rem .6rem;font-size:.72rem;" placeholder="Add note..." value="' + (s.admin_notes||'').replace(/"/g,'&quot;') + '" />'
+          + '<button class="secondary" onclick="subSaveNotes(\'' + s.id + '\')">Save Note</button>'
+          + '<button class="secondary" onclick="subDelete(\'' + s.id + '\')">Delete</button>'
+          + '</div>'
+          + '</div>'
+          + '</div>';
+      }).join('') : '<div class="notice">No submissions in this category.</div>';
+    }
+    function toggleSubDetail(id) {
+      var el = document.getElementById('sd-' + id);
+      if (el) el.style.display = el.style.display === 'none' || !el.style.display ? '' : 'none';
+    }
+    async function subApprove(id) {
+      var badge = document.getElementById('badge-' + id);
+      var payload = { status: 'approved' };
+      if (badge && badge.value) payload.badge = badge.value;
+      await subUpdate(id, payload);
+    }
+    async function subReject(id) { await subUpdate(id, { status: 'rejected' }); }
+    async function subToggleHome(id) {
+      var s = allSubs.find(function(x) { return x.id === id; });
+      if (s) await subUpdate(id, { featured_on_home: !s.featured_on_home });
+    }
+    async function subSaveNotes(id) {
+      var el = document.getElementById('notes-' + id);
+      if (el) await subUpdate(id, { admin_notes: el.value });
+    }
+    async function subDelete(id) {
+      if (!confirm('Delete this submission?')) return;
+      var res = await fetch('/api/admin/submissions/' + id, { method: 'DELETE' });
+      if (res.ok) { allSubs = allSubs.filter(function(s) { return s.id !== id; }); renderSubList(); }
+    }
+    async function subUpdate(id, patch) {
+      var res = await fetch('/api/admin/submissions/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(patch) });
+      var data = await res.json();
+      if (res.ok) {
+        var idx = allSubs.findIndex(function(s) { return s.id === id; });
+        if (idx !== -1) allSubs[idx] = data;
+        renderSubList();
+      } else { alert(data.error || 'Update failed'); }
+    }
+    ['sfAll','sfPending','sfApproved','sfRejected'].forEach(function(btnId) {
+      var el = document.getElementById(btnId);
+      if (el) el.addEventListener('click', function() { subFilter = btnId.replace('sf','').toLowerCase(); renderSubList(); });
+    });
+    loadSubList();
+    </script>
+    </div><!-- end communityPanel -->
     <script>
       document.querySelectorAll('.admin-tab').forEach(function(btn) {
         btn.addEventListener('click', function() {
@@ -1024,6 +1253,7 @@ function renderAdminPage() {
           btn.classList.add('active');
           document.getElementById('blogPanel').style.display = btn.dataset.panel === 'blogPanel' ? '' : 'none';
           document.getElementById('chronPanel').style.display = btn.dataset.panel === 'chronPanel' ? '' : 'none';
+          document.getElementById('communityPanel').style.display = btn.dataset.panel === 'communityPanel' ? '' : 'none';
         });
       });
     </script>
@@ -1341,6 +1571,235 @@ function renderChroniclePage(chronicle, allChronicles) {
         ${relatedHtml ? `<div class="rel-section"><h2>More ${escapeHtml(chronicle.category || 'Stories')}</h2><div style="margin-top:.75rem;">${relatedHtml}</div></div>` : ''}
       </aside>` : ''}
     </section>`);
+}
+
+function badgeSlug(badge) {
+  return slugify(badge || '');
+}
+
+const BADGE_COLORS = {
+  'final-table-hero':     'rgba(0,200,83,.12);color:var(--green);border-color:rgba(0,200,83,.3)',
+  'bad-beat-champion':    'rgba(200,60,60,.1);color:#e06060;border-color:rgba(200,60,60,.3)',
+  'river-victim':         'rgba(60,120,220,.1);color:#6699ee;border-color:rgba(60,120,220,.3)',
+  'poker-storyteller':    'rgba(201,168,76,.12);color:var(--gold);border-color:rgba(201,168,76,.3)',
+  'bubble-survivor':      'rgba(200,140,50,.1);color:#e09040;border-color:rgba(200,140,50,.3)',
+  'atmwithnopin-legend':  'rgba(160,60,220,.1);color:#cc77ff;border-color:rgba(160,60,220,.3)',
+};
+function badgeStyle(badge) {
+  return BADGE_COLORS[badgeSlug(badge)] || 'rgba(0,200,83,.08);color:var(--green);border-color:rgba(0,200,83,.2)';
+}
+function renderBadge(badge) {
+  if (!badge) return '';
+  return `<span style="display:inline-block;background:${badgeStyle(badge)};border:1px solid;border-radius:999px;padding:.2rem .6rem;font-size:.6rem;text-transform:uppercase;letter-spacing:.12em;">${escapeHtml(badge)}</span>`;
+}
+
+function renderPlayerCard(p) {
+  const initials = ((p.nickname || p.name || '?')[0] || '?').toUpperCase();
+  return `<article class="player-card" data-badge="${escapeHtml(p.badge || '')}">
+    ${p.photo_url
+      ? `<div class="player-photo-wrap"><img src="${escapeHtml(p.photo_url)}" alt="${escapeHtml(p.nickname || p.name)}" loading="lazy" /></div>`
+      : `<div class="player-photo-ph">${escapeHtml(initials)}</div>`}
+    <div class="player-card-body">
+      ${renderBadge(p.badge)}
+      <h3 class="player-card-name">${escapeHtml(p.nickname || p.name)}</h3>
+      ${p.nickname && p.name ? `<p class="small">${escapeHtml(p.name)}</p>` : ''}
+      ${p.city ? `<p class="small" style="margin-top:.15rem;">${escapeHtml(p.city)}</p>` : ''}
+      <p class="player-card-excerpt">${escapeHtml((p.biggest_accomplishment || p.funny_story || '').slice(0, 110))}${(p.biggest_accomplishment || '').length > 110 ? '…' : ''}</p>
+      <a href="/players/${escapeHtml(p.slug)}" class="player-view-cta">View Profile →</a>
+    </div>
+  </article>`;
+}
+
+function renderCommunityWallPage(submissions) {
+  const approved = submissions
+    .filter((s) => s.status === 'approved')
+    .sort((a, b) => new Date(b.approved_at || b.created_at) - new Date(a.approved_at || a.created_at));
+  const badgeBtns = ['All', ...PLAYER_BADGES].map((b) =>
+    `<button class="pw-filter-btn${b === 'All' ? ' active' : ''}" data-badge="${b === 'All' ? '' : escapeHtml(b)}">${escapeHtml(b)}</button>`
+  ).join('');
+  const cards = approved.map(renderPlayerCard).join('');
+  return renderLayout('Community Wall | ATMwithNoPIN™', `
+    <style>
+      .pw-controls{display:flex;flex-direction:column;gap:.75rem;margin:1.5rem 0 1rem;}
+      .pw-filter-wrap{display:flex;flex-wrap:wrap;gap:.4rem;}
+      .pw-filter-btn{border:1px solid #242424;background:#111;color:#888;border-radius:999px;padding:.3rem .7rem;font:.68rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:all .2s;}
+      .pw-filter-btn:hover,.pw-filter-btn.active{border-color:rgba(0,200,83,.4);background:rgba(0,200,83,.08);color:var(--green);}
+      .pw-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:.5rem;}
+      @media(max-width:980px){.pw-grid{grid-template-columns:1fr;}}
+      @media(min-width:600px) and (max-width:980px){.pw-grid{grid-template-columns:repeat(2,1fr);}}
+      .player-card{border:1px solid #1e1e1e;background:#101010;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .2s;}
+      .player-card:hover{border-color:#2e2e2e;}
+      .player-photo-wrap img{width:100%;height:200px;object-fit:cover;display:block;}
+      .player-photo-ph{height:160px;background:linear-gradient(135deg,#0d2e1a,#0a1a0f);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:3.5rem;color:var(--green);border-bottom:1px solid #1a1a1a;}
+      .player-card-body{padding:1rem;display:flex;flex-direction:column;gap:.35rem;flex:1;}
+      .player-card-name{font-family:'DM Serif Display',serif;font-size:1.05rem;margin:.2rem 0 0;}
+      .player-card-excerpt{color:#888;font-size:.78rem;line-height:1.55;flex:1;margin-top:.25rem;}
+      .player-view-cta{display:inline-block;margin-top:.4rem;color:var(--green);font-size:.7rem;text-transform:uppercase;letter-spacing:.12em;text-decoration:none;}
+      .player-view-cta:hover{color:#00ff6a;}
+      .pw-no-results{grid-column:1/-1;text-align:center;padding:3rem;color:#555;font-size:.85rem;}
+      .pw-cta-row{text-align:center;margin-top:1.5rem;}
+    </style>
+    <section class="hero">
+      <p class="eyebrow">ATMwithNoPIN™ Community</p>
+      <h1>Community Wall</h1>
+      <p class="body-text" style="max-width:60ch;">Players from across the poker world who've shared their stories, bad beats, and moments with the ATMwithNoPIN™ community.</p>
+      <p style="margin-top:.75rem;"><a href="/request-feature" class="pill">Share Your Story →</a></p>
+    </section>
+    <div class="pw-controls">
+      <div class="pw-filter-wrap">${badgeBtns}</div>
+    </div>
+    <div class="pw-grid" id="pwGrid">
+      ${cards || '<p class="pw-no-results">No players featured yet. <a href="/request-feature">Be the first →</a></p>'}
+    </div>
+    <script>
+    (function() {
+      var all = Array.from(document.querySelectorAll('.player-card'));
+      var active = '';
+      function paint() {
+        all.forEach(function(c) { c.style.display = (!active || c.dataset.badge === active) ? '' : 'none'; });
+        var nr = document.getElementById('pwNoRes');
+        var vis = all.filter(function(c) { return c.style.display !== 'none'; });
+        if (!vis.length && all.length) {
+          if (!nr) { nr = Object.assign(document.createElement('p'), {id:'pwNoRes',className:'pw-no-results',textContent:'No players with this badge yet.'}); document.getElementById('pwGrid').appendChild(nr); }
+        } else if (nr) nr.remove();
+      }
+      document.querySelectorAll('.pw-filter-btn').forEach(function(b) {
+        b.addEventListener('click', function() {
+          document.querySelectorAll('.pw-filter-btn').forEach(function(x) { x.classList.remove('active'); });
+          b.classList.add('active'); active = b.dataset.badge || ''; paint();
+        });
+      });
+    })();
+    </script>`);
+}
+
+function renderPlayerProfilePage(player, allPlayers) {
+  const others = allPlayers
+    .filter((p) => p.id !== player.id && p.status === 'approved' && p.badge === player.badge)
+    .slice(0, 3);
+  const shareUrl = `https://atmwithnopin.com/players/${escapeHtml(player.slug)}`;
+  return renderLayout(`${player.nickname || player.name} | ATMwithNoPIN™ Community`, `
+    <meta name="description" content="${escapeHtml((player.biggest_accomplishment || player.funny_story || '').slice(0, 155))}" />
+    <meta property="og:title" content="${escapeHtml((player.nickname || player.name) + ' — ATMwithNoPIN™ Community')}" />
+    <meta property="og:description" content="${escapeHtml((player.biggest_accomplishment || player.funny_story || '').slice(0, 155))}" />
+    ${player.photo_url ? `<meta property="og:image" content="${escapeHtml(player.photo_url)}" />` : ''}
+    <style>
+      .pp-photo{width:100%;max-height:420px;object-fit:cover;border-radius:14px;border:1px solid #1e1e1e;display:block;margin-bottom:1.25rem;}
+      .pp-photo-ph{height:260px;background:linear-gradient(135deg,#0d2e1a,#0a1a0f);border-radius:14px;border:1px solid #1e1e1e;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:5rem;color:var(--green);margin-bottom:1.25rem;}
+      .pp-section{margin-top:1.25rem;padding-top:1rem;border-top:1px solid #1a1a1a;}
+      .pp-section-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.2em;color:var(--green);margin-bottom:.4rem;}
+      .pp-social-link{display:inline-flex;align-items:center;gap:.4rem;color:var(--green);font-size:.78rem;word-break:break-all;}
+      .share-row{margin-top:1.5rem;padding-top:1rem;border-top:1px solid #1e1e1e;}
+      .share-btns{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.4rem;}
+      .share-btn{border:1px solid #242424;background:#111;color:var(--offwhite);border-radius:8px;padding:.4rem .8rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:all .2s;text-decoration:none;display:inline-block;}
+      .share-btn:hover{border-color:var(--green);color:var(--green);}
+      .others-section{margin-top:1.5rem;}
+      .other-card{border:1px solid #1e1e1e;background:#0c0c0c;border-radius:12px;padding:.85rem;margin-bottom:.6rem;}
+      .other-card h4{font-family:'DM Serif Display',serif;font-size:.93rem;margin:.2rem 0;}
+      .other-card h4 a{color:var(--offwhite);text-decoration:none;}
+      .other-card h4 a:hover{color:var(--green);}
+    </style>
+    <section class="hero">
+      <p class="eyebrow"><a href="/community-wall" style="color:var(--green);">Community Wall</a> › Player Profile</p>
+      <h1>${escapeHtml(player.nickname || player.name)}</h1>
+      <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-top:.5rem;">
+        ${renderBadge(player.badge)}
+        ${player.city ? `<span class="meta">${escapeHtml(player.city)}</span>` : ''}
+        ${player.favorite_game ? `<span class="meta">${escapeHtml(player.favorite_game)}</span>` : ''}
+      </div>
+    </section>
+    <section class="grid" style="margin-top:1rem;">
+      <article class="card">
+        ${player.photo_url
+          ? `<img class="pp-photo" src="${escapeHtml(player.photo_url)}" alt="${escapeHtml(player.nickname || player.name)}" />`
+          : `<div class="pp-photo-ph">${escapeHtml(((player.nickname || player.name || '?')[0] || '?').toUpperCase())}</div>`}
+        ${player.biggest_accomplishment ? `<div class="pp-section"><p class="pp-section-label">Biggest Accomplishment</p><p class="body-text">${escapeHtml(player.biggest_accomplishment)}</p></div>` : ''}
+        ${player.funny_story ? `<div class="pp-section"><p class="pp-section-label">Funniest Poker Story</p><div>${renderMarkdown(player.funny_story)}</div></div>` : ''}
+        ${player.bad_beat_story ? `<div class="pp-section"><p class="pp-section-label">Bad Beat Story</p><div>${renderMarkdown(player.bad_beat_story)}</div></div>` : ''}
+        ${player.social_link ? `<div class="pp-section"><p class="pp-section-label">Find Me Online</p><a class="pp-social-link" href="${escapeHtml(player.social_link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(player.social_link)}</a></div>` : ''}
+        <div class="share-row">
+          <p class="meta">Share this profile</p>
+          <div class="share-btns">
+            <a class="share-btn" href="https://twitter.com/intent/tweet?text=${encodeURIComponent((player.nickname || player.name) + ' on ATMwithNoPIN™')}&url=${encodeURIComponent(shareUrl)}" target="_blank" rel="noopener">𝕏 Share</a>
+            <button class="share-btn" onclick="navigator.clipboard.writeText('${escapeHtml(shareUrl)}').then(function(){this.textContent='Copied!';var b=this;setTimeout(function(){b.textContent='Copy Link';},2000);}.bind(this))">Copy Link</button>
+          </div>
+        </div>
+      </article>
+      ${others.length ? `<aside class="card">
+        <h2>More Players</h2>
+        <div class="others-section">
+          ${others.map((p) => `<article class="other-card">${renderBadge(p.badge)}<h4><a href="/players/${escapeHtml(p.slug)}">${escapeHtml(p.nickname || p.name)}</a></h4>${p.city ? `<p class="small">${escapeHtml(p.city)}</p>` : ''}</article>`).join('')}
+        </div>
+        <div style="margin-top:1rem;"><a href="/community-wall" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View All Players →</a></div>
+      </aside>` : ''}
+    </section>`);
+}
+
+function renderRequestFeaturePage(error) {
+  return renderLayout('Request to be Featured | ATMwithNoPIN™', `
+    <style>
+      .rf-form label{display:grid;gap:.35rem;font-size:.78rem;color:var(--gray);text-transform:uppercase;letter-spacing:.12em;}
+      .rf-form input,.rf-form textarea,.rf-form select{width:100%;border:1px solid #242424;background:#121212;color:var(--offwhite);padding:.8rem .9rem;border-radius:10px;font:inherit;}
+      .rf-form textarea{min-height:100px;}
+      .rf-perm{display:flex;align-items:flex-start;gap:.6rem;padding:.75rem;border:1px solid #1e3a28;background:#0c1a10;border-radius:10px;}
+      .rf-perm input{width:auto;flex-shrink:0;margin-top:.15rem;}
+      .rf-perm span{font-size:.78rem;color:var(--gray);line-height:1.5;}
+      .hp-field{position:absolute;left:-9999px;opacity:0;pointer-events:none;}
+    </style>
+    <section class="hero">
+      <p class="eyebrow">ATMwithNoPIN™ Community</p>
+      <h1>Share Your Story</h1>
+      <p class="body-text" style="max-width:58ch;">Are you a poker player with a story to tell? Fill out the form and you might be featured on the ATMwithNoPIN™ community wall.</p>
+    </section>
+    ${error ? `<div class="notice" style="border-color:#5c1f1f;margin-bottom:1rem;">${escapeHtml(error)}</div>` : ''}
+    <section class="card" style="max-width:680px;margin-top:1rem;">
+      <form id="rfForm" class="rf-form form-grid" method="POST" action="/request-feature" enctype="multipart/form-data">
+        <input class="hp-field" type="text" name="hp_url" tabindex="-1" autocomplete="off" aria-hidden="true" />
+        <label>Full Name *<input name="name" type="text" required maxlength="100" placeholder="Your real name" /></label>
+        <label>Poker Nickname<input name="nickname" type="text" maxlength="80" placeholder="What they call you at the table" /></label>
+        <label>Email *<input name="email" type="email" required maxlength="200" placeholder="you@example.com" /></label>
+        <label>City / Hometown<input name="city" type="text" maxlength="100" placeholder="Las Vegas, NV" /></label>
+        <label>Favorite Poker Game<input name="favorite_game" type="text" maxlength="100" placeholder="$2/$5 NLH, PLO, etc." /></label>
+        <label>Biggest Poker Accomplishment<textarea name="biggest_accomplishment" maxlength="800" placeholder="Final tabled the WSOP Main, ran good once..."></textarea></label>
+        <label>Funniest Poker Story<textarea name="funny_story" maxlength="2000" placeholder="The story you always tell at the table..."></textarea></label>
+        <label>Bad Beat Story<textarea name="bad_beat_story" maxlength="2000" placeholder="Aces cracked. Again."></textarea></label>
+        <label>Social Media Link<input name="social_link" type="url" maxlength="300" placeholder="https://twitter.com/yourhandle" /></label>
+        <label>Photo (JPG/PNG/WEBP, max 5MB)<input name="photo" type="file" accept="image/jpeg,image/png,image/webp" /></label>
+        <div class="rf-perm">
+          <input name="permission" type="checkbox" id="rfPerm" required />
+          <label for="rfPerm" style="text-transform:none;letter-spacing:0;font-size:.82rem;color:var(--offwhite);cursor:pointer;">I give ATMwithNoPIN™ permission to publish my name, photo, and stories on their website and social media.</label>
+        </div>
+        <button type="submit">Submit My Story →</button>
+        <div class="notice" id="rfStatus" style="display:none;"></div>
+      </form>
+    </section>
+    <script>
+    (function() {
+      var form = document.getElementById('rfForm');
+      var statusEl = document.getElementById('rfStatus');
+      if (!form) return;
+      form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        statusEl.style.display = '';
+        statusEl.style.borderColor = '#1e1e1e';
+        statusEl.textContent = 'Submitting your story...';
+        try {
+          var fd = new FormData(form);
+          var res = await fetch('/request-feature', { method: 'POST', body: fd });
+          var data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Submission failed.');
+          statusEl.textContent = data.message || 'Thanks! Your story has been submitted for review.';
+          statusEl.style.borderColor = '#1f5c31';
+          form.reset();
+          form.style.opacity = '.5';
+          form.style.pointerEvents = 'none';
+        } catch(err) {
+          statusEl.textContent = err.message;
+          statusEl.style.borderColor = '#5c1f1f';
+        }
+      });
+    })();
+    </script>`);
 }
 
 function verifyAdmin(req) {
@@ -1794,8 +2253,165 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (pathname === '/request-feature' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderRequestFeaturePage());
+    return;
+  }
+
+  if (pathname === '/request-feature' && req.method === 'POST') {
+    try {
+      const contentType = req.headers['content-type'] || '';
+      const boundary = contentType.split('boundary=')[1];
+      if (!boundary) throw new Error('Multipart form required.');
+      const bodyBuffer = await readBodyBuffer(req);
+      const form = parseMultipartForm(bodyBuffer, boundary);
+      const f = form.fields;
+      if (f.hp_url && f.hp_url.trim()) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Thanks! Your submission is under review.' }));
+        return;
+      }
+      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+      if (!checkSubmissionRateLimit(ip)) {
+        res.writeHead(429, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Too many submissions. Please try again in an hour.' }));
+        return;
+      }
+      const name = String(f.name || '').trim();
+      const email = String(f.email || '').trim();
+      const permission = String(f.permission || '').trim();
+      if (!name) throw new Error('Name is required.');
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Valid email is required.');
+      if (!permission) throw new Error('You must grant permission to submit.');
+      let photo_url = '';
+      if (form.files.photo && form.files.photo.filename && isSafeImage(form.files.photo.filename)) {
+        const photoFile = form.files.photo;
+        if (photoFile.data.length > 5 * 1024 * 1024) throw new Error('Photo is too large. Max 5MB.');
+        let uploadResult = null;
+        try { uploadResult = await uploadImageToCloudinary(photoFile.data, photoFile.filename, 'featured'); } catch { uploadResult = null; }
+        if (!uploadResult) uploadResult = uploadImageLocally(photoFile.data, photoFile.filename);
+        photo_url = uploadResult.url;
+      }
+      const id = crypto.randomUUID();
+      const submission = {
+        id,
+        slug: playerProfileSlug(name, String(f.nickname || '').trim()),
+        name,
+        nickname: String(f.nickname || '').trim(),
+        email,
+        city: String(f.city || '').trim(),
+        favorite_game: String(f.favorite_game || '').trim(),
+        biggest_accomplishment: String(f.biggest_accomplishment || '').trim().slice(0, 800),
+        funny_story: String(f.funny_story || '').trim().slice(0, 2000),
+        bad_beat_story: String(f.bad_beat_story || '').trim().slice(0, 2000),
+        social_link: String(f.social_link || '').trim().slice(0, 300),
+        photo_url,
+        permission_granted: true,
+        status: 'pending',
+        badge: '',
+        featured_on_home: false,
+        admin_notes: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        approved_at: null,
+      };
+      const all = await loadSubmissions();
+      all.unshift(submission);
+      await saveSubmissions(all);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: 'Thanks for sharing your story! We\'ll review your submission and reach out if you\'re featured.' }));
+    } catch (error) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  if (pathname === '/community-wall') {
+    const all = await loadSubmissions();
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderCommunityWallPage(all));
+    return;
+  }
+
+  if (pathname.startsWith('/players/')) {
+    const slug = pathname.split('/').filter(Boolean).slice(1).join('/');
+    const all = await loadSubmissions();
+    const player = all.find((p) => p.slug === slug && p.status === 'approved');
+    if (!player) {
+      res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(renderLayout('Player not found', `<section class="card"><h1>Player not found</h1><p class="body-text">This profile doesn't exist or hasn't been approved yet.</p><p style="margin-top:.75rem;"><a href="/community-wall">← Back to Community Wall</a></p></section>`));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderPlayerProfilePage(player, all));
+    return;
+  }
+
+  if (pathname === '/api/admin/submissions' && req.method === 'GET') {
+    const all = await loadSubmissions();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(all));
+    return;
+  }
+
+  if (pathname.startsWith('/api/admin/submissions/') && req.method === 'GET') {
+    const id = pathname.split('/').pop();
+    const all = await loadSubmissions();
+    const s = all.find((x) => x.id === id);
+    if (!s) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found.' })); return; }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(s));
+    return;
+  }
+
+  if (pathname.startsWith('/api/admin/submissions/') && req.method === 'PUT') {
+    try {
+      const id = pathname.split('/').pop();
+      const body = await parseJsonBody(req);
+      const all = await loadSubmissions();
+      const idx = all.findIndex((x) => x.id === id);
+      if (idx === -1) throw new Error('Submission not found.');
+      const old = all[idx];
+      const updated = {
+        ...old,
+        status: body.status !== undefined ? body.status : old.status,
+        badge: body.badge !== undefined ? String(body.badge || '') : old.badge,
+        featured_on_home: body.featured_on_home !== undefined ? !!body.featured_on_home : !!old.featured_on_home,
+        admin_notes: body.admin_notes !== undefined ? String(body.admin_notes || '') : old.admin_notes,
+        updated_at: new Date().toISOString(),
+        approved_at: body.status === 'approved' && !old.approved_at ? new Date().toISOString() : old.approved_at || null,
+      };
+      all[idx] = updated;
+      await saveSubmissions(all);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(updated));
+    } catch (error) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  if (pathname.startsWith('/api/admin/submissions/') && req.method === 'DELETE') {
+    try {
+      const id = pathname.split('/').pop();
+      const all = await loadSubmissions();
+      const filtered = all.filter((x) => x.id !== id);
+      if (filtered.length === all.length) throw new Error('Submission not found.');
+      await saveSubmissions(filtered);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (error) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
   if (pathname === '/' || pathname === '/index.html') {
-    const [allPosts, allChron] = await Promise.all([loadPosts(), loadChronicles()]);
+    const [allPosts, allChron, allSubs] = await Promise.all([loadPosts(), loadChronicles(), loadSubmissions()]);
     const pubPosts = allPosts
       .filter((post) => post.status === 'published')
       .sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
@@ -1850,10 +2466,40 @@ const server = http.createServer(async (req, res) => {
         <div class="hof-preview-grid">${chronPreviewHtml}</div>
         <div style="margin-top:1.5rem;"><a href="/chronicles" style="display:inline-block;color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View All Chronicles →</a></div>
       </section>`;
+      const featuredPlayers = allSubs
+        .filter((s) => s.status === 'approved')
+        .sort((a, b) => (b.featured_on_home ? 1 : 0) - (a.featured_on_home ? 1 : 0))
+        .slice(0, 4);
+      const communityCardsHtml = featuredPlayers.length
+        ? featuredPlayers.map((p) => {
+            const initials = ((p.name || 'P').split(' ').map((w) => w[0]).join('').slice(0, 2)).toUpperCase();
+            const badgeHtml = p.badge ? `<span style="display:inline-block;padding:.2rem .5rem;border-radius:20px;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;background:var(--green);color:#000;margin-bottom:.4rem;">${escapeHtml(p.badge)}</span>` : '';
+            const photoHtml = p.photo_url
+              ? `<img src="${escapeHtml(p.photo_url)}" alt="${escapeHtml(p.name)}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--green);margin-right:.75rem;">`
+              : `<div style="width:56px;height:56px;border-radius:50%;background:var(--felt);display:flex;align-items:center;justify-content:center;color:var(--green);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;border:2px solid var(--green-dim);margin-right:.75rem;">${escapeHtml(initials)}</div>`;
+            return `<article style="border:1px solid #1e1e1e;background:#0c0c0c;border-radius:14px;padding:1rem;">
+              <div style="display:flex;align-items:center;margin-bottom:.75rem;">${photoHtml}<div><div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--offwhite);">${escapeHtml(p.name)}${p.nickname ? ` <span style="color:var(--green);font-size:.85rem;">"${escapeHtml(p.nickname)}"</span>` : ''}</div>${p.city ? `<div style="color:var(--gray);font-size:.72rem;">${escapeHtml(p.city)}</div>` : ''}</div></div>
+              ${badgeHtml}
+              ${p.accomplishment ? `<p style="color:#888;font-size:.78rem;line-height:1.5;margin-bottom:.5rem;">${escapeHtml(p.accomplishment.slice(0, 100))}${p.accomplishment.length > 100 ? '…' : ''}</p>` : ''}
+              <a href="/players/${escapeHtml(p.slug)}" style="color:var(--green);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;text-decoration:none;">View Profile →</a>
+            </article>`;
+          }).join('')
+        : '<div style="color:var(--gray);font-size:.9rem;">No community profiles yet. <a href="/request-feature" style="color:var(--green);">Be the first →</a></div>';
+      const communitySection = `<section class="schedule" id="community-preview" style="border-top:1px solid #1a1a1a;">
+        <p class="section-label">// ATMwithNoPIN Community</p>
+        <h2>Community Wall</h2>
+        <p class="body-text" style="max-width:60ch;">Poker players from the ATMwithNoPIN universe — their stories, bad beats, and moments of glory.</p>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin-top:1rem;">${communityCardsHtml}</div>
+        <div style="margin-top:1.5rem;display:flex;gap:1rem;flex-wrap:wrap;">
+          <a href="/community-wall" style="display:inline-block;color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View Community Wall →</a>
+          <a href="/request-feature" style="display:inline-block;color:var(--gold);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">Get Featured →</a>
+        </div>
+      </section>`;
       const html = data
         .replace('<!-- BLOG_PREVIEW -->', `<section class="schedule" id="latest" style="border-top:1px solid #1a1a1a;"><p class="section-label">// Latest from the ATM</p><h2>Latest from the ATM</h2><p class="body-text" style="max-width:60ch;">Fresh table stories, tournament notes, and bad beats from the ATMwithNoPIN™ world.</p><div class="posts">${allPostsHtml || '<div class="notice">No published posts yet. Publish your first story in the admin area.</div>'}</div><div style="margin-top:1.5rem;"><a href="/blog" style="display:inline-block;color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View all stories on the blog →</a></div></section>`)
         .replace('<!-- RECENT_POSTS -->', recentPostsHtml || '<div class="notice">No published posts yet.</div>')
         .replace('<!-- CHRONICLES_PREVIEW -->', chronSection)
+        .replace('<!-- COMMUNITY_PREVIEW -->', communitySection)
         .replace(/ATM With No PIN — Dhezz/g, 'ATMwithNoPIN™ Poker | Official Site')
         .replace(/<title>ATM With No PIN — Dhezz<\/title>/, '<title>ATMwithNoPIN™ Poker | Official Site</title>');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
