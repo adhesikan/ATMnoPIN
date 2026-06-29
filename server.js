@@ -243,13 +243,20 @@ async function seedDefaultPosts() {
 }
 
 const SEED_CHRONICLES = [
+  // ─── HORSESHOE / WSOP ───
   {
     id: 'c001-terrell-atm-biggest-fan-wsop-2026',
-    title: 'Dealer Spotlight: Terrell — My Biggest Fan at the WSOP',
+    title: 'Dealer Spotlight: Terrell — The Railbird',
     slug: 'dealer-spotlight-terrell-my-biggest-fan-at-the-wsop',
-    excerpt: 'Some players have lucky socks. I have Terrell cheering for me from the rail every chance he gets.',
-    category: 'Meet the Crew',
-    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Terrell', 'ATMwithNoPIN'],
+    excerpt: 'Dealer by day, tournament supporter by night. Terrell has stood on the rail for Dhezz more times than most friends would.',
+    category: 'Dealer Spotlight',
+    person_type: 'dealer',
+    poker_room: 'Horseshoe / WSOP',
+    specialty: 'Rail support',
+    tell: 'Shows up after shift to cheer',
+    threat_level: 'Good vibes guaranteed',
+    icon_type: '♦',
+    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Terrell', 'Rail Support', 'ATMwithNoPIN'],
     content: `Every poker player dreams of having a rail.
 
 Mine usually consists of one very enthusiastic dealer named Terrell.
@@ -280,7 +287,7 @@ One of these years we're going to have a very expensive celebration.
     featured_image_alt: 'Terrell, dealer at the Horseshoe Hall of Fame Poker Room',
     gallery_images: [],
     video_urls: [],
-    crew_nickname: '',
+    crew_nickname: 'The Railbird',
     crew_role: 'Dealer',
     crew_quote: '',
     created_at: '2026-06-27T13:00:00.000Z',
@@ -289,11 +296,17 @@ One of these years we're going to have a very expensive celebration.
   },
   {
     id: 'c002-dominick-poker-jesus-tournament-blessings-2026',
-    title: 'Dealer Spotlight: Poker Jesus — Dominick\'s Tournament Blessings',
+    title: 'Dealer Spotlight: Dominick — Poker Jesus',
     slug: 'dealer-spotlight-poker-jesus-dominicks-tournament-blessings',
-    excerpt: 'Before every tournament, I seek blessings from Poker Jesus himself.',
-    category: 'Meet the Crew',
-    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Dominick', 'Poker Jesus', 'ATMwithNoPIN'],
+    excerpt: 'Tournament blessings available before every event. Results may vary.',
+    category: 'Dealer Spotlight',
+    person_type: 'dealer',
+    poker_room: 'Horseshoe / WSOP',
+    specialty: 'Tournament blessings',
+    tell: 'The hair and beard give it away',
+    threat_level: 'Faith-based run good',
+    icon_type: '♦',
+    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Dominick', 'Poker Jesus', 'Tournament Blessings', 'Poker Humor', 'ATMwithNoPIN'],
     content: `Every poker player has a routine before a tournament.
 
 Mine?
@@ -341,11 +354,17 @@ I'm convinced one day it will finally result in a bracelet.
   },
   {
     id: 'c003-crazy-mike-river-card-fault-2026',
-    title: 'Dealer Spotlight: Crazy Mike — The River Card Is Always His Fault',
+    title: 'Dealer Spotlight: Crazy Mike — River Card Specialist',
     slug: 'dealer-spotlight-crazy-mike-the-river-card-is-always-his-fault',
-    excerpt: 'The funniest dealer in the room... until he deals me another terrible river.',
-    category: 'Meet the Crew',
-    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Crazy Mike', 'Poker Humor', 'ATMwithNoPIN'],
+    excerpt: 'Every bad river is somehow his fault. At least according to Dhezz.',
+    category: 'Dealer Spotlight',
+    person_type: 'dealer',
+    poker_room: 'Horseshoe / WSOP',
+    specialty: 'Suspicious runouts',
+    tell: 'Dry smile after the bad river',
+    threat_level: 'Emotionally expensive',
+    icon_type: '♦',
+    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Crazy Mike', 'Bad Beats', 'Poker Humor', 'River Cards', 'ATMwithNoPIN'],
     content: `Every poker room has one dealer who can make the entire table laugh.
 
 For me, that's Crazy Mike.
@@ -388,7 +407,7 @@ Our ongoing "argument" has become part of the entertainment every time I sit at 
     featured_image_alt: 'Crazy Mike, dealer at the Horseshoe Hall of Fame Poker Room',
     gallery_images: [],
     video_urls: [],
-    crew_nickname: 'Crazy Mike',
+    crew_nickname: 'River Card Specialist',
     crew_role: 'Dealer',
     crew_quote: '',
     created_at: '2026-06-27T13:20:00.000Z',
@@ -400,8 +419,14 @@ Our ongoing "argument" has become part of the entertainment every time I sit at 
     title: 'Floor Spotlight: Frank — The Man Who Keeps the Poker Room Running',
     slug: 'floor-spotlight-frank-the-man-who-keeps-the-poker-room-running',
     excerpt: 'Every great poker room has someone quietly making sure everything works. At the Horseshoe Hall of Fame Poker Room, that\'s Frank.',
-    category: 'Meet the Crew',
-    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Floor Manager', 'Frank', 'Poker Room', 'ATMwithNoPIN'],
+    category: 'Floor Spotlight',
+    person_type: 'floor',
+    poker_room: 'Horseshoe / WSOP',
+    specialty: 'Keeping the room running',
+    tell: 'Already solving the next problem',
+    threat_level: 'Final Table Level management',
+    icon_type: '♣',
+    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Floor Spotlight', 'Floor Staff', 'Frank', 'Behind the Scenes', 'ATMwithNoPIN'],
     content: `Most players only notice the floor when something goes wrong.
 
 I notice Frank because he's everywhere.
@@ -454,24 +479,511 @@ Some carry a seating list and a radio.
     featured_image_alt: 'Frank, floor manager at the Horseshoe Hall of Fame Poker Room',
     gallery_images: [],
     video_urls: [],
-    crew_nickname: '',
+    crew_nickname: 'The Man Who Keeps the Poker Room Running',
     crew_role: 'Floor Manager',
     crew_quote: '',
     created_at: '2026-06-27T13:30:00.000Z',
     updated_at: '2026-06-27T13:30:00.000Z',
     published_at: '2026-06-27T13:30:00.000Z',
   },
+  // ─── FOXWOODS PLAYERS ───
+  {
+    id: 'c005-manny-the-machine-foxwoods-2026',
+    title: 'Player Spotlight: Manny — The Machine',
+    slug: 'player-spotlight-manny-the-machine',
+    excerpt: 'Deposits chips like clockwork. Consistent. Reliable. Somehow always confident.',
+    category: 'Player Spotlight',
+    person_type: 'player',
+    poker_room: 'Foxwoods',
+    specialty: 'Mechanical chip donations',
+    tell: 'Always looks confident',
+    threat_level: 'Bring extra buy-ins',
+    icon_type: '♠',
+    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', '$2/$5 NLH', 'Cash Games', 'ATMwithNoPIN'],
+    content: `Manny earned his nickname at the $2/$5 NLH tables at Foxwoods.
+
+Not because he plays like a computer.
+
+Because he deposits chips with the mechanical reliability of a well-maintained ATM.
+
+Clock him in. Stack up. Shove the river with second pair.
+
+Specialty: Mechanical chip donations.
+
+Tell: Always looks confident, regardless of what he's holding.
+
+The unsettling part is that sometimes he actually is holding something.
+
+**ATMwithNoPIN Rating:**
+
+- Consistency: 5/5
+- Chip Deposit Reliability: 5/5
+- Fold Frequency: Not observed
+- Threat Level: Bring extra buy-ins`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Manny, The Machine, at Foxwoods',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'The Machine',
+    crew_role: 'Player',
+    crew_quote: '',
+    created_at: '2026-06-27T14:00:00.000Z',
+    updated_at: '2026-06-27T14:00:00.000Z',
+    published_at: '2026-06-27T14:00:00.000Z',
+  },
+  {
+    id: 'c006-jamie-the-tuna-foxwoods-2026',
+    title: 'Player Spotlight: Jamie — The Tuna',
+    slug: 'player-spotlight-jamie-the-tuna',
+    excerpt: 'Never sees it coming — not the bluff, not the set, not the straight on the board.',
+    category: 'Player Spotlight',
+    person_type: 'player',
+    poker_room: 'Foxwoods',
+    specialty: 'Calling with nothing',
+    tell: 'Looks at chips before calling',
+    threat_level: 'Occasionally dangerous',
+    icon_type: '♠',
+    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', '$2/$5 NLH', 'Cash Games', 'Poker Humor', 'ATMwithNoPIN'],
+    content: `The Tuna doesn't just call.
+
+The Tuna *believes*.
+
+Jamie has a gift for eternal optimism at the poker table. No matter the board texture, the betting pattern, or the obvious danger, Jamie believes every hand might still be the one.
+
+Sometimes it is.
+
+More often it isn't.
+
+But the optimism never fades.
+
+Specialty: Calling with nothing.
+
+Tell: Looks at chips before calling. A tell that helps nobody, because the call is happening regardless.
+
+**ATMwithNoPIN Rating:**
+
+- Calling Ability: 5/5
+- Hand Selection: Freestyle
+- Board Reading: Optional
+- Threat Level: Occasionally dangerous`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Jamie, The Tuna, at Foxwoods',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'The Tuna',
+    crew_role: 'Player',
+    crew_quote: '',
+    created_at: '2026-06-27T14:10:00.000Z',
+    updated_at: '2026-06-27T14:10:00.000Z',
+    published_at: '2026-06-27T14:10:00.000Z',
+  },
+  {
+    id: 'c007-jay-ducky-jay-foxwoods-2026',
+    title: 'Player Spotlight: Jay — Ducky Jay',
+    slug: 'player-spotlight-jay-ducky-jay',
+    excerpt: 'The duck may be the real decision maker. Jay just brings the chips.',
+    category: 'Player Spotlight',
+    person_type: 'player',
+    poker_room: 'Foxwoods',
+    specialty: 'Letting the duck decide',
+    tell: 'Always has a rubber duck on his stack',
+    threat_level: 'The duck is scarier',
+    icon_type: '♠',
+    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', 'Poker Friends', '$2/$5 NLH', 'Cash Games', 'Poker Humor', 'ATMwithNoPIN'],
+    content: `The rubber duck sits on the stack.
+
+It always has.
+
+At some point, Jay decided that the duck would serve as his card protector, his spiritual guide, and possibly his poker coach.
+
+The duck watches the action.
+
+The duck sees the flop.
+
+The duck does not fold.
+
+Nobody knows for certain whether Jay makes the final calls or delegates to the duck. The results are inconclusive.
+
+What we do know: the duck has never been rattled by a bad beat.
+
+Specialty: Letting the duck decide.
+
+Tell: Rubber duck visible on stack from any seat at the table.
+
+**ATMwithNoPIN Rating:**
+
+- Player Threat: Moderate
+- Duck Threat: Unknown and possibly higher
+- Bluffing Consistency: Both Jay and the duck play it straight
+- Threat Level: The duck is scarier`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Jay (Ducky Jay) and his rubber duck, at Foxwoods',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'Ducky Jay',
+    crew_role: 'Player',
+    crew_quote: '',
+    created_at: '2026-06-27T14:20:00.000Z',
+    updated_at: '2026-06-27T14:20:00.000Z',
+    published_at: '2026-06-27T14:20:00.000Z',
+  },
+  {
+    id: 'c008-you-open-seat-community-2026',
+    title: 'Community Story: You? — One Seat Is Open',
+    slug: 'community-story-you-one-seat-is-open',
+    excerpt: 'One seat is open. Submit your story and earn your nickname.',
+    category: 'Community Story',
+    person_type: 'community',
+    poker_room: 'Any Poker Room',
+    specialty: 'Unknown — yet',
+    tell: 'To be discovered',
+    threat_level: 'Unrated',
+    icon_type: '♥',
+    cta_label: 'Submit Your Story',
+    cta_href: '/request-feature',
+    tags: ['Community', 'Player Spotlight', 'Get Featured', 'Table Characters', 'Foxwoods', '$2/$5 NLH', 'ATMwithNoPIN'],
+    content: `The ATMwithNoPIN universe is not a closed table.
+
+There is always one more seat.
+
+Maybe you're a regular at Foxwoods. Maybe you've sat across from Dhezz and remember the hand differently. Maybe you're a dealer who has watched the action from a unique angle.
+
+Maybe you have a nickname already.
+
+Maybe you're about to earn one.
+
+Every great poker community has characters. The ATM table has a few openings.
+
+Come sit down. Make some questionable decisions. Survive a bad beat. Tell a story.
+
+Submit your profile and you might be the next Chronicle.
+
+**ATMwithNoPIN Rating:**
+
+- Potential: Unknown (High)
+- Table History: TBD
+- Specialty: To be discovered
+- Threat Level: Unrated`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Open seat — Community Wall invitation',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'TBD',
+    crew_role: 'Future Community Member',
+    crew_quote: '',
+    created_at: '2026-06-27T14:30:00.000Z',
+    updated_at: '2026-06-27T14:30:00.000Z',
+    published_at: '2026-06-27T14:30:00.000Z',
+  },
+  // ─── FOXWOODS FLOOR STAFF ───
+  {
+    id: 'c009-bhavin-the-connector-foxwoods-2026',
+    title: 'Floor Spotlight: Bhavin — The Connector',
+    slug: 'floor-spotlight-bhavin-the-connector',
+    excerpt: 'Gets players seated, keeps the room moving, and somehow handles everything at once.',
+    category: 'Floor Spotlight',
+    person_type: 'floor',
+    poker_room: 'Foxwoods',
+    specialty: 'Keeping the room moving',
+    tell: 'Already knows what table you need',
+    threat_level: 'Professionally dangerous',
+    icon_type: '♣',
+    tags: ['Foxwoods', 'Floor Spotlight', 'Floor Staff', 'Behind the Scenes', 'Poker Room', 'ATMwithNoPIN'],
+    content: `The floor at Foxwoods moves because people like Bhavin make it move.
+
+He gets players to tables. He resolves disputes. He handles the list when it's backed up, answers questions before they've been asked, and keeps track of details that most people haven't noticed.
+
+He does it with a calm that suggests he has seen everything — and has already figured out the solution.
+
+Specialty: Keeping the room moving.
+
+Tell: Already knows what table you need before you ask.
+
+**ATMwithNoPIN Rating:**
+
+- Room Management: 5/5
+- Player Support: 5/5
+- Problem Resolution: Pre-emptive
+- Threat Level: Professionally dangerous`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Bhavin, floor staff at Foxwoods',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'The Connector',
+    crew_role: 'Floor Staff',
+    crew_quote: '',
+    created_at: '2026-06-27T15:00:00.000Z',
+    updated_at: '2026-06-27T15:00:00.000Z',
+    published_at: '2026-06-27T15:00:00.000Z',
+  },
+  {
+    id: 'c010-charlie-still-standing-foxwoods-2026',
+    title: 'Floor Spotlight: Charlie — Still Standing',
+    slug: 'floor-spotlight-charlie-still-standing',
+    excerpt: 'Keeps the chaos under control and shows up again tomorrow.',
+    category: 'Floor Spotlight',
+    person_type: 'floor',
+    poker_room: 'Foxwoods',
+    specialty: 'Surviving the room',
+    tell: 'Unfazed by chaos',
+    threat_level: 'Untouchable',
+    icon_type: '♣',
+    tags: ['Foxwoods', 'Floor Spotlight', 'Floor Staff', 'Behind the Scenes', 'Poker Room', 'ATMwithNoPIN'],
+    content: `Charlie has been there.
+
+The floor at Foxwoods on a busy Friday night is not a calm environment.
+
+Long lists. Impatient players. Disputes at three tables simultaneously. A dealer who needs a break. A player who wants a seat change. Someone asking about the bad beat jackpot.
+
+Charlie handles all of it.
+
+And then shows up and does it again tomorrow.
+
+That alone deserves a Chronicle.
+
+**ATMwithNoPIN Rating:**
+
+- Endurance: 5/5
+- Calm Under Pressure: 5/5
+- "I've Seen Everything" Energy: High
+- Threat Level: Untouchable`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Charlie, floor staff at Foxwoods',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'Still Standing',
+    crew_role: 'Floor Staff',
+    crew_quote: '',
+    created_at: '2026-06-27T15:10:00.000Z',
+    updated_at: '2026-06-27T15:10:00.000Z',
+    published_at: '2026-06-27T15:10:00.000Z',
+  },
+  {
+    id: 'c011-steve-birthday-variance-foxwoods-2026',
+    title: 'Floor Spotlight: Steve — Birthday Variance',
+    slug: 'floor-spotlight-steve-birthday-variance',
+    excerpt: 'Same birthday as Dhezz. Results still under investigation.',
+    category: 'Floor Spotlight',
+    person_type: 'floor',
+    poker_room: 'Foxwoods',
+    specialty: 'Suspicious coincidence',
+    tell: 'Same birthday as Dhezz',
+    threat_level: 'Cosmic variance',
+    icon_type: '♣',
+    tags: ['Foxwoods', 'Floor Spotlight', 'Floor Staff', 'Poker Humor', 'Behind the Scenes', 'ATMwithNoPIN'],
+    content: `Steve shares the same birthday as Dhezz.
+
+This should, theoretically, mean something.
+
+Shared birthdays usually imply cosmic alignment. Sympathetic variance. Perhaps a transfer of good luck.
+
+So far, the evidence is inconclusive.
+
+Dhezz has run bad on Steve's birthday.
+
+Steve has presumably had a normal day.
+
+The universe may be playing a very long con.
+
+**ATMwithNoPIN Rating:**
+
+- Birthday Significance: Theoretical
+- Variance Alignment: Unknown
+- Cosmic Coincidence Level: Very High
+- Investigation Status: Ongoing`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Steve, floor staff at Foxwoods',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'Birthday Variance',
+    crew_role: 'Floor Staff',
+    crew_quote: '',
+    created_at: '2026-06-27T15:20:00.000Z',
+    updated_at: '2026-06-27T15:20:00.000Z',
+    published_at: '2026-06-27T15:20:00.000Z',
+  },
+  // ─── FOXWOODS DEALERS ───
+  {
+    id: 'c012-felix-the-setup-artist-foxwoods-2026',
+    title: 'Dealer Spotlight: Felix — The Setup Artist',
+    slug: 'dealer-spotlight-felix-the-setup-artist',
+    excerpt: 'Smiles politely while delivering the river card nobody asked for.',
+    category: 'Dealer Spotlight',
+    person_type: 'dealer',
+    poker_room: 'Foxwoods',
+    specialty: 'Delivering drama',
+    tell: 'Too calm before the river',
+    threat_level: 'Board texture expert',
+    icon_type: '♦',
+    tags: ['Foxwoods', 'Dealer Spotlight', 'Bad Beats', 'River Cards', 'Poker Room', 'ATMwithNoPIN'],
+    content: `Felix has professional poker dealer calm.
+
+He has seen every board texture. Every bad beat. Every river suckout.
+
+He delivers them all with the same expression: focused, composed, and entirely without judgment.
+
+When the river comes and ruins everything, Felix keeps the game moving.
+
+His specialty is not the delivery of good cards.
+
+His specialty is the delivery of drama, handled with absolute professionalism.
+
+**ATMwithNoPIN Rating:**
+
+- Calm Under Pressure: 5/5
+- River Card Drama: 5/5
+- Warning Signs: Too calm before the river
+- Threat Level: Board texture expert`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Felix, dealer at Foxwoods',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'The Setup Artist',
+    crew_role: 'Dealer',
+    crew_quote: '',
+    created_at: '2026-06-27T15:30:00.000Z',
+    updated_at: '2026-06-27T15:30:00.000Z',
+    published_at: '2026-06-27T15:30:00.000Z',
+  },
+  {
+    id: 'c013-ray-master-of-timing-foxwoods-2026',
+    title: 'Dealer Spotlight: Ray — Master of Timing',
+    slug: 'dealer-spotlight-ray-master-of-timing',
+    excerpt: 'Always knows exactly when to announce, "All in and a call."',
+    category: 'Dealer Spotlight',
+    person_type: 'dealer',
+    poker_room: 'Foxwoods',
+    specialty: 'All-in announcements',
+    tell: 'Voice gets serious',
+    threat_level: 'Stack movement imminent',
+    icon_type: '♦',
+    tags: ['Foxwoods', 'Dealer Spotlight', 'Poker Room', 'All In', 'Cash Games', 'ATMwithNoPIN'],
+    content: `Ray has perfect timing.
+
+Not comedy timing.
+
+Poker timing.
+
+The kind where the action stalls, the chips go in, and the table holds its breath.
+
+That's when Ray's voice gets slightly more serious.
+
+"All in and a call."
+
+The room stands up.
+
+Ray has dealt this hand a thousand times.
+
+He keeps dealing.
+
+**ATMwithNoPIN Rating:**
+
+- All-In Announcements: 5/5
+- Voice Calibration: Clinical
+- Table Atmosphere: Pre-combustion
+- Threat Level: Stack movement imminent`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Ray, dealer at Foxwoods',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'Master of Timing',
+    crew_role: 'Dealer',
+    crew_quote: '',
+    created_at: '2026-06-27T15:40:00.000Z',
+    updated_at: '2026-06-27T15:40:00.000Z',
+    published_at: '2026-06-27T15:40:00.000Z',
+  },
+  {
+    id: 'c014-jenny-queen-of-rotation-foxwoods-2026',
+    title: 'Dealer Spotlight: Jenny — Queen of the Rotation',
+    slug: 'dealer-spotlight-jenny-queen-of-the-rotation',
+    excerpt: 'Professional, friendly, and somehow always arrives before the biggest pot of the night.',
+    category: 'Dealer Spotlight',
+    person_type: 'dealer',
+    poker_room: 'Foxwoods',
+    specialty: 'Arriving before chaos',
+    tell: 'The game suddenly gets expensive',
+    threat_level: 'Pot inflation specialist',
+    icon_type: '♦',
+    tags: ['Foxwoods', 'Dealer Spotlight', 'Poker Room', 'Cash Games', 'Poker Humor', 'ATMwithNoPIN'],
+    content: `Jenny enters the rotation with calm confidence.
+
+Then, almost immediately, someone puts too many chips in the middle.
+
+This has happened enough times that players have started noticing.
+
+Jenny sits down. Someone raises. Someone calls. Things escalate.
+
+Coincidence?
+
+Maybe.
+
+Chronicle-worthy?
+
+Absolutely.
+
+**ATMwithNoPIN Rating:**
+
+- Arrival Timing: Suspiciously Precise
+- Pot Size Impact: Statistically Significant
+- Professional Demeanor: Excellent
+- Threat Level: Pot inflation specialist`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Jenny, dealer at Foxwoods',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'Queen of the Rotation',
+    crew_role: 'Dealer',
+    crew_quote: '',
+    created_at: '2026-06-27T15:50:00.000Z',
+    updated_at: '2026-06-27T15:50:00.000Z',
+    published_at: '2026-06-27T15:50:00.000Z',
+  },
 ];
 
 async function seedDefaultChronicles() {
   try {
     const existing = await loadChronicles();
+    const existingById = new Map(existing.map((c) => [c.id, c]));
     const existingSlugs = new Set(existing.map((c) => c.slug));
-    const toAdd = SEED_CHRONICLES.filter((c) => !existingSlugs.has(c.slug));
-    if (!toAdd.length) return;
-    await saveChronicles([...toAdd, ...existing]);
+    const seedById = new Map(SEED_CHRONICLES.map((c) => [c.id, c]));
+
+    const idsToUpdate = new Set();
+    const toAdd = [];
+    for (const seed of SEED_CHRONICLES) {
+      if (existingById.has(seed.id)) {
+        idsToUpdate.add(seed.id);
+      } else if (!existingSlugs.has(seed.slug)) {
+        toAdd.push(seed);
+      }
+    }
+    if (!toAdd.length && !idsToUpdate.size) return;
+    const updated = existing.map((c) =>
+      idsToUpdate.has(c.id) ? { ...c, ...seedById.get(c.id) } : c
+    );
+    await saveChronicles([...toAdd, ...updated]);
   } catch {
-    // Seed failures are non-fatal.
+    // non-fatal
   }
 }
 
@@ -1568,21 +2080,35 @@ function renderAdminPage() {
     </script>`);
 }
 
-const CHRON_CATEGORIES = ['Meet the Crew', 'Dealers', 'Floor Staff', 'Tournament Reports', 'Bad Beats', 'WSOP Life', 'Vegas Adventures', 'Poker Humor'];
+const CHRON_CATEGORIES = ['Player Spotlight', 'Dealer Spotlight', 'Floor Spotlight', 'Community Story', 'Meet the Crew', 'Tournament Reports', 'Bad Beats', 'WSOP Life', 'Vegas Adventures', 'Poker Humor', 'Cash Games', 'Behind the Scenes'];
 
 function renderChronicleCard(c) {
   const dateStr = new Date(c.published_at || c.created_at).toLocaleDateString();
   const rt = estimateReadingTime(c.content);
-  return `<article class="chron-card" data-category="${escapeHtml(c.category || '')}" data-tags="${escapeHtml((c.tags || []).join(' ').toLowerCase())}" data-title="${escapeHtml(c.title.toLowerCase())}">
+  const iconMap = { player: '♠', dealer: '♦', floor: '♣', community: '♥' };
+  const typeIcon = iconMap[c.icon_type] || iconMap[c.person_type] || '📖';
+  const catClassMap = {
+    'Player Spotlight': 'chron-cat-player',
+    'Dealer Spotlight': 'chron-cat-dealer',
+    'Floor Spotlight': 'chron-cat-floor',
+    'Community Story': 'chron-cat-community',
+  };
+  const catClass = catClassMap[c.category] || '';
+  const searchStr = [c.title, c.crew_nickname, c.poker_room, c.category, c.specialty, c.tell, (c.tags || []).join(' '), c.excerpt]
+    .filter(Boolean).join(' ').toLowerCase();
+  const ctaHref = c.cta_href || `/chronicles/${escapeHtml(c.slug)}`;
+  const ctaLabel = c.cta_label || 'Read Story →';
+  return `<article class="chron-card" data-category="${escapeHtml(c.category || '')}" data-search="${escapeHtml(searchStr)}">
     ${c.featured_image_url
       ? `<div class="chron-img"><img src="${escapeHtml(c.featured_image_url)}" alt="${escapeHtml(c.featured_image_alt || c.title)}" loading="lazy" /></div>`
-      : `<div class="chron-img chron-img-ph">📖</div>`}
+      : `<div class="chron-img chron-img-ph">${typeIcon}</div>`}
     <div class="chron-body">
-      <div class="chron-meta"><span class="chron-cat">${escapeHtml(c.category || 'General')}</span><span class="meta">${escapeHtml(dateStr)} · ${rt} min read</span></div>
+      <div class="chron-meta"><span class="chron-cat ${catClass}">${escapeHtml(c.category || 'General')}</span><span class="meta">${escapeHtml(dateStr)} · ${rt} min read</span></div>
+      ${c.poker_room ? `<div class="chron-room">📍 ${escapeHtml(c.poker_room)}</div>` : ''}
       <h3 class="chron-title"><a href="/chronicles/${escapeHtml(c.slug)}">${escapeHtml(c.title)}</a></h3>
       <p class="chron-excerpt">${escapeHtml(c.excerpt || '')}</p>
       <div class="chron-tags">${(c.tags || []).slice(0, 4).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
-      <a href="/chronicles/${escapeHtml(c.slug)}" class="chron-cta">Read Story →</a>
+      <a href="${ctaHref}" class="chron-cta">${escapeHtml(ctaLabel)}</a>
     </div>
   </article>`;
 }
@@ -1591,14 +2117,32 @@ function renderChroniclesListPage(chronicles) {
   const published = chronicles
     .filter((c) => c.status === 'published')
     .sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
-  const catBtns = ['All', ...CHRON_CATEGORIES].map((cat) =>
-    `<button class="chron-filter-btn${cat === 'All' ? ' active' : ''}" data-cat="${cat === 'All' ? '' : escapeHtml(cat)}">${escapeHtml(cat)}</button>`
+
+  const filterGroups = [
+    { label: 'All', value: '', type: 'all' },
+    { label: 'Foxwoods', value: 'foxwoods', type: 'location' },
+    { label: 'Horseshoe', value: 'horseshoe', type: 'location' },
+    { label: 'WSOP', value: 'wsop', type: 'location' },
+    { label: 'Player Spotlight', value: 'Player Spotlight', type: 'cat' },
+    { label: 'Dealer Spotlight', value: 'Dealer Spotlight', type: 'cat' },
+    { label: 'Floor Spotlight', value: 'Floor Spotlight', type: 'cat' },
+    { label: 'Community Stories', value: 'Community Story', type: 'cat' },
+    { label: 'Fellow Fish', value: 'fellow fish', type: 'tag' },
+    { label: 'Bad Beats', value: 'Bad Beats', type: 'cat' },
+    { label: 'Poker Humor', value: 'Poker Humor', type: 'cat' },
+    { label: 'Tournament Reports', value: 'Tournament Reports', type: 'cat' },
+    { label: 'Cash Games', value: 'Cash Games', type: 'cat' },
+    { label: 'Vegas Adventures', value: 'Vegas Adventures', type: 'cat' },
+    { label: 'Behind the Scenes', value: 'Behind the Scenes', type: 'cat' },
+  ];
+  const filterBtns = filterGroups.map((f, i) =>
+    `<button class="chron-filter-btn${i === 0 ? ' active' : ''}" data-fval="${escapeHtml(f.value)}" data-ftype="${f.type}">${escapeHtml(f.label)}</button>`
   ).join('');
   const cards = published.map(renderChronicleCard).join('');
-  return renderLayout('Hall of Fame Chronicles | ATMwithNoPIN™', `
+  return renderLayout('Chronicles | ATMwithNoPIN™', `
     <style>
       .chron-controls{display:flex;flex-direction:column;gap:.75rem;margin:1.5rem 0 1rem;}
-      .chron-search{width:100%;max-width:480px;border:1px solid #242424;background:#121212;color:var(--offwhite);padding:.75rem 1rem;border-radius:10px;font:inherit;font-size:.85rem;}
+      .chron-search{width:100%;max-width:520px;border:1px solid #242424;background:#121212;color:var(--offwhite);padding:.75rem 1rem;border-radius:10px;font:inherit;font-size:.85rem;}
       .chron-search::placeholder{color:#555;}
       .chron-filter-wrap{display:flex;flex-wrap:wrap;gap:.4rem;}
       .chron-filter-btn{border:1px solid #242424;background:#111;color:#888;border-radius:999px;padding:.3rem .7rem;font:.68rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:all .2s;}
@@ -1612,7 +2156,12 @@ function renderChroniclesListPage(chronicles) {
       .chron-img-ph{height:150px;background:linear-gradient(135deg,#0d2e1a 0%,#0a1a0f 100%);display:flex;align-items:center;justify-content:center;font-size:2.8rem;border-bottom:1px solid #1a1a1a;}
       .chron-body{padding:1rem;display:flex;flex-direction:column;gap:.4rem;flex:1;}
       .chron-meta{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
-      .chron-cat{background:rgba(0,200,83,.1);color:var(--green);border:1px solid rgba(0,200,83,.2);border-radius:999px;padding:.2rem .55rem;font-size:.6rem;text-transform:uppercase;letter-spacing:.12em;}
+      .chron-cat{border-radius:999px;padding:.2rem .55rem;font-size:.6rem;text-transform:uppercase;letter-spacing:.12em;background:rgba(0,200,83,.1);color:var(--green);border:1px solid rgba(0,200,83,.2);}
+      .chron-cat-player{background:rgba(0,200,83,.12);color:#00e87a;border-color:rgba(0,200,83,.3);}
+      .chron-cat-dealer{background:rgba(201,168,76,.1);color:var(--gold);border:1px solid rgba(201,168,76,.25);}
+      .chron-cat-floor{background:rgba(100,160,255,.1);color:#88aaff;border:1px solid rgba(100,160,255,.25);}
+      .chron-cat-community{background:rgba(255,120,120,.08);color:#ff8888;border:1px solid rgba(255,120,120,.2);}
+      .chron-room{font-size:.68rem;color:var(--gray);letter-spacing:.05em;}
       .chron-title{font-family:'DM Serif Display',serif;font-size:1rem;line-height:1.3;margin:.15rem 0 0;}
       .chron-title a{color:var(--offwhite);text-decoration:none;}
       .chron-title a:hover{color:var(--green);}
@@ -1626,13 +2175,13 @@ function renderChroniclesListPage(chronicles) {
       .chron-no-results{grid-column:1/-1;text-align:center;padding:3rem;color:#555;font-size:.85rem;}
     </style>
     <section class="hero">
-      <p class="eyebrow">Horseshoe WSOP · Hall of Fame Poker Room</p>
+      <p class="eyebrow">Foxwoods · Horseshoe · WSOP · The Table</p>
       <h1>Chronicles</h1>
-      <p class="body-text" style="max-width:60ch;">Stories from dealers, floor staff, tournament runs, bad beats, and Vegas poker life at the Hall of Fame Poker Room.</p>
+      <p class="body-text" style="max-width:60ch;">Player spotlights, dealer stories, floor staff legends, tournament runs, bad beats, and the people who make poker worth playing.</p>
     </section>
     <div class="chron-controls">
-      <input type="search" id="chronSearch" class="chron-search" placeholder="Search stories by title or tag…" />
-      <div class="chron-filter-wrap">${catBtns}</div>
+      <input type="search" id="chronSearch" class="chron-search" placeholder="Search by name, nickname, poker room, specialty…" />
+      <div class="chron-filter-wrap">${filterBtns}</div>
     </div>
     <div class="chron-grid" id="chronGrid">
       ${cards || '<p class="chron-no-results">No chronicles published yet.</p>'}
@@ -1644,9 +2193,16 @@ function renderChroniclesListPage(chronicles) {
     (function() {
       var PAGE = 12;
       var all = Array.from(document.querySelectorAll('.chron-card'));
-      var cat = '', q = '', shown = PAGE;
-      function match(c) {
-        return (!cat || c.dataset.category === cat) && (!q || c.dataset.title.includes(q) || c.dataset.tags.includes(q));
+      var fval = '', ftype = 'all', q = '', shown = PAGE;
+      function match(card) {
+        var s = (card.dataset.search || '').toLowerCase();
+        var cat = (card.dataset.category || '').toLowerCase();
+        var passQ = !q || s.includes(q);
+        var passF = ftype === 'all' || !fval ||
+          (ftype === 'cat' && cat === fval.toLowerCase()) ||
+          (ftype === 'location' && s.includes(fval.toLowerCase())) ||
+          (ftype === 'tag' && s.includes(fval.toLowerCase()));
+        return passQ && passF;
       }
       function paint() {
         var vis = all.filter(match);
@@ -1661,7 +2217,11 @@ function renderChroniclesListPage(chronicles) {
       document.querySelectorAll('.chron-filter-btn').forEach(function(b) {
         b.addEventListener('click', function() {
           document.querySelectorAll('.chron-filter-btn').forEach(function(x) { x.classList.remove('active'); });
-          b.classList.add('active'); cat = b.dataset.cat || ''; shown = PAGE; paint();
+          b.classList.add('active');
+          fval = b.dataset.fval || '';
+          ftype = b.dataset.ftype || 'all';
+          shown = PAGE;
+          paint();
         });
       });
       document.getElementById('chronSearch').addEventListener('input', function() { q = this.value.trim().toLowerCase(); shown = PAGE; paint(); });
@@ -1686,10 +2246,17 @@ function renderChroniclePage(chronicle, allChronicles) {
   const gallery = (chronicle.gallery_images || []).map((img) =>
     `<figure class="card"><img src="${escapeHtml(img.url)}" alt="${escapeHtml(img.alt || chronicle.title)}" />${img.alt ? `<p class="small" style="margin-top:.5rem;">${escapeHtml(img.alt)}</p>` : ''}</figure>`
   ).join('');
-  const crewBox = (chronicle.crew_nickname || chronicle.crew_role || chronicle.crew_quote) ? `
+  const hasStats = chronicle.specialty || chronicle.tell || chronicle.threat_level;
+  const crewBox = (chronicle.crew_nickname || chronicle.crew_role || chronicle.crew_quote || hasStats) ? `
     <div class="crew-profile-box">
       ${chronicle.crew_nickname ? `<div class="crew-nick">"${escapeHtml(chronicle.crew_nickname)}"</div>` : ''}
       ${chronicle.crew_role ? `<div class="crew-role-label">Role: ${escapeHtml(chronicle.crew_role)}</div>` : ''}
+      ${chronicle.poker_room ? `<div class="crew-role-label" style="margin-top:.2rem;">📍 ${escapeHtml(chronicle.poker_room)}</div>` : ''}
+      ${hasStats ? `<div class="crew-stats-table" style="margin-top:.75rem;display:grid;gap:.35rem;">
+        ${chronicle.specialty ? `<div class="crew-stat-row"><span class="crew-stat-lbl">Specialty</span><span class="crew-stat-val">${escapeHtml(chronicle.specialty)}</span></div>` : ''}
+        ${chronicle.tell ? `<div class="crew-stat-row"><span class="crew-stat-lbl">Tell</span><span class="crew-stat-val">${escapeHtml(chronicle.tell)}</span></div>` : ''}
+        ${chronicle.threat_level ? `<div class="crew-stat-row"><span class="crew-stat-lbl">Threat Level</span><span class="crew-stat-val">${escapeHtml(chronicle.threat_level)}</span></div>` : ''}
+      </div>` : ''}
       ${chronicle.crew_quote ? `<blockquote class="crew-quote-box">"${escapeHtml(chronicle.crew_quote)}"</blockquote>` : ''}
     </div>` : '';
   const relatedHtml = related.map((c) =>
@@ -1704,6 +2271,9 @@ function renderChroniclePage(chronicle, allChronicles) {
       .crew-profile-box{background:#0c1a10;border:1px solid #1e3a28;border-radius:12px;padding:1rem 1.25rem;margin:1rem 0;}
       .crew-nick{font-family:'DM Serif Display',serif;font-style:italic;font-size:1.4rem;color:var(--gold);margin-bottom:.3rem;}
       .crew-role-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.15em;color:var(--gray);}
+      .crew-stat-row{display:flex;gap:.5rem;align-items:baseline;font-size:.78rem;}
+      .crew-stat-lbl{color:var(--gray);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;min-width:90px;}
+      .crew-stat-val{color:var(--offwhite);}
       .crew-quote-box{border-left:3px solid var(--green);padding-left:.8rem;color:var(--offwhite);font-style:italic;font-size:.9rem;margin-top:.6rem;}
       .chron-body-content{margin-top:1rem;}
       .share-row{margin-top:1.5rem;padding-top:1rem;border-top:1px solid #1e1e1e;}
