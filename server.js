@@ -75,6 +75,11 @@ async function initializeDatabase() {
         data TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS visitor_log (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        data TEXT NOT NULL
+      );
     `);
     return;
   }
@@ -95,6 +100,11 @@ async function initializeDatabase() {
         id TEXT PRIMARY KEY,
         data JSONB NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS visitor_log (
+        id TEXT PRIMARY KEY,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        data JSONB NOT NULL
       );
     `);
   }
@@ -1424,6 +1434,117 @@ async function saveSubmissions(submissions) {
   }
 }
 
+// ─── VISITOR LOG ───────────────────────────────────────────────────────────────
+
+function parseUABrowser(ua) {
+  if (!ua) return 'Unknown';
+  if (/Edg\//.test(ua)) return 'Edge';
+  if (/OPR\/|Opera/.test(ua)) return 'Opera';
+  if (/Chrome\//.test(ua) && !/Chromium/.test(ua)) return 'Chrome';
+  if (/Firefox\//.test(ua)) return 'Firefox';
+  if (/Safari\//.test(ua) && !/Chrome/.test(ua)) return 'Safari';
+  if (/MSIE|Trident/.test(ua)) return 'IE';
+  return 'Other';
+}
+function parseUAOS(ua) {
+  if (!ua) return 'Unknown';
+  if (/Windows NT 10/.test(ua)) return 'Windows 10/11';
+  if (/Windows NT 6\.3/.test(ua)) return 'Windows 8.1';
+  if (/Windows/.test(ua)) return 'Windows';
+  if (/Mac OS X/.test(ua)) return 'macOS';
+  if (/iPhone/.test(ua)) return 'iOS';
+  if (/iPad/.test(ua)) return 'iPadOS';
+  if (/Android/.test(ua)) return 'Android';
+  if (/Linux/.test(ua)) return 'Linux';
+  return 'Other';
+}
+function parseUADevice(ua) {
+  if (!ua) return 'Unknown';
+  if (/Mobi|Android|iPhone|iPad/.test(ua)) return 'Mobile';
+  if (/Tablet/.test(ua)) return 'Tablet';
+  return 'Desktop';
+}
+
+async function geoLookup(ip) {
+  if (!ip || /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|localhost)/.test(ip)) return {};
+  try {
+    const r = await fetch(`https://ipapi.co/${ip}/json/`, {
+      signal: AbortSignal.timeout(4000),
+      headers: { 'User-Agent': 'ATMNOPIN-server/1.0' },
+    });
+    if (!r.ok) return {};
+    const d = await r.json();
+    if (d.error) return {};
+    return {
+      city: d.city || 'unknown',
+      region: d.region || 'unknown',
+      country: d.country_name || 'unknown',
+      org: d.org || 'unknown',
+      latitude: d.latitude || null,
+      longitude: d.longitude || null,
+    };
+  } catch { return {}; }
+}
+
+async function insertVisitLog(entry) {
+  try {
+    if (pgPool) {
+      await pgPool.query(
+        'INSERT INTO visitor_log (id, created_at, data) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING',
+        [entry.id, entry.timestamp, entry]
+      );
+    } else if (sqliteDb) {
+      sqliteDb.prepare('INSERT OR IGNORE INTO visitor_log (id, created_at, data) VALUES (?, ?, ?)').run(
+        entry.id, entry.timestamp, JSON.stringify(entry)
+      );
+    }
+  } catch { /* non-fatal */ }
+}
+
+async function loadVisitorLog(limit = 500) {
+  try {
+    if (pgPool) {
+      const { rows } = await pgPool.query('SELECT data FROM visitor_log ORDER BY created_at DESC LIMIT $1', [limit]);
+      return rows.map((r) => r.data);
+    }
+    if (sqliteDb) {
+      const rows = sqliteDb.prepare('SELECT data FROM visitor_log ORDER BY created_at DESC LIMIT ?').all(limit);
+      return rows.map((r) => JSON.parse(r.data));
+    }
+  } catch { }
+  return [];
+}
+
+function logPageVisit(req, pathname) {
+  (async () => {
+    try {
+      const rawIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+      const ip = rawIp.replace(/^::ffff:/, ''); // unwrap IPv4-mapped IPv6
+      const ua = req.headers['user-agent'] || '';
+      const referrer = req.headers['referer'] || 'direct';
+      const geo = await geoLookup(ip);
+      await insertVisitLog({
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        ip,
+        page: pathname,
+        referrer,
+        browser: parseUABrowser(ua),
+        os: parseUAOS(ua),
+        device: parseUADevice(ua),
+        city: geo.city || 'unknown',
+        region: geo.region || 'unknown',
+        country: geo.country || 'unknown',
+        org: geo.org || 'unknown',
+        latitude: geo.latitude || null,
+        longitude: geo.longitude || null,
+      });
+    } catch { /* non-fatal */ }
+  })();
+}
+
+// ─── END VISITOR LOG ───────────────────────────────────────────────────────────
+
 function hash(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
 }
@@ -1702,6 +1823,7 @@ function renderAdminPage() {
       <button class="admin-tab active" data-panel="blogPanel">Blog Posts</button>
       <button class="admin-tab" data-panel="chronPanel">Chronicles</button>
       <button class="admin-tab" data-panel="communityPanel">Community</button>
+      <button class="admin-tab" data-panel="visitorsPanel">Visitors</button>
     </div>
     <div id="blogPanel">
     <section class="grid">
@@ -2026,6 +2148,7 @@ function renderAdminPage() {
           + (s.bad_beat_story ? '<div class="sub-field"><div class="sub-field-lbl">Bad Beat Story</div><div class="sub-field-val">' + s.bad_beat_story + '</div></div>' : '')
           + (s.social_link ? '<div class="sub-field"><div class="sub-field-lbl">Social Link</div><div class="sub-field-val"><a href="' + s.social_link + '" target="_blank" rel="noopener">' + s.social_link + '</a></div></div>' : '')
           + (s.admin_notes ? '<div class="sub-field"><div class="sub-field-lbl">Admin Notes</div><div class="sub-field-val">' + s.admin_notes + '</div></div>' : '')
+          + (s.consent_at ? '<div class="sub-field" style="border-top:1px solid #1a1a1a;margin-top:.5rem;padding-top:.5rem;"><div class="sub-field-lbl" style="color:var(--green);">Consent Recorded</div><div class="sub-field-val" style="font-size:.65rem;color:#888;">' + new Date(s.consent_at).toLocaleString() + ' &nbsp;|&nbsp; IP: ' + (s.consent_ip||'—') + ' &nbsp;|&nbsp; ' + [s.consent_city,s.consent_region,s.consent_country].filter(function(x){return x&&x!=='unknown';}).join(', ')||'—' + '</div></div>' : '')
           + '<div class="sub-actions">'
           + (s.status !== 'approved' ? '<select id="badge-' + s.id + '" style="width:auto;padding:.4rem .6rem;font-size:.72rem;"><option value="">No Badge</option>' + badgeOptions + '</select>' : '')
           + (s.status !== 'approved' ? '<button class="secondary" onclick="subApprove(\'' + s.id + '\')">Approve</button>' : '')
@@ -2087,10 +2210,12 @@ function renderAdminPage() {
           document.getElementById('blogPanel').style.display = btn.dataset.panel === 'blogPanel' ? '' : 'none';
           document.getElementById('chronPanel').style.display = btn.dataset.panel === 'chronPanel' ? '' : 'none';
           document.getElementById('communityPanel').style.display = btn.dataset.panel === 'communityPanel' ? '' : 'none';
+          document.getElementById('visitorsPanel').style.display = btn.dataset.panel === 'visitorsPanel' ? '' : 'none';
+          if (btn.dataset.panel === 'visitorsPanel' && !visitorsLoaded) { loadVisitors(); }
         });
       });
     </script>
-    <section class="card" style="margin-top:1.5rem;">
+    <div id="visitorsPanel" style="display:none;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
         <h2 style="margin:0;">Visitor Log</h2>
         <div class="row">
@@ -2113,107 +2238,103 @@ function renderAdminPage() {
         </div>
       </div>
       <div id="visitor-log"><div class="notice">Loading...</div></div>
-    </section>
+      <h3 style="margin:1.75rem 0 .6rem;font-size:.85rem;text-transform:uppercase;letter-spacing:.12em;color:var(--green);">Consent Log</h3>
+      <p class="small" style="margin-bottom:.75rem;color:#888;">IP and location recorded at time of form submission consent.</p>
+      <div id="consent-log"><div class="notice">Loading...</div></div>
+    </div><!-- end visitorsPanel -->
     <script>
-    (async function() {
-      function showErr(msg) {
-        console.error('[visitor-log]', msg);
-        var el = document.getElementById('visitor-log');
-        if (el) el.innerHTML = '<div class="notice" style="border-color:#5c1f1f;">' + String(msg).replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</div>';
-      }
-      console.log('[visitor-log] script starting');
-      var visitData = [];
-      function vesc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-      var _app, _fs;
+    var visitData = [];
+    var visitorsLoaded = false;
+    function vesc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function showVisitorLog(html) {
+      var el = document.getElementById('visitor-log');
+      if (el) el.innerHTML = html;
+    }
+    function showConsentLog(html) {
+      var el = document.getElementById('consent-log');
+      if (el) el.innerHTML = html;
+    }
+    async function loadVisitors() {
+      visitorsLoaded = true;
+      showVisitorLog('<div class="notice">Loading visitor log...</div>');
+      showConsentLog('<div class="notice">Loading consent log...</div>');
       try {
-        console.log('[visitor-log] importing firebase-app');
-        _app = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
-        console.log('[visitor-log] importing firebase-firestore');
-        _fs = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-        console.log('[visitor-log] imports ok');
-      } catch(e) {
-        showErr('Firebase import failed: ' + (e.message || e));
-        return;
-      }
-      var cfg = {
-        apiKey: 'AIzaSyAzlx4DVWbSkB4aM-njR55IT5qSPv4CFuk',
-        authDomain: 'atmwithnopin-c5bd7.firebaseapp.com',
-        projectId: 'atmwithnopin-c5bd7',
-        storageBucket: 'atmwithnopin-c5bd7.firebasestorage.app',
-        messagingSenderId: '404706016435',
-        appId: '1:404706016435:web:b5e3cf34ccc9b669bd04c6'
-      };
-      var fbApp, db;
-      try {
-        fbApp = _app.getApps().length ? _app.getApps()[0] : _app.initializeApp(cfg);
-        db = _fs.getFirestore(fbApp);
-        console.log('[visitor-log] firebase ready');
-      } catch(e) {
-        showErr('Firebase init failed: ' + (e.message || e));
-        return;
-      }
-      function showLog(html) {
-        var el = document.getElementById('visitor-log');
-        if (el) el.innerHTML = html;
-      }
-      async function loadVisitors() {
-        showLog('<div class="notice">Loading visitor log...</div>');
-        try {
-          var snap = await _fs.getDocs(_fs.query(_fs.collection(db, 'visits'), _fs.orderBy('timestamp', 'desc'), _fs.limit(500)));
-          visitData = [];
-          snap.forEach(function(d) { visitData.push(Object.assign({ id: d.id }, d.data())); });
-          console.log('[visitor-log] loaded ' + visitData.length + ' visits');
-          var countries = new Set(visitData.map(function(v) { return v.country; }).filter(function(c) { return c && c !== 'unknown'; }));
-          var ips = new Set(visitData.map(function(v) { return v.ip; }).filter(function(ip) { return ip && ip !== 'unknown'; }));
-          document.getElementById('v-total').textContent = visitData.length;
-          document.getElementById('v-countries').textContent = countries.size;
-          document.getElementById('v-unique-ips').textContent = ips.size;
-          if (!visitData.length) { showLog('<div class="notice">No visits logged yet.</div>'); return; }
+        var r = await fetch('/api/admin/visitor-log');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        visitData = await r.json();
+        var countries = new Set(visitData.map(function(v) { return v.country; }).filter(function(c) { return c && c !== 'unknown'; }));
+        var ips = new Set(visitData.map(function(v) { return v.ip; }).filter(function(ip) { return ip && ip !== 'unknown'; }));
+        document.getElementById('v-total').textContent = visitData.length;
+        document.getElementById('v-countries').textContent = countries.size;
+        document.getElementById('v-unique-ips').textContent = ips.size;
+        if (!visitData.length) {
+          showVisitorLog('<div class="notice">No page visits logged yet. Visits are recorded server-side after each page load.</div>');
+        } else {
           var hdr = '<div style="display:grid;grid-template-columns:148px 110px 160px 90px 80px 70px 70px 1fr;gap:.5rem;padding:.4rem 0;border-bottom:1px solid #1a1a1a;font-size:.57rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green);">'
-            + '<span>Timestamp</span><span>IP</span><span>City, State</span><span>Country</span><span>Browser</span><span>OS</span><span>Device</span><span>Page / Referrer</span></div>';
+            + '<span>Timestamp</span><span>IP</span><span>City, Region</span><span>Country</span><span>Browser</span><span>OS</span><span>Device</span><span>Page / Referrer</span></div>';
           var rowsHtml = visitData.map(function(v) {
-            var ts = (v.timestamp && v.timestamp.toDate) ? v.timestamp.toDate() : new Date();
-            var city  = (v.city  && v.city  !== 'unknown') ? v.city  : '';
-            var state = (v.state && v.state !== 'unknown') ? v.state : ((v.region && v.region !== 'unknown') ? v.region : '');
-            var location = city && state ? city + ', ' + state : city || state || '—';
+            var city   = (v.city   && v.city   !== 'unknown') ? v.city   : '';
+            var region = (v.region && v.region !== 'unknown') ? v.region : '';
+            var location = city && region ? city + ', ' + region : city || region || '\u2014';
             var ip = v.ip || 'unknown';
-            var ipShort = ip.length > 20 ? ip.substring(0, 18) + '…' : ip;
+            var ipShort = ip.length > 20 ? ip.substring(0, 18) + '\u2026' : ip;
+            var ts = v.timestamp ? new Date(v.timestamp).toLocaleString() : '\u2014';
             return '<div style="display:grid;grid-template-columns:148px 110px 160px 90px 80px 70px 70px 1fr;gap:.5rem;padding:.35rem 0;border-bottom:1px solid #111;font-size:.67rem;">'
-              + '<span style="color:#888;font-size:.6rem;">' + ts.toLocaleString() + '</span>'
+              + '<span style="color:#888;font-size:.6rem;">' + vesc(ts) + '</span>'
               + '<span style="color:var(--gold);font-size:.6rem;word-break:break-all;" title="' + vesc(ip) + '">' + vesc(ipShort) + '</span>'
               + '<span style="color:var(--offwhite);font-size:.65rem;">' + vesc(location) + '</span>'
-              + '<span style="color:var(--offwhite);font-size:.65rem;">' + vesc(v.country || '—') + '</span>'
-              + '<span style="color:#888;">' + vesc(v.browser || '—') + '</span>'
-              + '<span style="color:#888;">' + vesc(v.os || '—') + '</span>'
-              + '<span style="color:#888;">' + vesc(v.device || '—') + '</span>'
+              + '<span style="color:var(--offwhite);font-size:.65rem;">' + vesc(v.country || '\u2014') + '</span>'
+              + '<span style="color:#888;">' + vesc(v.browser || '\u2014') + '</span>'
+              + '<span style="color:#888;">' + vesc(v.os || '\u2014') + '</span>'
+              + '<span style="color:#888;">' + vesc(v.device || '\u2014') + '</span>'
               + '<span style="font-size:.6rem;color:#555;">' + vesc(v.page || '/') + ' \xb7 ' + vesc(v.referrer || 'direct') + '</span>'
               + '</div>';
           }).join('');
-          showLog('<div style="overflow-x:auto;">' + hdr + rowsHtml + '</div>');
-        } catch(e) {
-          console.error('[visitor-log] query error', e);
-          showLog('<div class="notice" style="border-color:#5c1f1f;">Query error: ' + vesc(e.message || String(e)) + '</div>');
+          showVisitorLog('<div style="overflow-x:auto;">' + hdr + rowsHtml + '</div>');
         }
+        renderConsentLog();
+      } catch(e) {
+        showVisitorLog('<div class="notice" style="border-color:#5c1f1f;">Error loading visitor log: ' + vesc(e.message || String(e)) + '</div>');
+        showConsentLog('<div class="notice" style="border-color:#5c1f1f;">Error loading consent log.</div>');
       }
-      function exportVisitorsCSV() {
-        if (!visitData.length) return;
-        var headers = ['Timestamp','IP','City','Region','Country','Org/ISP','Browser','OS','Device','Language','Screen','Timezone','Page','Referrer','Latitude','Longitude'];
-        var rows = [headers].concat(visitData.map(function(v) {
-          var ts = (v.timestamp && v.timestamp.toDate) ? v.timestamp.toDate().toISOString() : '';
-          return [ts, v.ip, v.city, v.region, v.country, v.org, v.browser, v.os, v.device, v.language,
-                  (v.screenWidth || '') + 'x' + (v.screenHeight || ''), v.timezone, v.page, v.referrer, v.latitude || '', v.longitude || ''];
-        }));
-        var csv = rows.map(function(r) { return r.map(function(c) { return '"' + String(c || '').replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
-        var a = document.createElement('a');
-        a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-        a.download = 'atm-visitors-' + new Date().toISOString().split('T')[0] + '.csv';
-        a.click();
-      }
-      document.getElementById('refreshVisitors').addEventListener('click', loadVisitors);
-      document.getElementById('exportVisitors').addEventListener('click', exportVisitorsCSV);
-      console.log('[visitor-log] calling loadVisitors');
-      await loadVisitors();
-    })();
+    }
+    function renderConsentLog() {
+      var consented = (typeof allSubs !== 'undefined' ? allSubs : []).filter(function(s) { return s.consent_at; });
+      if (!consented.length) { showConsentLog('<div class="notice">No consent records yet.</div>'); return; }
+      var hdr = '<div style="display:grid;grid-template-columns:148px 120px 110px 160px 1fr;gap:.5rem;padding:.4rem 0;border-bottom:1px solid #1a1a1a;font-size:.57rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green);">'
+        + '<span>Consent Time</span><span>Name</span><span>IP</span><span>Location</span><span>Country</span></div>';
+      var rowsHtml = consented.map(function(s) {
+        var ts = s.consent_at ? new Date(s.consent_at).toLocaleString() : '\u2014';
+        var ip = s.consent_ip || 'unknown';
+        var ipShort = ip.length > 20 ? ip.substring(0, 18) + '\u2026' : ip;
+        var city = (s.consent_city && s.consent_city !== 'unknown') ? s.consent_city : '';
+        var region = (s.consent_region && s.consent_region !== 'unknown') ? s.consent_region : '';
+        var loc = city && region ? city + ', ' + region : city || region || '\u2014';
+        return '<div style="display:grid;grid-template-columns:148px 120px 110px 160px 1fr;gap:.5rem;padding:.35rem 0;border-bottom:1px solid #111;font-size:.67rem;">'
+          + '<span style="color:#888;font-size:.6rem;">' + vesc(ts) + '</span>'
+          + '<span style="color:var(--offwhite);font-size:.65rem;">' + vesc((s.name||'') + (s.nickname ? ' "' + s.nickname + '"' : '')) + '</span>'
+          + '<span style="color:var(--gold);font-size:.6rem;word-break:break-all;" title="' + vesc(ip) + '">' + vesc(ipShort) + '</span>'
+          + '<span style="color:var(--offwhite);font-size:.65rem;">' + vesc(loc) + '</span>'
+          + '<span style="color:#888;font-size:.65rem;">' + vesc(s.consent_country || '\u2014') + '</span>'
+          + '</div>';
+      }).join('');
+      showConsentLog('<div style="overflow-x:auto;">' + hdr + rowsHtml + '</div>');
+    }
+    function exportVisitorsCSV() {
+      if (!visitData.length) return;
+      var headers = ['Timestamp','IP','City','Region','Country','Org/ISP','Browser','OS','Device','Page','Referrer','Latitude','Longitude'];
+      var rows = [headers].concat(visitData.map(function(v) {
+        return [v.timestamp||'', v.ip||'', v.city||'', v.region||'', v.country||'', v.org||'',
+                v.browser||'', v.os||'', v.device||'', v.page||'', v.referrer||'', v.latitude||'', v.longitude||''];
+      }));
+      var csv = rows.map(function(r) { return r.map(function(c) { return '"' + String(c || '').replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+      a.download = 'atm-visitors-' + new Date().toISOString().split('T')[0] + '.csv';
+      a.click();
+    }
+    document.getElementById('refreshVisitors').addEventListener('click', loadVisitors);
+    document.getElementById('exportVisitors').addEventListener('click', exportVisitorsCSV);
     </script>`);
 }
 
@@ -3352,6 +3473,7 @@ const server = http.createServer(async (req, res) => {
     const posts = await loadPosts();
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderBlogListPage(posts));
+    logPageVisit(req, pathname);
     return;
   }
 
@@ -3366,12 +3488,14 @@ const server = http.createServer(async (req, res) => {
     }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderBlogPostPage(post));
+    logPageVisit(req, pathname);
     return;
   }
 
   if (pathname === '/inside-the-atm') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderInsideTheATMPage());
+    logPageVisit(req, pathname);
     return;
   }
 
@@ -3379,6 +3503,7 @@ const server = http.createServer(async (req, res) => {
     const all = await loadChronicles();
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderChroniclesListPage(all));
+    logPageVisit(req, pathname);
     return;
   }
 
@@ -3393,6 +3518,7 @@ const server = http.createServer(async (req, res) => {
     }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderChroniclePage(chronicle, all));
+    logPageVisit(req, pathname);
     return;
   }
 
@@ -3510,6 +3636,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/request-feature' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderRequestFeaturePage());
+    logPageVisit(req, pathname);
     return;
   }
 
@@ -3526,7 +3653,8 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ message: 'Thanks! Your submission is under review.' }));
         return;
       }
-      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+      const rawIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+      const ip = rawIp.replace(/^::ffff:/, '');
       if (!checkSubmissionRateLimit(ip)) {
         res.writeHead(429, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Too many submissions. Please try again in an hour.' }));
@@ -3538,6 +3666,8 @@ const server = http.createServer(async (req, res) => {
       if (!name) throw new Error('Name is required.');
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Valid email is required.');
       if (!permission) throw new Error('You must grant permission to submit.');
+      const consentAt = new Date().toISOString();
+      const consentGeo = await geoLookup(ip);
       let photo_url = '';
       if (form.files.photo && form.files.photo.filename && isSafeImage(form.files.photo.filename)) {
         const photoFile = form.files.photo;
@@ -3562,12 +3692,17 @@ const server = http.createServer(async (req, res) => {
         social_link: String(f.social_link || '').trim().slice(0, 300),
         photo_url,
         permission_granted: true,
+        consent_at: consentAt,
+        consent_ip: ip,
+        consent_city: consentGeo.city || 'unknown',
+        consent_region: consentGeo.region || 'unknown',
+        consent_country: consentGeo.country || 'unknown',
         status: 'pending',
         badge: '',
         featured_on_home: false,
         admin_notes: '',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        created_at: consentAt,
+        updated_at: consentAt,
         approved_at: null,
       };
       const all = await loadSubmissions();
@@ -3586,6 +3721,7 @@ const server = http.createServer(async (req, res) => {
     const all = await loadSubmissions();
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderCommunityWallPage(all));
+    logPageVisit(req, pathname);
     return;
   }
 
@@ -3600,6 +3736,14 @@ const server = http.createServer(async (req, res) => {
     }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderPlayerProfilePage(player, all));
+    logPageVisit(req, pathname);
+    return;
+  }
+
+  if (pathname === '/api/admin/visitor-log' && req.method === 'GET') {
+    const logs = await loadVisitorLog(1000);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(logs));
     return;
   }
 
@@ -3767,6 +3911,7 @@ const server = http.createServer(async (req, res) => {
         .replace(/<title>ATM With No PIN — Dhezz<\/title>/, '<title>ATMNOPIN™ Poker | Official Site</title>');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(html);
+      logPageVisit(req, '/');
     });
     return;
   }
