@@ -1054,7 +1054,27 @@ Poor Jay can barely finish stacking his chips before Eric launches into another 
 
 The rest of the table gets free entertainment while Jay wonders how a poker session somehow turned into a dating podcast.
 
-Yet somehow, despite the leaning chip towers, conservative play, abandoned bluffs, zero-sugar reserve logistics, and relentless curiosity about Jay's love life...
+There is one more thing Eric has quietly become famous for.
+
+Breakfast.
+
+More specifically...
+
+Buying breakfast for Jamie "The Tuna."
+
+Whether it's generosity, encouragement, or simply making sure Jamie has enough energy to call another river with absolutely nothing, nobody is entirely sure.
+
+Jamie certainly doesn't complain.
+
+If breakfast is involved, Eric somehow finds himself reaching for the bill before anyone else can.
+
+At this point, there are rumors that Jamie's breakfast budget is directly tied to Eric's poker bankroll.
+
+It's one of the few investments at the table that everyone agrees has a guaranteed return...
+
+...for Jamie.
+
+Yet somehow, despite the leaning chip towers, conservative play, abandoned bluffs, zero-sugar reserve logistics, relentless curiosity about Jay's love life, and a standing breakfast tab with The Tuna...
 
 Eric remains one of the easiest guys to root for.
 
@@ -1063,6 +1083,8 @@ The poker may be tight.
 The chip stacks may violate several engineering principles.
 
 The drink reserve may require its own table.
+
+Jamie's breakfast is apparently covered.
 
 But the laughs are always +EV.
 
@@ -1074,9 +1096,10 @@ But the laughs are always +EV.
 - Sugar Content: Zero
 - Drink Reserve Depth: Strategic
 - Dating Podcast Interruptions Per Session: 3-5
+- Breakfast Tabs Covered: Ongoing
 - Threat Level: Very low... until the beverage reserve is fully stocked
 
-**Fun Fact:** Eric has not reduced his beverage intake. He has simply moved to zero sugar and added inventory control.`,
+**Fun Fact:** Eric's beverage operation continues to expand (now entirely zero sugar), he keeps a strategic drink reserve on a nearby table, and Jamie "The Tuna" has become suspiciously accustomed to Eric picking up the breakfast tab.`,
     status: 'published',
     featured_on_home: false,
     featured_image_url: '',
@@ -2783,7 +2806,7 @@ const SEED_SUBMISSIONS = [
     email: '',
     city: 'Foxwoods, CT',
     favorite_game: '$2/$5 NLH',
-    bio: 'Messy chip stacks, tight ranges, zero-sugar drink reserves, and a dangerous curiosity about Ducky Jay\'s dating life. Has spent more time asking Jay about his love life than discussing the hand currently being played.',
+    bio: 'Messy chip stacks, ultra-tight ranges, a zero-sugar drink reserve, unofficial breakfast sponsor of Jamie "The Tuna," and endlessly curious about Ducky Jay\'s dating adventures.',
     biggest_accomplishment: 'Survived a session without completing a single bluff. Stacks still standing.',
     funny_story: '',
     bad_beat_story: '',
@@ -2847,7 +2870,7 @@ const HERO_PROFILES = [
     summary:'The duck may be the real decision maker. Jay just brings the chips.',
     location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/players/jay-ducky-jay', cta:null },
   { id:'hp-eric', name:'Eric', nickname:'The Sugar Stacker', type:'player',
-    summary:'Tight player. Messy stacks. Zero-sugar reserve system. Bluff attempts expire quickly.',
+    summary:'Messy stacks. Tight poker. Zero-sugar logistics. Breakfast sponsor of Jamie. Dating investigator of Ducky Jay.',
     location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/chronicles/player-spotlight-eric-the-sugar-stacker', cta:'View Profile →' },
   { id:'hp-bhavin', name:'Bhavin', nickname:'The Connector', type:'floor',
     summary:'Gets players seated, keeps the room moving, and somehow handles everything at once.',
