@@ -646,6 +646,39 @@ const SEED_SUBMISSIONS = [
   },
 ];
 
+const HERO_PROFILES = [
+  { id:'hp-manny', name:'Manny', nickname:'The Machine', type:'player',
+    summary:'Deposits chips like clockwork. Consistent. Reliable. Somehow always confident.',
+    location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/players/manny-the-machine', cta:null },
+  { id:'hp-jamie', name:'Jamie', nickname:'The Tuna', type:'player',
+    summary:"Never sees it coming — not the bluff, not the set, not the straight on the board.",
+    location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/players/jamie-the-tuna', cta:null },
+  { id:'hp-jay', name:'Jay', nickname:'Ducky Jay', type:'player',
+    summary:'The duck may be the real decision maker. Jay just brings the chips.',
+    location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/players/jay-ducky-jay', cta:null },
+  { id:'hp-bhavin', name:'Bhavin', nickname:'The Connector', type:'floor',
+    summary:'Gets players seated, keeps the room moving, and somehow handles everything at once.',
+    location:'Foxwoods', badge:'Floor Staff', badgeClass:'hc-badge-floor', icon:'♣', href:'/community-wall', cta:'View Community →' },
+  { id:'hp-charlie', name:'Charlie', nickname:'Still Standing', type:'floor',
+    summary:'Keeps the chaos under control and shows up again tomorrow.',
+    location:'Foxwoods', badge:'Floor Staff', badgeClass:'hc-badge-floor', icon:'♣', href:'/community-wall', cta:'View Community →' },
+  { id:'hp-steve', name:'Steve', nickname:'Birthday Variance', type:'floor',
+    summary:"Same birthday as Dhezz. Results still under investigation.",
+    location:'Foxwoods', badge:'Floor Staff', badgeClass:'hc-badge-floor', icon:'♣', href:'/community-wall', cta:'View Community →' },
+  { id:'hp-terrell', name:'Terrell', nickname:'The Railbird', type:'dealer',
+    summary:'Dealer by day, tournament supporter by night.',
+    location:'Horseshoe / WSOP', badge:'Dealer Spotlight', badgeClass:'hc-badge-dealer', icon:'♦', href:'/chronicles', cta:'Read Chronicles →' },
+  { id:'hp-dominick', name:'Dominick', nickname:'Poker Jesus', type:'dealer',
+    summary:'Tournament blessings available before every event. Results may vary.',
+    location:'Horseshoe / WSOP', badge:'Dealer Spotlight', badgeClass:'hc-badge-dealer', icon:'♦', href:'/chronicles', cta:'Read Chronicles →' },
+  { id:'hp-crazymike', name:'Crazy Mike', nickname:'River Card Specialist', type:'dealer',
+    summary:"Every bad river is somehow his fault. At least according to Dhezz.",
+    location:'Horseshoe / WSOP', badge:'Dealer Spotlight', badgeClass:'hc-badge-dealer', icon:'♦', href:'/chronicles', cta:'Read Chronicles →' },
+  { id:'hp-you', name:'You?', nickname:'TBD', type:'you',
+    summary:'One seat is open. Submit your story and earn your nickname.',
+    location:'Any Poker Room', badge:'Get Featured', badgeClass:'hc-badge-you', icon:'?', href:'/request-feature', cta:'Submit Your Story →' },
+];
+
 const submissionRateLimit = new Map();
 function checkSubmissionRateLimit(ip) {
   const now = Date.now();
@@ -2072,6 +2105,49 @@ function isSafeImage(fileName) {
   return /\.(jpg|jpeg|png|webp)$/i.test(fileName);
 }
 
+function renderHeroCarousel() {
+  const cardsHtml = HERO_PROFILES.map((p) => {
+    const linkHtml = `<a class="hc-card-link" href="${escapeHtml(p.href)}">${escapeHtml(p.cta || 'View Profile →')}</a>`;
+    return `<div class="hc-card" data-type="${escapeHtml(p.type)}" role="listitem">
+      <div class="hc-icon" aria-hidden="true">${escapeHtml(p.icon)}</div>
+      <span class="hc-badge ${escapeHtml(p.badgeClass)}">${escapeHtml(p.badge)}</span>
+      <div class="hc-name">${escapeHtml(p.name)}</div>
+      <div class="hc-nickname">&ldquo;${escapeHtml(p.nickname)}&rdquo;</div>
+      <div class="hc-summary">${escapeHtml(p.summary)}</div>
+      <div class="hc-location">&#x1F4CD; ${escapeHtml(p.location)}</div>
+      ${linkHtml}
+    </div>`;
+  }).join('');
+  return `<div class="hc-panel">
+  <div class="hc-header">
+    <p class="hc-eyebrow">// Meet the Table</p>
+    <h2 class="hc-heading">Get on the <em>Community Wall</em></h2>
+    <p class="hc-sub">Players, dealers, floor staff, poker friends — submit your story and get featured.</p>
+  </div>
+  <div class="hc-carousel" id="hcCarousel">
+    <div class="hc-viewport" id="hcViewport" role="list" tabindex="0" aria-label="Community profiles carousel">
+      <div class="hc-track" id="hcTrack">${cardsHtml}</div>
+    </div>
+    <div class="hc-carousel-footer">
+      <button class="hc-arrow" id="hcPrev" aria-label="Previous profiles" disabled>&#x2039;</button>
+      <div class="hc-dots" id="hcDots" role="tablist" aria-label="Profile navigation"></div>
+      <button class="hc-arrow" id="hcNext" aria-label="Next profiles">&#x203a;</button>
+    </div>
+  </div>
+  <nav class="hc-cats" aria-label="Browse by type">
+    <a href="/community-wall" class="hc-cat">&#x2660; Players</a>
+    <a href="/community-wall" class="hc-cat">&#x2666; Dealers</a>
+    <a href="/community-wall" class="hc-cat">&#x2663; Floor Staff</a>
+    <a href="/community-wall" class="hc-cat">&#x2665; Poker Friends</a>
+    <a href="/request-feature" class="hc-cat hc-cat-you">? You?</a>
+  </nav>
+  <div class="hc-cta-bar">
+    <p class="hc-cta-text">Submit your story, nickname, and poker room. All reviewed before posting.</p>
+    <a href="/request-feature" class="hc-cta-btn">Submit Your Story</a>
+  </div>
+</div>`;
+}
+
 function renderTournamentSection() {
   const cardsHtml = TOURNAMENT_RESULTS.map((r) => {
     const descHtml = escapeHtml(r.desc).replace(/\n\n/g, '<br><br>');
@@ -2974,6 +3050,7 @@ const server = http.createServer(async (req, res) => {
         </div>
       </section>`;
       const html = data
+        .replace('<!-- HERO_CAROUSEL -->', renderHeroCarousel())
         .replace('<!-- BLOG_PREVIEW -->', `<div class="section-divider"><div class="hp-section" id="stories"><p class="section-label">// Latest from the ATM</p><h2>Latest Stories</h2>${featuredHtml}<div class="section-cta-row"><a href="/blog" class="section-cta-link">View all stories →</a></div></div></div>`)
         .replace('<!-- RECENT_POSTS -->', '')
         .replace('<!-- CHRONICLES_PREVIEW -->', chronSection)

@@ -195,14 +195,14 @@
     .btn-ghost { background: transparent; color: var(--offwhite); border: 1px solid #2a2a2a; }
     .btn-ghost:hover { border-color: var(--offwhite); }
 
-    /* ─── HERO RIGHT — ATM CARD ─── */
+    /* ─── HERO RIGHT — COMMUNITY CAROUSEL ─── */
     .hero-right {
       display: flex;
-      align-items: center;
-      justify-content: center;
+      flex-direction: column;
       background: var(--felt);
       position: relative;
       overflow: hidden;
+      border-left: 1px solid rgba(0,200,83,0.06);
     }
     .hero-right::before {
       content: '';
@@ -211,51 +211,200 @@
       background:
         repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px),
         radial-gradient(ellipse at center, #1a4a2e 0%, #0a2016 100%);
+      pointer-events: none;
     }
-    .atm-card {
+    .hc-panel {
       position: relative;
       z-index: 2;
-      width: 340px;
-      max-width: 90%;
-      background: linear-gradient(135deg, #1c1c1c 0%, #2a2a2a 100%);
-      border-radius: 18px;
-      padding: 1.5rem;
-      box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.1);
-      animation: float 4s ease-in-out infinite;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 2rem 1.75rem 1.5rem;
+      flex: 1;
+      overflow: hidden;
     }
-    .card-chip {
-      width: 42px; height: 32px;
-      background: linear-gradient(135deg, var(--gold), #8a6a20);
-      border-radius: 5px;
-      margin-bottom: 2rem;
-      position: relative;
+    .hc-header { flex-shrink: 0; }
+    .hc-eyebrow {
+      font-size: 0.57rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 0.25rem;
     }
-    .card-chip::after { content: ''; position: absolute; inset: 6px; border: 1px solid rgba(0,0,0,0.3); border-radius: 2px; }
-    .card-number { font-size: 0.95rem; letter-spacing: 0.2em; color: var(--offwhite); margin-bottom: 2rem; opacity: 0.85; }
-    .card-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
-    .card-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 0.15em; color: var(--offwhite); }
-    .card-tagline { font-size: 0.52rem; letter-spacing: 0.1em; color: var(--green); text-transform: uppercase; margin-top: 0.2rem; }
-    .no-pin-badge { background: var(--green); color: var(--black); font-size: 0.58rem; font-weight: 600; letter-spacing: 0.1em; padding: 4px 8px; border-radius: 3px; text-transform: uppercase; }
+    .hc-heading {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(1.5rem, 2.4vw, 2.1rem);
+      letter-spacing: 0.04em;
+      color: var(--offwhite);
+      line-height: 1.05;
+      margin-bottom: 0.35rem;
+    }
+    .hc-heading em { color: var(--green); font-style: normal; }
+    .hc-sub { font-size: 0.69rem; line-height: 1.65; color: #666; max-width: 38ch; }
 
-    .scatter-card {
-      position: absolute;
-      width: 110px; height: 75px;
-      background: var(--card-white);
-      border-radius: 8px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    /* — Carousel — */
+    .hc-carousel { display: flex; flex-direction: column; gap: 0.55rem; flex-shrink: 0; }
+    .hc-viewport {
+      overflow: hidden;
+      border-radius: 10px;
+      cursor: grab;
+    }
+    .hc-viewport:active { cursor: grabbing; }
+    .hc-track {
+      display: flex;
+      gap: 10px;
+      transition: transform 0.38s cubic-bezier(0.25, 0.1, 0.25, 1);
+      will-change: transform;
+    }
+
+    /* — Cards — */
+    .hc-card {
+      flex: 0 0 155px;
+      background: rgba(10,10,10,0.96);
+      border: 1px solid #1c1c1c;
+      border-radius: 10px;
+      padding: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      min-height: 210px;
+      transition: border-color 0.2s;
+      user-select: none;
+    }
+    .hc-card:hover { border-color: #282828; }
+    .hc-card[data-type="you"] { border-style: dashed; border-color: #1e1e1e; background: rgba(6,6,6,0.96); }
+    .hc-card[data-type="you"]:hover { border-color: var(--green-dim); }
+    .hc-card[data-type="player"] .hc-icon { color: var(--green); }
+    .hc-card[data-type="dealer"] .hc-icon { color: var(--gold); }
+    .hc-card[data-type="floor"]  .hc-icon { color: #8b9fff; }
+    .hc-card[data-type="you"]    .hc-icon { color: #252525; }
+    .hc-icon { font-size: 1.4rem; line-height: 1; margin-bottom: 0.15rem; }
+    .hc-badge {
+      display: inline-block;
+      font-size: 0.49rem;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      padding: 0.1rem 0.42rem;
+      border-radius: 999px;
+      border: 1px solid;
+      width: fit-content;
+      margin-bottom: 0.1rem;
+    }
+    .hc-badge-fish   { color: var(--green); border-color: rgba(0,200,83,0.22); background: rgba(0,200,83,0.05); }
+    .hc-badge-floor  { color: #8b9fff; border-color: rgba(139,159,255,0.22); background: rgba(139,159,255,0.05); }
+    .hc-badge-dealer { color: var(--gold); border-color: rgba(201,168,76,0.22); background: rgba(201,168,76,0.05); }
+    .hc-badge-you    { color: #3a3a3a; border-color: #1e1e1e; border-style: dashed; }
+    .hc-name {
+      font-family: 'DM Serif Display', serif;
+      font-size: 0.85rem;
+      color: var(--offwhite);
+      line-height: 1.2;
+      margin-top: 0.1rem;
+    }
+    .hc-nickname { font-size: 0.58rem; color: #484848; line-height: 1; font-style: italic; }
+    .hc-summary {
+      font-size: 0.64rem;
+      color: #5a5a5a;
+      line-height: 1.55;
+      flex: 1;
+      margin-top: 0.15rem;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+    }
+    .hc-location { font-size: 0.54rem; letter-spacing: 0.08em; color: #333; text-transform: uppercase; margin-top: 0.1rem; }
+    .hc-card-link {
+      display: inline-block;
+      margin-top: 0.35rem;
+      font-size: 0.58rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--green);
+      text-decoration: none;
+    }
+    .hc-card-link:hover { color: #00ff6a; }
+    .hc-card[data-type="you"] .hc-card-link { color: var(--gold); }
+    .hc-card[data-type="you"] .hc-card-link:hover { color: #ffe080; }
+
+    /* — Carousel footer: arrows + dots — */
+    .hc-carousel-footer { display: flex; align-items: center; gap: 0.6rem; }
+    .hc-arrow {
+      background: rgba(14,14,14,0.9);
+      border: 1px solid #222;
+      color: #666;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      padding: 0;
+      line-height: 1;
+    }
+    .hc-arrow:hover:not(:disabled) { border-color: var(--green); color: var(--green); }
+    .hc-arrow:disabled { opacity: 0.22; cursor: default; }
+    .hc-dots { display: flex; gap: 5px; align-items: center; flex: 1; }
+    .hc-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #252525;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      transition: background 0.2s, width 0.25s;
+      flex-shrink: 0;
+    }
+    .hc-dot.active { background: var(--green); width: 14px; border-radius: 3px; }
+
+    /* — Category pills — */
+    .hc-cats { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .hc-cat {
+      font-size: 0.56rem;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: #484848;
+      text-decoration: none;
+      border: 1px solid #1a1a1a;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .hc-cat:hover { color: var(--green); border-color: rgba(0,200,83,0.2); }
+    .hc-cat-you { color: #5a4a20; border-color: rgba(201,168,76,0.12); }
+    .hc-cat-you:hover { color: var(--gold); border-color: rgba(201,168,76,0.35); }
+
+    /* — Bottom CTA — */
+    .hc-cta-bar {
+      border-top: 1px solid #141414;
+      padding-top: 0.85rem;
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-family: 'DM Serif Display', serif;
-      font-size: 1.5rem;
-      font-weight: bold;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-shrink: 0;
     }
-    .sc1 { top: 15%; left: 8%; transform: rotate(-15deg); color: #cc2200; animation: float 5s ease-in-out infinite 0.5s; }
-    .sc2 { top: 20%; right: 10%; transform: rotate(12deg); color: #0a0a0a; animation: float 4.5s ease-in-out infinite 1s; }
-    .sc3 { bottom: 15%; left: 12%; transform: rotate(8deg); color: #cc2200; animation: float 5.5s ease-in-out infinite 0.2s; }
-    .sc4 { bottom: 20%; right: 8%; transform: rotate(-10deg); color: #0a0a0a; animation: float 4s ease-in-out infinite 0.8s; }
-
-    @keyframes float { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-14px) rotate(-2deg); } }
+    .hc-cta-text { font-size: 0.63rem; color: #484848; line-height: 1.45; max-width: 22ch; }
+    .hc-cta-btn {
+      background: var(--green);
+      color: var(--black);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.6rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border: none;
+      padding: 0.5rem 0.9rem;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background 0.2s;
+      display: inline-block;
+      border-radius: 4px;
+    }
+    .hc-cta-btn:hover { background: #00ff6a; }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
     /* ─── STATS BAR ─── */
@@ -412,7 +561,11 @@
       .nav-links.open { display: flex; }
       .hero { grid-template-columns: 1fr; min-height: auto; }
       .hero-left { padding: 3rem 1.5rem; }
-      .hero-right { height: 300px; }
+      .hero-right { height: auto; min-height: 460px; border-left: none; border-top: 1px solid rgba(0,200,83,0.06); }
+      .hc-panel { padding: 1.5rem; gap: 0.85rem; }
+      .hc-card { flex: 0 0 145px; min-height: 195px; }
+      .hc-cta-bar { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+      .hc-cta-text { max-width: 100%; }
       h1 { font-size: clamp(3rem, 12vw, 5rem); }
       .stats-bar { grid-template-columns: repeat(2, 1fr); }
       .stat:nth-child(2) { border-right: none; }
@@ -487,22 +640,8 @@
         <a href="#follow" class="btn btn-ghost">Follow the Journey</a>
       </div>
     </div>
-    <div class="hero-right">
-      <div class="atm-card">
-        <div class="card-chip"></div>
-        <div class="card-number">●●●● ●●●● ●●●● 2525</div>
-        <div class="card-bottom">
-          <div>
-            <div class="card-name">DHEZZ</div>
-            <div class="card-tagline">ATM with No PIN</div>
-          </div>
-          <div class="no-pin-badge">NO PIN</div>
-        </div>
-      </div>
-      <div class="scatter-card sc1">A♠</div>
-      <div class="scatter-card sc2">K♥</div>
-      <div class="scatter-card sc3">Q♦</div>
-      <div class="scatter-card sc4">J♣</div>
+    <div class="hero-right" id="heroCommunityPanel">
+      <!-- HERO_CAROUSEL -->
     </div>
   </section>
 
@@ -592,6 +731,109 @@
     document.getElementById('navToggle').addEventListener('click', function() {
       document.getElementById('navLinks').classList.toggle('open');
     });
+
+    /* ─── COMMUNITY CAROUSEL ─── */
+    (function() {
+      var track    = document.getElementById('hcTrack');
+      var viewport = document.getElementById('hcViewport');
+      var prevBtn  = document.getElementById('hcPrev');
+      var nextBtn  = document.getElementById('hcNext');
+      var dotsEl   = document.getElementById('hcDots');
+      if (!track || !viewport) return;
+
+      var cards     = Array.from(track.children);
+      var CARD_W    = 155;
+      var CARD_GAP  = 10;
+      var current   = 0;
+      var autoTimer = null;
+
+      function unitPx() { return CARD_W + CARD_GAP; }
+
+      function visibleCount() {
+        return Math.max(1, Math.floor(viewport.offsetWidth / unitPx()));
+      }
+
+      function maxIndex() {
+        return Math.max(0, cards.length - visibleCount());
+      }
+
+      function buildDots() {
+        dotsEl.innerHTML = '';
+        var n = maxIndex() + 1;
+        for (var i = 0; i < n; i++) {
+          var dot = document.createElement('button');
+          dot.className = 'hc-dot' + (i === current ? ' active' : '');
+          dot.setAttribute('aria-label', 'Profile ' + (i + 1) + ' of ' + n);
+          dot.setAttribute('role', 'tab');
+          (function(idx) {
+            dot.addEventListener('click', function() { goTo(idx); resetAuto(); });
+          })(i);
+          dotsEl.appendChild(dot);
+        }
+      }
+
+      function updateDots() {
+        var dots = dotsEl.querySelectorAll('.hc-dot');
+        dots.forEach(function(d, i) { d.classList.toggle('active', i === current); });
+      }
+
+      function goTo(idx) {
+        var max = maxIndex();
+        current = Math.max(0, Math.min(idx, max));
+        track.style.transform = 'translateX(-' + (current * unitPx()) + 'px)';
+        prevBtn.disabled = current === 0;
+        nextBtn.disabled = current >= max;
+        updateDots();
+      }
+
+      prevBtn.addEventListener('click', function() { goTo(current - 1); resetAuto(); });
+      nextBtn.addEventListener('click', function() { goTo(current + 1); resetAuto(); });
+
+      /* Keyboard navigation */
+      viewport.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowLeft')  { goTo(current - 1); resetAuto(); e.preventDefault(); }
+        if (e.key === 'ArrowRight') { goTo(current + 1); resetAuto(); e.preventDefault(); }
+      });
+
+      /* Touch / swipe */
+      var touchStartX = 0;
+      viewport.addEventListener('touchstart', function(e) {
+        touchStartX = e.touches[0].clientX;
+        stopAuto();
+      }, { passive: true });
+      viewport.addEventListener('touchend', function(e) {
+        var dx = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(dx) > 36) { dx < 0 ? goTo(current + 1) : goTo(current - 1); }
+        resetAuto();
+      }, { passive: true });
+
+      /* Autoplay */
+      function startAuto() {
+        autoTimer = setInterval(function() {
+          goTo(current >= maxIndex() ? 0 : current + 1);
+        }, 3800);
+      }
+      function stopAuto()  { clearInterval(autoTimer); }
+      function resetAuto() { stopAuto(); startAuto(); }
+
+      viewport.addEventListener('mouseenter', stopAuto);
+      viewport.addEventListener('mouseleave', startAuto);
+
+      /* Resize */
+      var resizeTimer;
+      window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+          buildDots();
+          goTo(Math.min(current, maxIndex()));
+        }, 140);
+      });
+
+      /* Init */
+      buildDots();
+      goTo(0);
+      startAuto();
+    })();
   </script>
   <script type="module" src="/visitor-tracker.js"></script>
 </body>
