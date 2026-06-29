@@ -983,15 +983,15 @@ Absolutely.
     id: 'c015-eric-sugar-stacker-foxwoods-2026',
     title: 'Player Spotlight: Eric — The Sugar Stacker',
     slug: 'player-spotlight-eric-the-sugar-stacker',
-    excerpt: 'His chip stacks look like they survived an earthquake, his drinks contain enough sugar to power a small casino, and if he ever bluffs you... don\'t worry. He\'ll usually change his mind.',
+    excerpt: 'His chip stacks look like they survived an earthquake, his ranges are tighter than airport security, and his beverage intake continues to rise — now with zero sugar and a reserve supply nearby.',
     category: 'Player Spotlight',
     person_type: 'player',
     poker_room: 'Foxwoods',
-    specialty: 'Building chip stacks that shouldn\'t exist',
-    tell: 'Orders another sugary drink before the river',
-    threat_level: 'Very low... until he actually enters a pot',
+    specialty: 'Building chip stacks that shouldn\'t exist while maintaining a zero-sugar drink reserve',
+    tell: 'Checks the side table before checking the river',
+    threat_level: 'Very low... until the beverage reserve is fully stocked',
     icon_type: '♠',
-    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', 'Poker Friends', '$2/$5 NLH', 'Poker Humor', 'Table Characters', 'Sugar Stacker', 'Ducky Jay', 'Community Story', 'ATMNOPIN'],
+    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', 'Poker Friends', '$2/$5 NLH', 'Poker Humor', 'Table Characters', 'Sugar Stacker', 'Zero Sugar', 'Drink Reserve', 'Ducky Jay', 'Community Story', 'ATMNOPIN'],
     content: `Every poker room has one player whose chip stacks make the dealers slightly uncomfortable.
 
 At Foxwoods, that player is Eric.
@@ -1020,11 +1020,21 @@ Mission aborted.
 
 The bluff has officially entered witness protection.
 
-What Eric lacks in bluff frequency, he more than makes up for in sugar consumption.
+What Eric lacks in bluff frequency, he makes up for in beverage logistics.
 
-Nobody has actually counted how many sugary drinks he goes through during a session, but local scientists believe Foxwoods keeps extra inventory whenever they know he's coming.
+To be clear, the volume has not decreased.
 
-His blood type may now qualify as Mountain Dew.
+If anything, the operation has expanded.
+
+Eric is now focused on zero sugar drinks, which means the table no longer has to worry about calories — only container count.
+
+At any given moment, there may be one drink in front of him, one backup drink nearby, and possibly a strategic reserve on a side table in case the session goes deep.
+
+This is not casual hydration.
+
+This is bankroll management, but for beverages.
+
+Foxwoods may want to consider assigning him a dedicated beverage rack.
 
 Between hands, Eric has another favorite hobby:
 
@@ -1044,7 +1054,7 @@ Poor Jay can barely finish stacking his chips before Eric launches into another 
 
 The rest of the table gets free entertainment while Jay wonders how a poker session somehow turned into a dating podcast.
 
-Yet somehow, despite the leaning chip towers, conservative play, abandoned bluffs, sugar-fueled endurance, and relentless curiosity about Jay's love life...
+Yet somehow, despite the leaning chip towers, conservative play, abandoned bluffs, zero-sugar reserve logistics, and relentless curiosity about Jay's love life...
 
 Eric remains one of the easiest guys to root for.
 
@@ -1052,15 +1062,21 @@ The poker may be tight.
 
 The chip stacks may violate several engineering principles.
 
+The drink reserve may require its own table.
+
 But the laughs are always +EV.
 
 **ATMNOPIN Rating:**
 
 - Chip Stack Engineering: Impressively Unstable
 - Bluff Completion Rate: 0%
-- Sugar Intake: Clinically Notable
+- Beverage Volume: Increasing
+- Sugar Content: Zero
+- Drink Reserve Depth: Strategic
 - Dating Podcast Interruptions Per Session: 3-5
-- Threat Level: Very low... until he actually enters a pot`,
+- Threat Level: Very low... until the beverage reserve is fully stocked
+
+**Fun Fact:** Eric has not reduced his beverage intake. He has simply moved to zero sugar and added inventory control.`,
     status: 'published',
     featured_on_home: false,
     featured_image_url: '',
@@ -2767,7 +2783,7 @@ const SEED_SUBMISSIONS = [
     email: '',
     city: 'Foxwoods, CT',
     favorite_game: '$2/$5 NLH',
-    bio: 'Messy chip stacks, tight ranges, sugary drinks, and a dangerous curiosity about Ducky Jay\'s dating life. Has spent more time asking Jay about his love life than discussing the hand currently being played.',
+    bio: 'Messy chip stacks, tight ranges, zero-sugar drink reserves, and a dangerous curiosity about Ducky Jay\'s dating life. Has spent more time asking Jay about his love life than discussing the hand currently being played.',
     biggest_accomplishment: 'Survived a session without completing a single bluff. Stacks still standing.',
     funny_story: '',
     bad_beat_story: '',
@@ -2781,10 +2797,10 @@ const SEED_SUBMISSIONS = [
     slug: 'eric-the-sugar-stacker',
     player_type: 'crew',
     suit: '♠',
-    tags: ['Players', 'Fellow Fish', 'Poker Friends', 'Foxwoods', '$2/$5 NLH', 'Table Characters', 'Player Spotlight'],
-    specialty: 'Architectural chip instability',
-    tell: 'Bluff attempt ends after one call',
-    threat_level: 'Low variance, high sugar',
+    tags: ['Players', 'Fellow Fish', 'Poker Friends', 'Foxwoods', '$2/$5 NLH', 'Table Characters', 'Player Spotlight', 'Zero Sugar', 'Drink Reserve'],
+    specialty: 'Building chip stacks that shouldn\'t exist while maintaining a zero-sugar drink reserve',
+    tell: 'Checks the side table before checking the river',
+    threat_level: 'Very low... until the beverage reserve is fully stocked',
     poker_room: 'Foxwoods Resort Casino',
     created_at: '2026-06-29T10:00:00.000Z',
     submitted_at: '2026-06-29T10:00:00.000Z',
@@ -2831,7 +2847,7 @@ const HERO_PROFILES = [
     summary:'The duck may be the real decision maker. Jay just brings the chips.',
     location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/players/jay-ducky-jay', cta:null },
   { id:'hp-eric', name:'Eric', nickname:'The Sugar Stacker', type:'player',
-    summary:'Tight player. Messy stacks. Sugar-powered. Bluff attempts expire quickly.',
+    summary:'Tight player. Messy stacks. Zero-sugar reserve system. Bluff attempts expire quickly.',
     location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/chronicles/player-spotlight-eric-the-sugar-stacker', cta:'View Profile →' },
   { id:'hp-bhavin', name:'Bhavin', nickname:'The Connector', type:'floor',
     summary:'Gets players seated, keeps the room moving, and somehow handles everything at once.',
