@@ -1176,7 +1176,7 @@ const SEED_SUBMISSIONS = [
     slug: 'manny-the-machine',
     player_type: 'crew',
     suit: '♣',
-    tags: ['Players', 'Fellow Fish', 'Foxwoods', '$2/$5 NLH', 'Table Characters'],
+    tags: ['Players', 'Fellow Fish', 'Poker Friends', 'Foxwoods', '$2/$5 NLH', 'Table Characters'],
     specialty: 'Mechanical chip donations',
     tell: 'Always looks confident',
     threat_level: 'Bring extra buy-ins',
@@ -1205,7 +1205,7 @@ const SEED_SUBMISSIONS = [
     slug: 'jamie-the-tuna',
     player_type: 'crew',
     suit: '♦',
-    tags: ['Players', 'Fellow Fish', 'Foxwoods', '$2/$5 NLH', 'Table Characters'],
+    tags: ['Players', 'Fellow Fish', 'Poker Friends', 'Foxwoods', '$2/$5 NLH', 'Table Characters'],
     specialty: 'Calling with nothing',
     tell: 'Looks at chips before calling',
     threat_level: 'Occasionally dangerous',
@@ -1263,7 +1263,7 @@ const SEED_SUBMISSIONS = [
     slug: 'eric-the-sugar-stacker',
     player_type: 'crew',
     suit: '♠',
-    tags: ['Players', 'Fellow Fish', 'Foxwoods', '$2/$5 NLH', 'Table Characters', 'Player Spotlight'],
+    tags: ['Players', 'Fellow Fish', 'Poker Friends', 'Foxwoods', '$2/$5 NLH', 'Table Characters', 'Player Spotlight'],
     specialty: 'Architectural chip instability',
     tell: 'Bluff attempt ends after one call',
     threat_level: 'Low variance, high sugar',
@@ -3940,10 +3940,20 @@ const server = http.createServer(async (req, res) => {
 async function seedDefaultSubmissions() {
   try {
     const existing = await loadSubmissions();
-    const existingIds = new Set(existing.map((s) => s.id));
-    const toAdd = SEED_SUBMISSIONS.filter((s) => !existingIds.has(s.id));
-    if (!toAdd.length) return;
-    await saveSubmissions([...toAdd, ...existing]);
+    const existingById = new Map(existing.map((s) => [s.id, s]));
+    const existingSlugs = new Set(existing.map((s) => s.slug));
+    const seedById = new Map(SEED_SUBMISSIONS.map((s) => [s.id, s]));
+    const idsToUpdate = new Set();
+    const toAdd = [];
+    for (const seed of SEED_SUBMISSIONS) {
+      if (existingById.has(seed.id)) { idsToUpdate.add(seed.id); }
+      else if (!existingSlugs.has(seed.slug)) { toAdd.push(seed); }
+    }
+    if (!toAdd.length && !idsToUpdate.size) return;
+    const updated = existing.map((s) =>
+      idsToUpdate.has(s.id) ? { ...s, ...seedById.get(s.id) } : s
+    );
+    await saveSubmissions([...toAdd, ...updated]);
   } catch {
     // non-fatal
   }
