@@ -199,6 +199,37 @@ Let's see if we can make the ATM dispense six figures next time.`,
   },
 ];
 
+// ── Tournament Journey config ─────────────────────────────────────────────────
+// Edit this array to update homepage Tournament Journey cards without touching HTML.
+// Fields: label, value, valueClass ('gold'|''), valueStyle (inline CSS string|''),
+//         desc (plain text, \n\n becomes <br><br>), badge (string|null)
+const TOURNAMENT_RESULTS = [
+  {
+    label: '// WSOP 2026 Deep Run',
+    value: '$45,703',
+    valueClass: 'gold',
+    valueStyle: '',
+    desc: '$1,000 WSOP No-Limit Hold\'em Event\n\nFinished 8th out of 3,323 entries.\n\nThe deepest tournament run in ATMwithNoPIN history and the first major WSOP final table.',
+    badge: 'Career Best WSOP Finish',
+  },
+  {
+    label: '// Current Game',
+    value: '$2/$5',
+    valueClass: '',
+    valueStyle: '',
+    desc: 'The daily grind. NLH cash games at Foxwoods Resort Casino and select tournament stops across the Northeast.',
+    badge: null,
+  },
+  {
+    label: '// Next Mission',
+    value: 'TBD',
+    valueClass: '',
+    valueStyle: 'font-size:1.8rem;padding-top:.2rem;',
+    desc: 'Follow on social for the next stop. The ATM goes where the action is.',
+    badge: null,
+  },
+];
+
 async function seedDefaultPosts() {
   try {
     const existing = await loadPosts();
@@ -1868,6 +1899,23 @@ function isSafeImage(fileName) {
   return /\.(jpg|jpeg|png|webp)$/i.test(fileName);
 }
 
+function renderTournamentSection() {
+  const cardsHtml = TOURNAMENT_RESULTS.map((r) => {
+    const descHtml = escapeHtml(r.desc).replace(/\n\n/g, '<br><br>');
+    const numAttrs = r.valueStyle ? ` style="${r.valueStyle}"` : '';
+    const badgeHtml = r.badge
+      ? `<div class="t-badge">&#x1F3C6; ${escapeHtml(r.badge)}</div>`
+      : '';
+    return `<div class="t-card">
+      <div class="t-label">${escapeHtml(r.label)}</div>
+      <div class="t-num${r.valueClass ? ' ' + escapeHtml(r.valueClass) : ''}"${numAttrs}>${escapeHtml(r.value)}</div>
+      <p class="t-desc">${descHtml}</p>
+      ${badgeHtml}
+    </div>`;
+  }).join('');
+  return `<div class="section-divider"><div class="hp-section"><p class="section-label">// The Results</p><h2>Tournament Journey</h2><p class="body-text">From $2/$5 cash games to WSOP deep runs — tracking the mission in real time.</p><div class="tournament-grid">${cardsHtml}</div><div class="section-cta-row"><a href="/blog" class="section-cta-link">Read all tournament stories →</a></div></div></div>`;
+}
+
 function renderInsideTheATMPage() {
   return renderLayout('Inside the ATM | ATMwithNoPIN™', `
 <style>
@@ -2758,6 +2806,7 @@ const server = http.createServer(async (req, res) => {
         .replace('<!-- BLOG_PREVIEW -->', `<div class="section-divider"><div class="hp-section" id="stories"><p class="section-label">// Latest from the ATM</p><h2>Latest Stories</h2>${featuredHtml}<div class="section-cta-row"><a href="/blog" class="section-cta-link">View all stories →</a></div></div></div>`)
         .replace('<!-- RECENT_POSTS -->', '')
         .replace('<!-- CHRONICLES_PREVIEW -->', chronSection)
+        .replace('<!-- TOURNAMENT_JOURNEY -->', renderTournamentSection())
         .replace('<!-- COMMUNITY_PREVIEW -->', communitySection)
         .replace(/ATM With No PIN — Dhezz/g, 'ATMwithNoPIN™ Poker | Official Site')
         .replace(/<title>ATM With No PIN — Dhezz<\/title>/, '<title>ATMwithNoPIN™ Poker | Official Site</title>');
