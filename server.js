@@ -525,7 +525,126 @@ function estimateReadingTime(content) {
   return Math.max(1, Math.ceil(words / 200));
 }
 
-const PLAYER_BADGES = ['Final Table Hero', 'Bad Beat Champion', 'River Victim', 'Poker Storyteller', 'Bubble Survivor', 'ATMwithNoPIN Legend'];
+const PLAYER_BADGES = ['Final Table Hero', 'Bad Beat Champion', 'River Victim', 'Poker Storyteller', 'Bubble Survivor', 'ATMwithNoPIN Legend', 'Fellow Fish'];
+
+const SEED_SUBMISSIONS = [
+  {
+    id: 'crew-manny-the-machine-001',
+    name: 'Manny',
+    nickname: 'The Machine',
+    email: '',
+    city: 'Foxwoods, CT',
+    favorite_game: '$2/$5 NLH',
+    bio: 'Deposits chips like clockwork. Consistent. Reliable. Unstoppable. You could set your watch to the moment he shoves the river with second pair.',
+    biggest_accomplishment: 'Mechanical chip donations executed with clockwork precision.',
+    funny_story: '',
+    bad_beat_story: '',
+    social_link: '',
+    photo_url: '',
+    permission: true,
+    status: 'approved',
+    badge: 'Fellow Fish',
+    featured_on_home: false,
+    admin_notes: 'Original crew member.',
+    slug: 'manny-the-machine',
+    player_type: 'crew',
+    suit: '♣',
+    tags: ['Players', 'Fellow Fish', 'Foxwoods', '$2/$5 NLH', 'Table Characters'],
+    specialty: 'Mechanical chip donations',
+    tell: 'Always looks confident',
+    threat_level: 'Bring extra buy-ins',
+    poker_room: 'Foxwoods Resort Casino',
+    created_at: '2026-01-01T00:00:00.000Z',
+    submitted_at: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'crew-jamie-the-tuna-001',
+    name: 'Jamie',
+    nickname: 'The Tuna',
+    email: '',
+    city: 'Foxwoods, CT',
+    favorite_game: '$2/$5 NLH',
+    bio: 'A classic fish. Never sees it coming — not the bluff, not the set, not the straight on the board. An eternal optimist who believes every hand is the one.',
+    biggest_accomplishment: 'Called every bet, folded none, won somehow.',
+    funny_story: '',
+    bad_beat_story: '',
+    social_link: '',
+    photo_url: '',
+    permission: true,
+    status: 'approved',
+    badge: 'Fellow Fish',
+    featured_on_home: false,
+    admin_notes: 'Original crew member.',
+    slug: 'jamie-the-tuna',
+    player_type: 'crew',
+    suit: '♦',
+    tags: ['Players', 'Fellow Fish', 'Foxwoods', '$2/$5 NLH', 'Table Characters'],
+    specialty: 'Calling with nothing',
+    tell: 'Looks at chips before calling',
+    threat_level: 'Occasionally dangerous',
+    poker_room: 'Foxwoods Resort Casino',
+    created_at: '2026-01-01T00:00:00.000Z',
+    submitted_at: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'crew-jay-ducky-jay-001',
+    name: 'Jay',
+    nickname: 'Ducky Jay',
+    email: '',
+    city: 'Foxwoods, CT',
+    favorite_game: '$2/$5 NLH',
+    bio: 'The only player whose card protector has better poker instincts than he does. Jay shows up, stacks his chips, places the duck on top — and then gets out of the way.',
+    biggest_accomplishment: 'Delegated all major decisions to a rubber duck. Still better EV than most.',
+    funny_story: '',
+    bad_beat_story: '',
+    social_link: '',
+    photo_url: '',
+    permission: true,
+    status: 'approved',
+    badge: 'Fellow Fish',
+    featured_on_home: false,
+    admin_notes: 'Original crew member.',
+    slug: 'jay-ducky-jay',
+    player_type: 'crew',
+    suit: '♠',
+    tags: ['Players', 'Fellow Fish', 'Poker Friends', 'Foxwoods', '$2/$5 NLH', 'Table Characters'],
+    specialty: 'Letting the duck decide',
+    tell: 'Always has a rubber duck on his stack',
+    threat_level: 'The duck is scarier',
+    poker_room: 'Foxwoods Resort Casino',
+    created_at: '2026-01-01T00:00:00.000Z',
+    submitted_at: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'crew-seat-open-001',
+    name: 'You?',
+    nickname: 'TBD',
+    email: '',
+    city: 'Foxwoods, CT',
+    favorite_game: '$2/$5 NLH',
+    bio: 'The crew has one seat open. Foxwoods. $2/$5. Come sit down, make some bad decisions, and earn your nickname.',
+    biggest_accomplishment: 'Unknown — yet.',
+    funny_story: '',
+    bad_beat_story: '',
+    social_link: '/request-feature',
+    photo_url: '',
+    permission: true,
+    status: 'approved',
+    badge: '',
+    featured_on_home: false,
+    admin_notes: 'Open seat placeholder.',
+    slug: 'open-seat-tbd',
+    player_type: 'crew',
+    suit: '?',
+    tags: ['Players', 'Foxwoods', '$2/$5 NLH'],
+    specialty: 'Unknown — yet',
+    tell: 'To be discovered',
+    threat_level: 'Unrated',
+    poker_room: 'Foxwoods Resort Casino',
+    created_at: '2026-01-01T00:00:00.000Z',
+    submitted_at: '2026-01-01T00:00:00.000Z',
+  },
+];
 
 const submissionRateLimit = new Map();
 function checkSubmissionRateLimit(ip) {
@@ -1626,18 +1745,28 @@ function renderBadge(badge) {
 }
 
 function renderPlayerCard(p) {
-  const initials = ((p.nickname || p.name || '?')[0] || '?').toUpperCase();
-  return `<article class="player-card" data-badge="${escapeHtml(p.badge || '')}">
+  const displayChar = p.suit || ((p.nickname || p.name || '?')[0] || '?').toUpperCase();
+  const tagsAttr = Array.isArray(p.tags) ? p.tags.join(',') : (p.tags || '');
+  const excerpt = p.bio || p.biggest_accomplishment || p.funny_story || '';
+  const isCrew = p.player_type === 'crew';
+  const isOpenSeat = p.slug === 'open-seat-tbd';
+  return `<article class="player-card" data-badge="${escapeHtml(p.badge || '')}" data-tags="${escapeHtml(tagsAttr)}" data-featured="${p.featured_on_home ? 'true' : 'false'}">
     ${p.photo_url
       ? `<div class="player-photo-wrap"><img src="${escapeHtml(p.photo_url)}" alt="${escapeHtml(p.nickname || p.name)}" loading="lazy" /></div>`
-      : `<div class="player-photo-ph">${escapeHtml(initials)}</div>`}
+      : `<div class="player-photo-ph${isOpenSeat ? ' player-photo-ph-open' : ''}">${escapeHtml(displayChar)}</div>`}
     <div class="player-card-body">
       ${renderBadge(p.badge)}
       <h3 class="player-card-name">${escapeHtml(p.nickname || p.name)}</h3>
-      ${p.nickname && p.name ? `<p class="small">${escapeHtml(p.name)}</p>` : ''}
+      ${p.nickname && p.name && p.name !== 'You?' ? `<p class="small">${escapeHtml(p.name)}</p>` : ''}
       ${p.city ? `<p class="small" style="margin-top:.15rem;">${escapeHtml(p.city)}</p>` : ''}
-      <p class="player-card-excerpt">${escapeHtml((p.biggest_accomplishment || p.funny_story || '').slice(0, 110))}${(p.biggest_accomplishment || '').length > 110 ? '…' : ''}</p>
-      <a href="/players/${escapeHtml(p.slug)}" class="player-view-cta">View Profile →</a>
+      <p class="player-card-excerpt">${escapeHtml(excerpt.slice(0, 110))}${excerpt.length > 110 ? '…' : ''}</p>
+      ${isCrew && p.specialty ? `<div class="crew-stats-mini">
+        <div class="csm-row"><span class="csm-label">Specialty</span><span class="csm-val">${escapeHtml(p.specialty)}</span></div>
+        <div class="csm-row"><span class="csm-label">Threat</span><span class="csm-val">${escapeHtml(p.threat_level || '')}</span></div>
+      </div>` : ''}
+      ${isOpenSeat
+        ? `<a href="/request-feature" class="player-view-cta">Claim This Seat →</a>`
+        : `<a href="/players/${escapeHtml(p.slug)}" class="player-view-cta">View Profile →</a>`}
     </div>
   </article>`;
 }
@@ -1645,9 +1774,23 @@ function renderPlayerCard(p) {
 function renderCommunityWallPage(submissions) {
   const approved = submissions
     .filter((s) => s.status === 'approved')
-    .sort((a, b) => new Date(b.approved_at || b.created_at) - new Date(a.approved_at || a.created_at));
-  const badgeBtns = ['All', ...PLAYER_BADGES].map((b) =>
-    `<button class="pw-filter-btn${b === 'All' ? ' active' : ''}" data-badge="${b === 'All' ? '' : escapeHtml(b)}">${escapeHtml(b)}</button>`
+    .sort((a, b) => {
+      if (a.player_type === 'crew' && b.player_type !== 'crew') return -1;
+      if (b.player_type === 'crew' && a.player_type !== 'crew') return 1;
+      return new Date(b.approved_at || b.created_at) - new Date(a.approved_at || a.created_at);
+    });
+  const wallFilters = [
+    { label: 'All', filter: '' },
+    { label: 'Players', filter: 'Players' },
+    { label: 'Fellow Fish', filter: 'Fellow Fish' },
+    { label: 'Poker Friends', filter: 'Poker Friends' },
+    { label: 'Table Characters', filter: 'Table Characters' },
+    { label: 'Foxwoods', filter: 'Foxwoods' },
+    { label: '$2/$5 NLH', filter: '$2/$5 NLH' },
+    { label: 'Featured', filter: '__featured__' },
+  ];
+  const filterBtns = wallFilters.map((f) =>
+    `<button class="pw-filter-btn${f.filter === '' ? ' active' : ''}" data-filter="${escapeHtml(f.filter)}">${escapeHtml(f.label)}</button>`
   ).join('');
   const cards = approved.map(renderPlayerCard).join('');
   return renderLayout('Community Wall | ATMwithNoPIN™', `
@@ -1663,42 +1806,58 @@ function renderCommunityWallPage(submissions) {
       .player-card:hover{border-color:#2e2e2e;}
       .player-photo-wrap img{width:100%;height:200px;object-fit:cover;display:block;}
       .player-photo-ph{height:160px;background:linear-gradient(135deg,#0d2e1a,#0a1a0f);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:3.5rem;color:var(--green);border-bottom:1px solid #1a1a1a;}
+      .player-photo-ph-open{background:linear-gradient(135deg,#111,#1a1a1a);color:#333;}
       .player-card-body{padding:1rem;display:flex;flex-direction:column;gap:.35rem;flex:1;}
       .player-card-name{font-family:'DM Serif Display',serif;font-size:1.05rem;margin:.2rem 0 0;}
       .player-card-excerpt{color:#888;font-size:.78rem;line-height:1.55;flex:1;margin-top:.25rem;}
       .player-view-cta{display:inline-block;margin-top:.4rem;color:var(--green);font-size:.7rem;text-transform:uppercase;letter-spacing:.12em;text-decoration:none;}
       .player-view-cta:hover{color:#00ff6a;}
+      .crew-stats-mini{margin-top:.5rem;border-top:1px solid #1a1a1a;padding-top:.5rem;display:flex;flex-direction:column;gap:.25rem;}
+      .csm-row{display:flex;gap:.4rem;align-items:baseline;}
+      .csm-label{font-size:.55rem;text-transform:uppercase;letter-spacing:.12em;color:var(--green);white-space:nowrap;min-width:4.5rem;}
+      .csm-val{font-size:.72rem;color:#aaa;}
       .pw-no-results{grid-column:1/-1;text-align:center;padding:3rem;color:#555;font-size:.85rem;}
-      .pw-cta-row{text-align:center;margin-top:1.5rem;}
+      .pw-get-featured{margin-top:2rem;padding:1.5rem;border:1px dashed #242424;border-radius:14px;text-align:center;}
+      .pw-get-featured p{color:#888;font-size:.82rem;margin-bottom:.75rem;}
     </style>
     <section class="hero">
       <p class="eyebrow">ATMwithNoPIN™ Community</p>
       <h1>Community Wall</h1>
-      <p class="body-text" style="max-width:60ch;">Players from across the poker world who've shared their stories, bad beats, and moments with the ATMwithNoPIN™ community.</p>
-      <p style="margin-top:.75rem;"><a href="/request-feature" class="pill">Share Your Story →</a></p>
+      <p class="body-text" style="max-width:60ch;">The table characters, fellow fish, and poker friends of the ATMwithNoPIN™ universe. Every player has a story.</p>
     </section>
     <div class="pw-controls">
-      <div class="pw-filter-wrap">${badgeBtns}</div>
+      <div class="pw-filter-wrap">${filterBtns}</div>
     </div>
     <div class="pw-grid" id="pwGrid">
       ${cards || '<p class="pw-no-results">No players featured yet. <a href="/request-feature">Be the first →</a></p>'}
+    </div>
+    <div class="pw-get-featured">
+      <p>Sat at the table with Dhezz? Got a story, a bad beat, or a nickname worth immortalizing?</p>
+      <a href="/request-feature" class="pill">Get Featured →</a>
     </div>
     <script>
     (function() {
       var all = Array.from(document.querySelectorAll('.player-card'));
       var active = '';
+      function matches(card, filter) {
+        if (!filter) return true;
+        if (filter === '__featured__') return card.dataset.featured === 'true';
+        var badge = card.dataset.badge || '';
+        var tags = (card.dataset.tags || '').split(',').map(function(t) { return t.trim(); });
+        return badge === filter || tags.indexOf(filter) > -1;
+      }
       function paint() {
-        all.forEach(function(c) { c.style.display = (!active || c.dataset.badge === active) ? '' : 'none'; });
-        var nr = document.getElementById('pwNoRes');
+        all.forEach(function(c) { c.style.display = matches(c, active) ? '' : 'none'; });
         var vis = all.filter(function(c) { return c.style.display !== 'none'; });
+        var nr = document.getElementById('pwNoRes');
         if (!vis.length && all.length) {
-          if (!nr) { nr = Object.assign(document.createElement('p'), {id:'pwNoRes',className:'pw-no-results',textContent:'No players with this badge yet.'}); document.getElementById('pwGrid').appendChild(nr); }
+          if (!nr) { nr = Object.assign(document.createElement('p'), {id:'pwNoRes',className:'pw-no-results',textContent:'No players with this filter yet.'}); document.getElementById('pwGrid').appendChild(nr); }
         } else if (nr) nr.remove();
       }
       document.querySelectorAll('.pw-filter-btn').forEach(function(b) {
         b.addEventListener('click', function() {
           document.querySelectorAll('.pw-filter-btn').forEach(function(x) { x.classList.remove('active'); });
-          b.classList.add('active'); active = b.dataset.badge || ''; paint();
+          b.classList.add('active'); active = b.dataset.filter || ''; paint();
         });
       });
     })();
@@ -1707,13 +1866,16 @@ function renderCommunityWallPage(submissions) {
 
 function renderPlayerProfilePage(player, allPlayers) {
   const others = allPlayers
-    .filter((p) => p.id !== player.id && p.status === 'approved' && p.badge === player.badge)
+    .filter((p) => p.id !== player.id && p.status === 'approved' && p.slug !== 'open-seat-tbd')
     .slice(0, 3);
   const shareUrl = `https://atmwithnopin.com/players/${escapeHtml(player.slug)}`;
+  const displayChar = player.suit || ((player.nickname || player.name || '?')[0] || '?').toUpperCase();
+  const isOpenSeat = player.slug === 'open-seat-tbd';
+  const descText = player.bio || player.biggest_accomplishment || player.funny_story || '';
   return renderLayout(`${player.nickname || player.name} | ATMwithNoPIN™ Community`, `
-    <meta name="description" content="${escapeHtml((player.biggest_accomplishment || player.funny_story || '').slice(0, 155))}" />
+    <meta name="description" content="${escapeHtml(descText.slice(0, 155))}" />
     <meta property="og:title" content="${escapeHtml((player.nickname || player.name) + ' — ATMwithNoPIN™ Community')}" />
-    <meta property="og:description" content="${escapeHtml((player.biggest_accomplishment || player.funny_story || '').slice(0, 155))}" />
+    <meta property="og:description" content="${escapeHtml(descText.slice(0, 155))}" />
     ${player.photo_url ? `<meta property="og:image" content="${escapeHtml(player.photo_url)}" />` : ''}
     <style>
       .pp-photo{width:100%;max-height:420px;object-fit:cover;border-radius:14px;border:1px solid #1e1e1e;display:block;margin-bottom:1.25rem;}
@@ -1730,6 +1892,9 @@ function renderPlayerProfilePage(player, allPlayers) {
       .other-card h4{font-family:'DM Serif Display',serif;font-size:.93rem;margin:.2rem 0;}
       .other-card h4 a{color:var(--offwhite);text-decoration:none;}
       .other-card h4 a:hover{color:var(--green);}
+      .crew-stats-table{width:100%;margin-top:.5rem;border-collapse:collapse;}
+      .crew-stats-table td{padding:.5rem 0;border-bottom:1px solid #1a1a1a;vertical-align:top;font-size:.8rem;}
+      .crew-stats-table td:first-child{font-size:.58rem;text-transform:uppercase;letter-spacing:.15em;color:var(--green);width:36%;padding-right:1rem;}
     </style>
     <section class="hero">
       <p class="eyebrow"><a href="/community-wall" style="color:var(--green);">Community Wall</a> › Player Profile</p>
@@ -1738,24 +1903,32 @@ function renderPlayerProfilePage(player, allPlayers) {
         ${renderBadge(player.badge)}
         ${player.city ? `<span class="meta">${escapeHtml(player.city)}</span>` : ''}
         ${player.favorite_game ? `<span class="meta">${escapeHtml(player.favorite_game)}</span>` : ''}
+        ${player.poker_room ? `<span class="meta">📍 ${escapeHtml(player.poker_room)}</span>` : ''}
       </div>
     </section>
     <section class="grid" style="margin-top:1rem;">
       <article class="card">
         ${player.photo_url
           ? `<img class="pp-photo" src="${escapeHtml(player.photo_url)}" alt="${escapeHtml(player.nickname || player.name)}" />`
-          : `<div class="pp-photo-ph">${escapeHtml(((player.nickname || player.name || '?')[0] || '?').toUpperCase())}</div>`}
-        ${player.biggest_accomplishment ? `<div class="pp-section"><p class="pp-section-label">Biggest Accomplishment</p><p class="body-text">${escapeHtml(player.biggest_accomplishment)}</p></div>` : ''}
+          : `<div class="pp-photo-ph">${escapeHtml(displayChar)}</div>`}
+        ${player.bio ? `<div class="pp-section"><p class="pp-section-label">About</p><p class="body-text">${escapeHtml(player.bio)}</p></div>` : ''}
+        ${(player.specialty || player.tell || player.threat_level) ? `<div class="pp-section"><p class="pp-section-label">Player Profile</p><table class="crew-stats-table"><tbody>
+          ${player.specialty ? `<tr><td>Specialty</td><td>${escapeHtml(player.specialty)}</td></tr>` : ''}
+          ${player.tell ? `<tr><td>Tell</td><td>${escapeHtml(player.tell)}</td></tr>` : ''}
+          ${player.threat_level ? `<tr><td>Threat Level</td><td>${escapeHtml(player.threat_level)}</td></tr>` : ''}
+        </tbody></table></div>` : ''}
+        ${!player.bio && player.biggest_accomplishment ? `<div class="pp-section"><p class="pp-section-label">Biggest Accomplishment</p><p class="body-text">${escapeHtml(player.biggest_accomplishment)}</p></div>` : ''}
         ${player.funny_story ? `<div class="pp-section"><p class="pp-section-label">Funniest Poker Story</p><div>${renderMarkdown(player.funny_story)}</div></div>` : ''}
         ${player.bad_beat_story ? `<div class="pp-section"><p class="pp-section-label">Bad Beat Story</p><div>${renderMarkdown(player.bad_beat_story)}</div></div>` : ''}
-        ${player.social_link ? `<div class="pp-section"><p class="pp-section-label">Find Me Online</p><a class="pp-social-link" href="${escapeHtml(player.social_link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(player.social_link)}</a></div>` : ''}
-        <div class="share-row">
+        ${isOpenSeat ? `<div class="pp-section" style="text-align:center;padding:1.5rem 0;"><p class="meta" style="margin-bottom:.75rem;">The crew has one seat open. Foxwoods. $2/$5. Come sit down.</p><a href="/request-feature" class="pill">Claim This Seat →</a></div>` : ''}
+        ${player.social_link && !isOpenSeat ? `<div class="pp-section"><p class="pp-section-label">Find Me Online</p><a class="pp-social-link" href="${escapeHtml(player.social_link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(player.social_link)}</a></div>` : ''}
+        ${!isOpenSeat ? `<div class="share-row">
           <p class="meta">Share this profile</p>
           <div class="share-btns">
             <a class="share-btn" href="https://twitter.com/intent/tweet?text=${encodeURIComponent((player.nickname || player.name) + ' on ATMwithNoPIN™')}&url=${encodeURIComponent(shareUrl)}" target="_blank" rel="noopener">𝕏 Share</a>
             <button class="share-btn" onclick="navigator.clipboard.writeText('${escapeHtml(shareUrl)}').then(function(){this.textContent='Copied!';var b=this;setTimeout(function(){b.textContent='Copy Link';},2000);}.bind(this))">Copy Link</button>
           </div>
-        </div>
+        </div>` : ''}
       </article>
       ${others.length ? `<aside class="card">
         <h2>More Players</h2>
@@ -2132,13 +2305,11 @@ function renderInsideTheATMPage() {
 
 <div class="ita-section">
   <p class="ita-label">// The Usual Suspects</p>
-  <h2 class="ita-h2">The Crew — <em>Fellow Fish</em></h2>
-  <p class="ita-body">Every ATM needs its ecosystem. Meet the rest of the table — equally dangerous, equally entertaining, equally unlikely to fold when they should.</p>
-  <div class="crew-grid">
-    <div class="crew-card"><div class="crew-header"><div class="crew-suit">&#x2663;</div><div><div class="crew-name">Manny</div><div class="crew-alias">"The Machine"</div></div></div><div class="crew-bio">Deposits chips like clockwork. Consistent. Reliable. Unstoppable. You could set your watch to the moment he shoves the river with second pair.</div><div class="crew-stats"><div class="crew-stat"><span class="cs-label">Specialty</span><span class="cs-val">Mechanical chip donations</span></div><div class="crew-stat"><span class="cs-label">Tell</span><span class="cs-val">Always looks confident</span></div><div class="crew-stat"><span class="cs-label">Threat Level</span><span class="cs-val cs-green">Bring extra buy-ins</span></div></div></div>
-    <div class="crew-card"><div class="crew-header"><div class="crew-suit" style="color:#c44;">&#x2666;</div><div><div class="crew-name">Jamie</div><div class="crew-alias">"The Tuna"</div></div></div><div class="crew-bio">A classic fish. Never sees it coming — not the bluff, not the set, not the straight on the board. An eternal optimist who believes every hand is the one.</div><div class="crew-stats"><div class="crew-stat"><span class="cs-label">Specialty</span><span class="cs-val">Calling with nothing</span></div><div class="crew-stat"><span class="cs-label">Tell</span><span class="cs-val">Looks at chips before calling</span></div><div class="crew-stat"><span class="cs-label">Threat Level</span><span class="cs-val cs-gold">Occasionally dangerous</span></div></div></div>
-    <div class="crew-card"><div class="crew-header"><div class="crew-suit" style="color:var(--green);">&#x2660;</div><div><div class="crew-name">Jay</div><div class="crew-alias">"Ducky Jay"</div></div></div><div class="crew-bio">The only player whose card protector has better poker instincts than he does. Jay shows up, stacks his chips, places the duck on top — and then gets out of the way.</div><div class="crew-stats"><div class="crew-stat"><span class="cs-label">Specialty</span><span class="cs-val">Letting the duck decide</span></div><div class="crew-stat"><span class="cs-label">Tell</span><span class="cs-val">Always has a rubber duck on his stack</span></div><div class="crew-stat"><span class="cs-label">Threat Level</span><span class="cs-val cs-gold">The duck is scarier</span></div></div></div>
-    <div class="crew-card crew-card-open"><div class="crew-header"><div class="crew-suit" style="color:#333;">&#x2660;</div><div><div class="crew-name">You?</div><div class="crew-alias">"TBD"</div></div></div><div class="crew-bio">The crew has one seat open. Foxwoods. $2/$5. Come sit down, make some bad decisions, and earn your nickname.</div><div class="crew-stats"><div class="crew-stat"><span class="cs-label">Specialty</span><span class="cs-val">Unknown — yet</span></div><div class="crew-stat"><span class="cs-label">Tell</span><span class="cs-val">To be discovered</span></div><div class="crew-stat"><span class="cs-label">Threat Level</span><span class="cs-val" style="color:#333;">Unrated</span></div></div></div>
+  <h2 class="ita-h2">The Crew has <em>moved</em></h2>
+  <p class="ita-body">Manny, Jamie, Ducky Jay, and the rest of the usual suspects now live on the Community Wall — alongside every other player, table character, and poker friend in the ATMwithNoPIN™ universe.</p>
+  <div style="margin-top:1.5rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
+    <a href="/community-wall" class="pill" style="background:var(--green);color:#000;border-color:var(--green);">Meet The Crew →</a>
+    <a href="/request-feature" class="pill">Get Featured →</a>
   </div>
 </div>
 
@@ -2837,11 +3008,24 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
+async function seedDefaultSubmissions() {
+  try {
+    const existing = await loadSubmissions();
+    const existingIds = new Set(existing.map((s) => s.id));
+    const toAdd = SEED_SUBMISSIONS.filter((s) => !existingIds.has(s.id));
+    if (!toAdd.length) return;
+    await saveSubmissions([...toAdd, ...existing]);
+  } catch {
+    // non-fatal
+  }
+}
+
 async function start() {
   await initializeDatabase();
   await migrateLegacyPosts();
   await seedDefaultPosts();
   await seedDefaultChronicles();
+  await seedDefaultSubmissions();
   server.listen(PORT, () => {
     console.log(`ATM is open on port ${PORT} 🏧`);
   });
