@@ -1487,7 +1487,7 @@ function renderLayout(title, body) {
     .row { display:flex; gap:.75rem; flex-wrap:wrap; }
     .notice { border:1px solid #1e1e1e; background:#111; padding:.8rem; color: var(--offwhite); border-radius:12px; font-size:.82rem; }
     .preview { border:1px dashed #2e2e2e; background:#0b0b0b; padding:1rem; border-radius:12px; color: var(--gray); }
-    .footer { border-top:1px solid #1e1e1e; padding:1rem 0; color:#555; font-size:.7rem; text-transform:uppercase; letter-spacing:.12em; }
+    .footer { border-top:1px solid #1e1e1e; padding:1rem 0; color:#777; font-size:.7rem; text-transform:uppercase; letter-spacing:.12em; }
     @media (max-width: 980px) { .grid { grid-template-columns:1fr; } .gallery { grid-template-columns:1fr; } }
   </style>
 </head>
@@ -2153,9 +2153,9 @@ function renderChroniclesListPage(chronicles) {
     <style>
       .chron-controls{display:flex;flex-direction:column;gap:.75rem;margin:1.5rem 0 1rem;}
       .chron-search{width:100%;max-width:520px;border:1px solid #242424;background:#121212;color:var(--offwhite);padding:.75rem 1rem;border-radius:10px;font:inherit;font-size:.85rem;}
-      .chron-search::placeholder{color:#555;}
+      .chron-search::placeholder{color:#666;}
       .chron-filter-wrap{display:flex;flex-wrap:wrap;gap:.4rem;}
-      .chron-filter-btn{border:1px solid #242424;background:#111;color:#888;border-radius:999px;padding:.3rem .7rem;font:.68rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:all .2s;}
+      .chron-filter-btn{border:1px solid #2a2a2a;background:#111;color:#999;border-radius:999px;padding:.3rem .7rem;font:.68rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:all .2s;}
       .chron-filter-btn:hover,.chron-filter-btn.active{border-color:rgba(0,200,83,.4);background:rgba(0,200,83,.08);color:var(--green);}
       .chron-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:.5rem;}
       @media(max-width:980px){.chron-grid{grid-template-columns:1fr;}}
@@ -2175,14 +2175,14 @@ function renderChroniclesListPage(chronicles) {
       .chron-title{font-family:'DM Serif Display',serif;font-size:1rem;line-height:1.3;margin:.15rem 0 0;}
       .chron-title a{color:var(--offwhite);text-decoration:none;}
       .chron-title a:hover{color:var(--green);}
-      .chron-excerpt{color:#888;font-size:.8rem;line-height:1.55;flex:1;}
+      .chron-excerpt{color:#b0a898;font-size:.8rem;line-height:1.6;flex:1;}
       .chron-tags{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.2rem;}
       .chron-cta{display:inline-block;color:var(--green);font-size:.7rem;text-transform:uppercase;letter-spacing:.12em;text-decoration:none;margin-top:.4rem;}
       .chron-cta:hover{color:#00ff6a;}
       .chron-load-wrap{text-align:center;margin:2rem 0;}
       .chron-load-btn{border:1px solid #242424;background:#111;color:var(--offwhite);border-radius:10px;padding:.75rem 2rem;font:.78rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.12em;cursor:pointer;}
       .chron-load-btn:hover{border-color:var(--green);color:var(--green);}
-      .chron-no-results{grid-column:1/-1;text-align:center;padding:3rem;color:#555;font-size:.85rem;}
+      .chron-no-results{grid-column:1/-1;text-align:center;padding:3rem;color:#777;font-size:.85rem;}
     </style>
     <section class="hero">
       <p class="eyebrow">Foxwoods · Horseshoe · WSOP · The Table</p>
@@ -2410,7 +2410,7 @@ function renderCommunityWallPage(submissions) {
     <style>
       .pw-controls{display:flex;flex-direction:column;gap:.75rem;margin:1.5rem 0 1rem;}
       .pw-filter-wrap{display:flex;flex-wrap:wrap;gap:.4rem;}
-      .pw-filter-btn{border:1px solid #242424;background:#111;color:#888;border-radius:999px;padding:.3rem .7rem;font:.68rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:all .2s;}
+      .pw-filter-btn{border:1px solid #2a2a2a;background:#111;color:#999;border-radius:999px;padding:.3rem .7rem;font:.68rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:all .2s;}
       .pw-filter-btn:hover,.pw-filter-btn.active{border-color:rgba(0,200,83,.4);background:rgba(0,200,83,.08);color:var(--green);}
       .pw-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:.5rem;}
       @media(max-width:980px){.pw-grid{grid-template-columns:1fr;}}
@@ -2419,19 +2419,19 @@ function renderCommunityWallPage(submissions) {
       .player-card:hover{border-color:#2e2e2e;}
       .player-photo-wrap img{width:100%;height:200px;object-fit:cover;display:block;}
       .player-photo-ph{height:160px;background:linear-gradient(135deg,#0d2e1a,#0a1a0f);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:3.5rem;color:var(--green);border-bottom:1px solid #1a1a1a;}
-      .player-photo-ph-open{background:linear-gradient(135deg,#111,#1a1a1a);color:#333;}
+      .player-photo-ph-open{background:linear-gradient(135deg,#111,#1a1a1a);color:#555;}
       .player-card-body{padding:1rem;display:flex;flex-direction:column;gap:.35rem;flex:1;}
       .player-card-name{font-family:'DM Serif Display',serif;font-size:1.05rem;margin:.2rem 0 0;}
-      .player-card-excerpt{color:#888;font-size:.78rem;line-height:1.55;flex:1;margin-top:.25rem;}
+      .player-card-excerpt{color:#b0a898;font-size:.78rem;line-height:1.6;flex:1;margin-top:.25rem;}
       .player-view-cta{display:inline-block;margin-top:.4rem;color:var(--green);font-size:.7rem;text-transform:uppercase;letter-spacing:.12em;text-decoration:none;}
       .player-view-cta:hover{color:#00ff6a;}
       .crew-stats-mini{margin-top:.5rem;border-top:1px solid #1a1a1a;padding-top:.5rem;display:flex;flex-direction:column;gap:.25rem;}
       .csm-row{display:flex;gap:.4rem;align-items:baseline;}
       .csm-label{font-size:.55rem;text-transform:uppercase;letter-spacing:.12em;color:var(--green);white-space:nowrap;min-width:4.5rem;}
       .csm-val{font-size:.72rem;color:#aaa;}
-      .pw-no-results{grid-column:1/-1;text-align:center;padding:3rem;color:#555;font-size:.85rem;}
+      .pw-no-results{grid-column:1/-1;text-align:center;padding:3rem;color:#777;font-size:.85rem;}
       .pw-get-featured{margin-top:2rem;padding:1.5rem;border:1px dashed #242424;border-radius:14px;text-align:center;}
-      .pw-get-featured p{color:#888;font-size:.82rem;margin-bottom:.75rem;}
+      .pw-get-featured p{color:#b0a898;font-size:.82rem;margin-bottom:.75rem;}
     </style>
     <section class="hero">
       <p class="eyebrow">ATMNOPIN™ Community</p>
@@ -2751,13 +2751,13 @@ function renderInsideTheATMPage() {
   .ita-hero{padding:2.5rem 0 2rem;border-bottom:1px solid #1e1e1e;}
   .ita-hero .eyebrow{font-size:.6rem;letter-spacing:.25em;text-transform:uppercase;color:var(--green);margin-bottom:.75rem;}
   .ita-h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3rem,8vw,5rem);line-height:1;color:var(--offwhite);margin-bottom:.75rem;}
-  .ita-lead{font-size:.88rem;color:#888;max-width:55ch;line-height:1.85;}
+  .ita-lead{font-size:.88rem;color:#c0b8a8;max-width:55ch;line-height:1.85;}
   .ita-section{padding:2.5rem 0;border-top:1px solid #1e1e1e;margin-top:2.5rem;}
   .ita-section:first-of-type{margin-top:0;}
   .ita-label{font-size:.58rem;letter-spacing:.25em;text-transform:uppercase;color:var(--green);margin-bottom:.85rem;}
   .ita-h2{font-family:'DM Serif Display',serif;font-size:clamp(1.7rem,3.5vw,2.4rem);color:var(--offwhite);margin-bottom:.65rem;line-height:1.2;}
   .ita-h2 em{color:var(--gold);font-style:italic;}
-  .ita-body{font-size:.8rem;line-height:1.9;color:#888;max-width:52ch;}
+  .ita-body{font-size:.8rem;line-height:1.9;color:#c0b8a8;max-width:52ch;}
   /* About */
   .ita-about{display:grid;grid-template-columns:1fr 1fr;gap:2.5rem;margin-top:1.75rem;align-items:start;}
   .dhezz-portrait{border:1px solid #1e1e1e;overflow:hidden;}
@@ -2766,7 +2766,7 @@ function renderInsideTheATMPage() {
   .portrait-caption{padding:.9rem 1.1rem;background:#0d0d0d;border-top:1px solid #1e1e1e;}
   .caption-tag{font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--green);display:block;margin-bottom:.35rem;}
   .portrait-caption p{font-family:'DM Serif Display',serif;font-style:italic;font-size:.84rem;color:var(--offwhite);line-height:1.6;}
-  .caption-sub{display:block;margin-top:.35rem;font-size:.6rem;color:#555;letter-spacing:.08em;}
+  .caption-sub{display:block;margin-top:.35rem;font-size:.6rem;color:#7a7268;letter-spacing:.08em;}
   /* House Rules */
   .rules-stack{display:flex;flex-direction:column;gap:.85rem;margin-top:1.25rem;}
   .rule{padding:1.1rem;border:1px solid #1e1e1e;position:relative;overflow:hidden;transition:border-color .3s;}
@@ -2775,7 +2775,7 @@ function renderInsideTheATMPage() {
   .rule:hover::before{transform:scaleY(1);}
   .rule-num{font-family:'Bebas Neue',sans-serif;font-size:.7rem;letter-spacing:.2em;color:var(--green);margin-bottom:.25rem;}
   .rule-title{font-family:'DM Serif Display',serif;font-size:.98rem;color:var(--offwhite);margin-bottom:.25rem;}
-  .rule-body{font-size:.72rem;color:#666;line-height:1.7;}
+  .rule-body{font-size:.72rem;color:#8a8278;line-height:1.7;}
   /* Foxwoods */
   .ita-fw-grid{display:grid;grid-template-columns:1fr 2fr;gap:1.5rem;margin-top:1.5rem;}
   .fw-left{background:var(--felt);padding:2.5rem;position:relative;overflow:hidden;}
@@ -2785,23 +2785,23 @@ function renderInsideTheATMPage() {
   .fw-tag{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--green-dim);line-height:1.6;}
   .fw-right{padding:1.75rem;border:1px solid #1e1e1e;background:#0c0c0c;display:flex;flex-direction:column;gap:1.1rem;justify-content:center;}
   .fw-quote{font-family:'DM Serif Display',serif;font-size:clamp(1rem,1.8vw,1.4rem);font-style:italic;color:var(--offwhite);line-height:1.4;padding-left:1.1rem;border-left:3px solid var(--green);}
-  .fw-body{font-size:.78rem;line-height:1.9;color:#888;}
+  .fw-body{font-size:.78rem;line-height:1.9;color:#c0b8a8;}
   .fw-punchline{font-family:'DM Serif Display',serif;font-size:.95rem;font-style:italic;color:var(--gold);}
   .fw-stats{display:flex;gap:2rem;padding-top:1.1rem;border-top:1px solid #1e1e1e;flex-wrap:wrap;}
   .fw-stat-num{font-family:'Bebas Neue',sans-serif;font-size:1.9rem;color:var(--green);line-height:1;}
-  .fw-stat-label{font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:#555;}
+  .fw-stat-label{font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:#7a7268;}
   /* Schedule */
   .sched-grid{display:grid;gap:1px;background:#1a1a1a;margin-top:1.25rem;}
   .sched-row{display:grid;grid-template-columns:100px 1fr 110px 130px;gap:1.25rem;padding:1.1rem 1.25rem;background:var(--black);align-items:center;transition:background .2s;}
   .sched-row:hover{background:#0e0e0e;}
-  .sched-row.hdr{font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;color:#444;background:#080808;}
+  .sched-row.hdr{font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;color:#666;background:#080808;}
   .sched-date{font-size:.74rem;color:var(--green);}
   .sched-venue{font-size:.76rem;color:var(--offwhite);}
-  .sched-game{font-size:.68rem;color:#666;}
+  .sched-game{font-size:.68rem;color:#8a8278;}
   .sched-status{display:inline-block;padding:3px 8px;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:2px;}
   .s-likely{background:rgba(201,168,76,.12);color:var(--gold);border:1px solid rgba(201,168,76,.3);}
-  .s-tbd{background:#111;color:#444;border:1px solid #222;}
-  .no-sched{padding:1.75rem;text-align:center;color:#444;font-size:.72rem;border:1px dashed #222;margin-top:1px;}
+  .s-tbd{background:#111;color:#666;border:1px solid #2a2a2a;}
+  .no-sched{padding:1.75rem;text-align:center;color:#666;font-size:.72rem;border:1px dashed #2a2a2a;margin-top:1px;}
   /* Staff */
   .staff-role-label{font-size:.56rem;letter-spacing:.25em;text-transform:uppercase;color:var(--green);padding-bottom:.45rem;border-bottom:1px solid #1a1a1a;margin:2rem 0 1rem;}
   .staff-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#1a1a1a;}
@@ -2810,12 +2810,12 @@ function renderInsideTheATMPage() {
   .staff-top{display:flex;align-items:center;gap:.8rem;}
   .staff-initial{width:40px;height:40px;border:1px solid #2a2a2a;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--green);flex-shrink:0;}
   .staff-name{font-family:'Bebas Neue',sans-serif;font-size:1.25rem;letter-spacing:.1em;color:var(--offwhite);line-height:1;}
-  .staff-role{font-size:.54rem;letter-spacing:.18em;text-transform:uppercase;color:#555;margin-top:.1rem;}
-  .staff-quote{font-family:'DM Serif Display',serif;font-style:italic;font-size:.76rem;color:#666;line-height:1.6;padding-left:.7rem;border-left:2px solid #1e1e1e;}
+  .staff-role{font-size:.54rem;letter-spacing:.18em;text-transform:uppercase;color:#7a7268;margin-top:.1rem;}
+  .staff-quote{font-family:'DM Serif Display',serif;font-style:italic;font-size:.76rem;color:#a09888;line-height:1.6;padding-left:.7rem;border-left:2px solid #2a2a2a;}
   .staff-banter{display:flex;flex-direction:column;gap:.12rem;padding:.45rem .65rem;background:#111;border:1px solid #1a1a1a;}
-  .banter-label{font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:#333;}
+  .banter-label{font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:#5a5a5a;}
   .banter-text{font-size:.7rem;color:var(--offwhite);line-height:1.5;}
-  .staff-footer{margin-top:1.75rem;padding:1.1rem;border:1px solid #1a1a1a;text-align:center;font-size:.68rem;color:#444;font-style:italic;line-height:1.8;}
+  .staff-footer{margin-top:1.75rem;padding:1.1rem;border:1px solid #1a1a1a;text-align:center;font-size:.68rem;color:#666;font-style:italic;line-height:1.8;}
   /* Crew */
   .crew-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#1a1a1a;margin-top:1.25rem;}
   .crew-card{background:var(--black);padding:1.6rem;transition:background .2s;border-left:3px solid transparent;}
@@ -2829,7 +2829,7 @@ function renderInsideTheATMPage() {
   .crew-bio{font-size:.72rem;line-height:1.8;color:#666;margin-bottom:1.1rem;}
   .crew-stats{display:flex;flex-direction:column;gap:.35rem;}
   .crew-stat{display:flex;justify-content:space-between;align-items:center;padding:.3rem 0;border-top:1px solid #111;font-size:.62rem;}
-  .cs-label{color:#333;letter-spacing:.1em;text-transform:uppercase;font-size:.56rem;}
+  .cs-label{color:#5a5a5a;letter-spacing:.1em;text-transform:uppercase;font-size:.56rem;}
   .cs-val{color:var(--offwhite);text-align:right;}
   .cs-green{color:var(--green);}.cs-gold{color:var(--gold);}
   /* Hall */
