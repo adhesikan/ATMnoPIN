@@ -1,4 +1,4 @@
-# ATMwithNoPIN Blog + Admin
+# ATMNOPIN Blog + Admin
 
 ## What is included
 - Public blog listing at /blog

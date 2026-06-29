@@ -601,17 +601,17 @@ function showInviteSheet(ch) {
   document.getElementById('invite-link-input').value = inviteUrl;
   document.getElementById('invite-code-display').textContent = ch.code;
 
-  const msg = `Join me in the ATM with No PIN chat room!\n\nChannel: #${ch.name}\nLink: ${inviteUrl}\n\nOr use code: ${ch.code} at atmwithnopin.com/chat.html`;
+  const msg = `Join me in the ATMNOPIN chat room!\n\nChannel: #${ch.name}\nLink: ${inviteUrl}\n\nOr use code: ${ch.code} at atmwithnopin.com/chat.html`;
   const msgEncoded = encodeURIComponent(msg);
   const urlEncoded = encodeURIComponent(inviteUrl);
-  const titleEncoded = encodeURIComponent(`Join #${ch.name} on ATM with No PIN`);
+  const titleEncoded = encodeURIComponent(`Join #${ch.name} on ATMNOPIN`);
 
   const platforms = [
     { icon: '💬', label: 'SMS / iMessage',  href: `sms:?body=${msgEncoded}` },
     { icon: '🟢', label: 'WhatsApp',         href: `https://wa.me/?text=${msgEncoded}` },
-    { icon: '𝕏',  label: 'X / Twitter',      href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`Join me in the #ATMwithNoPIN chat room! Channel: #${ch.name} — use code ${ch.code} or click: ${inviteUrl}`)}` },
+    { icon: '𝕏',  label: 'X / Twitter',      href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`Join me in the #ATMNOPIN chat room! Channel: #${ch.name} — use code ${ch.code} or click: ${inviteUrl}`)}` },
     { icon: '📘', label: 'Facebook',          href: `https://www.facebook.com/sharer/sharer.php?u=${urlEncoded}` },
-    { icon: '💼', label: 'Telegram',          href: `https://t.me/share/url?url=${urlEncoded}&text=${encodeURIComponent(`Join #${ch.name} on ATM with No PIN — code: ${ch.code}`)}` },
+    { icon: '💼', label: 'Telegram',          href: `https://t.me/share/url?url=${urlEncoded}&text=${encodeURIComponent(`Join #${ch.name} on ATMNOPIN — code: ${ch.code}`)}` },
     { icon: '📧', label: 'Email',             href: `mailto:?subject=${titleEncoded}&body=${msgEncoded}` },
   ];
 

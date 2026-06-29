@@ -115,10 +115,10 @@ async function migrateLegacyPosts() {
 const SEED_POSTS = [
   {
     id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-    title: 'From ATM with No PIN... to ATM with $45,703',
+    title: 'From ATMNOPIN... to ATM with $45,703',
     slug: 'from-atm-with-no-pin-to-atm-with-45703',
-    excerpt: 'After a string of tournament bust-outs, I finally made a deep WSOP run, finished 8th for $45,703, and even made PokerNews wearing my ATMwithNoPIN hat. A reminder that poker is a roller coaster—and sometimes the ATM finally pays out.',
-    content: `# From ATM with No PIN... to ATM with $45,703
+    excerpt: 'After a string of tournament bust-outs, I finally made a deep WSOP run, finished 8th for $45,703, and even made PokerNews wearing my ATMNOPIN hat. A reminder that poker is a roller coaster—and sometimes the ATM finally pays out.',
+    content: `# From ATMNOPIN... to ATM with $45,703
 
 For the past few weeks, I've been donating chips to the poker community like it was a charitable organization.
 
@@ -168,11 +168,11 @@ Not exactly the bracelet, but definitely enough to convince myself I'm a world-c
 
 The best part?
 
-My ATMwithNoPIN hat made it into the PokerNews photos.
+My ATMNOPIN hat made it into the PokerNews photos.
 
 Mission accomplished.
 
-People always ask what ATMwithNoPIN means.
+People always ask what ATMNOPIN means.
 
 Simple.
 
@@ -187,10 +187,10 @@ The ATM actually paid out.
 See you at the Main Event.
 
 Let's see if we can make the ATM dispense six figures next time.`,
-    tags: ['WSOP', 'Poker', 'Tournament', 'Deep Run', 'Cash', 'PokerNews', 'ATMwithNoPIN', 'Texas Hold\'em'],
+    tags: ['WSOP', 'Poker', 'Tournament', 'Deep Run', 'Cash', 'PokerNews', 'ATMNOPIN', 'Texas Hold\'em'],
     status: 'published',
     featured_image_url: '',
-    featured_image_alt: 'Dhesikan Ananchaperumal at the WSOP wearing an ATMwithNoPIN hat.',
+    featured_image_alt: 'Dhesikan Ananchaperumal at the WSOP wearing an ATMNOPIN hat.',
     gallery_images: [],
     video_urls: [],
     created_at: '2026-06-27T12:00:00.000Z',
@@ -209,7 +209,7 @@ const TOURNAMENT_RESULTS = [
     value: '$45,703',
     valueClass: 'gold',
     valueStyle: '',
-    desc: '$1,000 WSOP No-Limit Hold\'em Event\n\nFinished 8th out of 3,323 entries.\n\nThe deepest tournament run in ATMwithNoPIN history and the first major WSOP final table.',
+    desc: '$1,000 WSOP No-Limit Hold\'em Event\n\nFinished 8th out of 3,323 entries.\n\nThe deepest tournament run in ATMNOPIN history and the first major WSOP final table.',
     badge: 'Career Best WSOP Finish',
   },
   {
@@ -233,12 +233,22 @@ const TOURNAMENT_RESULTS = [
 async function seedDefaultPosts() {
   try {
     const existing = await loadPosts();
+    const existingById = new Map(existing.map((p) => [p.id, p]));
     const existingSlugs = new Set(existing.map((p) => p.slug));
-    const toAdd = SEED_POSTS.filter((p) => !existingSlugs.has(p.slug));
-    if (!toAdd.length) return;
-    await savePosts([...toAdd, ...existing]);
+    const seedById = new Map(SEED_POSTS.map((p) => [p.id, p]));
+    const idsToUpdate = new Set();
+    const toAdd = [];
+    for (const seed of SEED_POSTS) {
+      if (existingById.has(seed.id)) { idsToUpdate.add(seed.id); }
+      else if (!existingSlugs.has(seed.slug)) { toAdd.push(seed); }
+    }
+    if (!toAdd.length && !idsToUpdate.size) return;
+    const updated = existing.map((p) =>
+      idsToUpdate.has(p.id) ? { ...p, ...seedById.get(p.id) } : p
+    );
+    await savePosts([...toAdd, ...updated]);
   } catch {
-    // Seed failures are non-fatal.
+    // non-fatal
   }
 }
 
@@ -256,7 +266,7 @@ const SEED_CHRONICLES = [
     tell: 'Shows up after shift to cheer',
     threat_level: 'Good vibes guaranteed',
     icon_type: '♦',
-    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Terrell', 'Rail Support', 'ATMwithNoPIN'],
+    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Terrell', 'Rail Support', 'ATMNOPIN'],
     content: `Every poker player dreams of having a rail.
 
 Mine usually consists of one very enthusiastic dealer named Terrell.
@@ -275,7 +285,7 @@ I keep trying.
 
 One of these years we're going to have a very expensive celebration.
 
-**ATMwithNoPIN Rating:**
+**ATMNOPIN Rating:**
 
 - Rail Support: 5/5
 - Positive Energy: 5/5
@@ -306,7 +316,7 @@ One of these years we're going to have a very expensive celebration.
     tell: 'The hair and beard give it away',
     threat_level: 'Faith-based run good',
     icon_type: '♦',
-    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Dominick', 'Poker Jesus', 'Tournament Blessings', 'Poker Humor', 'ATMwithNoPIN'],
+    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Dominick', 'Poker Jesus', 'Tournament Blessings', 'Poker Humor', 'ATMNOPIN'],
     content: `Every poker player has a routine before a tournament.
 
 Mine?
@@ -333,7 +343,7 @@ Regardless of the outcome, the blessing tradition continues.
 
 I'm convinced one day it will finally result in a bracelet.
 
-**ATMwithNoPIN Rating:**
+**ATMNOPIN Rating:**
 
 - Blessing Power: 5/5
 - Poker Jesus Energy: 5/5
@@ -364,7 +374,7 @@ I'm convinced one day it will finally result in a bracelet.
     tell: 'Dry smile after the bad river',
     threat_level: 'Emotionally expensive',
     icon_type: '♦',
-    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Crazy Mike', 'Bad Beats', 'Poker Humor', 'River Cards', 'ATMwithNoPIN'],
+    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Dealer Spotlight', 'Crazy Mike', 'Bad Beats', 'Poker Humor', 'River Cards', 'ATMNOPIN'],
     content: `Every poker room has one dealer who can make the entire table laugh.
 
 For me, that's Crazy Mike.
@@ -395,7 +405,7 @@ I remind him he could try dealing me better ones.
 
 Our ongoing "argument" has become part of the entertainment every time I sit at one of his tables.
 
-**ATMwithNoPIN Rating:**
+**ATMNOPIN Rating:**
 
 - Dry Humor: 5/5
 - Bad River Delivery: 5/5
@@ -426,7 +436,7 @@ Our ongoing "argument" has become part of the entertainment every time I sit at 
     tell: 'Already solving the next problem',
     threat_level: 'Final Table Level management',
     icon_type: '♣',
-    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Floor Spotlight', 'Floor Staff', 'Frank', 'Behind the Scenes', 'ATMwithNoPIN'],
+    tags: ['WSOP', 'Horseshoe', 'Hall of Fame Poker Room', 'Floor Spotlight', 'Floor Staff', 'Frank', 'Behind the Scenes', 'ATMNOPIN'],
     content: `Most players only notice the floor when something goes wrong.
 
 I notice Frank because he's everywhere.
@@ -467,7 +477,7 @@ Some heroes wear capes.
 
 Some carry a seating list and a radio.
 
-**ATMwithNoPIN Rating:**
+**ATMNOPIN Rating:**
 
 - Keeps Games Moving: 5/5
 - Staff Support: 5/5
@@ -499,7 +509,7 @@ Some carry a seating list and a radio.
     tell: 'Always looks confident',
     threat_level: 'Bring extra buy-ins',
     icon_type: '♠',
-    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', '$2/$5 NLH', 'Cash Games', 'ATMwithNoPIN'],
+    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', '$2/$5 NLH', 'Cash Games', 'ATMNOPIN'],
     content: `Manny earned his nickname at the $2/$5 NLH tables at Foxwoods.
 
 Not because he plays like a computer.
@@ -514,7 +524,7 @@ Tell: Always looks confident, regardless of what he's holding.
 
 The unsettling part is that sometimes he actually is holding something.
 
-**ATMwithNoPIN Rating:**
+**ATMNOPIN Rating:**
 
 - Consistency: 5/5
 - Chip Deposit Reliability: 5/5
@@ -545,7 +555,7 @@ The unsettling part is that sometimes he actually is holding something.
     tell: 'Looks at chips before calling',
     threat_level: 'Occasionally dangerous',
     icon_type: '♠',
-    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', '$2/$5 NLH', 'Cash Games', 'Poker Humor', 'ATMwithNoPIN'],
+    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', '$2/$5 NLH', 'Cash Games', 'Poker Humor', 'ATMNOPIN'],
     content: `The Tuna doesn't just call.
 
 The Tuna *believes*.
@@ -562,7 +572,7 @@ Specialty: Calling with nothing.
 
 Tell: Looks at chips before calling. A tell that helps nobody, because the call is happening regardless.
 
-**ATMwithNoPIN Rating:**
+**ATMNOPIN Rating:**
 
 - Calling Ability: 5/5
 - Hand Selection: Freestyle
@@ -593,7 +603,7 @@ Tell: Looks at chips before calling. A tell that helps nobody, because the call 
     tell: 'Always has a rubber duck on his stack',
     threat_level: 'The duck is scarier',
     icon_type: '♠',
-    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', 'Poker Friends', '$2/$5 NLH', 'Cash Games', 'Poker Humor', 'ATMwithNoPIN'],
+    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', 'Poker Friends', '$2/$5 NLH', 'Cash Games', 'Poker Humor', 'ATMNOPIN'],
     content: `The rubber duck sits on the stack.
 
 It always has.
@@ -614,7 +624,7 @@ Specialty: Letting the duck decide.
 
 Tell: Rubber duck visible on stack from any seat at the table.
 
-**ATMwithNoPIN Rating:**
+**ATMNOPIN Rating:**
 
 - Player Threat: Moderate
 - Duck Threat: Unknown and possibly higher
@@ -647,8 +657,8 @@ Tell: Rubber duck visible on stack from any seat at the table.
     icon_type: '♥',
     cta_label: 'Submit Your Story',
     cta_href: '/request-feature',
-    tags: ['Community', 'Player Spotlight', 'Get Featured', 'Table Characters', 'Foxwoods', '$2/$5 NLH', 'ATMwithNoPIN'],
-    content: `The ATMwithNoPIN universe is not a closed table.
+    tags: ['Community', 'Player Spotlight', 'Get Featured', 'Table Characters', 'Foxwoods', '$2/$5 NLH', 'ATMNOPIN'],
+    content: `The ATMNOPIN universe is not a closed table.
 
 There is always one more seat.
 
@@ -664,7 +674,7 @@ Come sit down. Make some questionable decisions. Survive a bad beat. Tell a stor
 
 Submit your profile and you might be the next Chronicle.
 
-**ATMwithNoPIN Rating:**
+**ATMNOPIN Rating:**
 
 - Potential: Unknown (High)
 - Table History: TBD
@@ -696,7 +706,7 @@ Submit your profile and you might be the next Chronicle.
     tell: 'Already knows what table you need',
     threat_level: 'Professionally dangerous',
     icon_type: '♣',
-    tags: ['Foxwoods', 'Floor Spotlight', 'Floor Staff', 'Behind the Scenes', 'Poker Room', 'ATMwithNoPIN'],
+    tags: ['Foxwoods', 'Floor Spotlight', 'Floor Staff', 'Behind the Scenes', 'Poker Room', 'ATMNOPIN'],
     content: `The floor at Foxwoods moves because people like Bhavin make it move.
 
 He gets players to tables. He resolves disputes. He handles the list when it's backed up, answers questions before they've been asked, and keeps track of details that most people haven't noticed.
@@ -707,7 +717,7 @@ Specialty: Keeping the room moving.
 
 Tell: Already knows what table you need before you ask.
 
-**ATMwithNoPIN Rating:**
+**ATMNOPIN Rating:**
 
 - Room Management: 5/5
 - Player Support: 5/5
@@ -738,7 +748,7 @@ Tell: Already knows what table you need before you ask.
     tell: 'Unfazed by chaos',
     threat_level: 'Untouchable',
     icon_type: '♣',
-    tags: ['Foxwoods', 'Floor Spotlight', 'Floor Staff', 'Behind the Scenes', 'Poker Room', 'ATMwithNoPIN'],
+    tags: ['Foxwoods', 'Floor Spotlight', 'Floor Staff', 'Behind the Scenes', 'Poker Room', 'ATMNOPIN'],
     content: `Charlie has been there.
 
 The floor at Foxwoods on a busy Friday night is not a calm environment.
@@ -751,7 +761,7 @@ And then shows up and does it again tomorrow.
 
 That alone deserves a Chronicle.
 
-**ATMwithNoPIN Rating:**
+**ATMNOPIN Rating:**
 
 - Endurance: 5/5
 - Calm Under Pressure: 5/5
@@ -782,7 +792,7 @@ That alone deserves a Chronicle.
     tell: 'Same birthday as Dhezz',
     threat_level: 'Cosmic variance',
     icon_type: '♣',
-    tags: ['Foxwoods', 'Floor Spotlight', 'Floor Staff', 'Poker Humor', 'Behind the Scenes', 'ATMwithNoPIN'],
+    tags: ['Foxwoods', 'Floor Spotlight', 'Floor Staff', 'Poker Humor', 'Behind the Scenes', 'ATMNOPIN'],
     content: `Steve shares the same birthday as Dhezz.
 
 This should, theoretically, mean something.
@@ -797,7 +807,7 @@ Steve has presumably had a normal day.
 
 The universe may be playing a very long con.
 
-**ATMwithNoPIN Rating:**
+**ATMNOPIN Rating:**
 
 - Birthday Significance: Theoretical
 - Variance Alignment: Unknown
@@ -829,7 +839,7 @@ The universe may be playing a very long con.
     tell: 'Too calm before the river',
     threat_level: 'Board texture expert',
     icon_type: '♦',
-    tags: ['Foxwoods', 'Dealer Spotlight', 'Bad Beats', 'River Cards', 'Poker Room', 'ATMwithNoPIN'],
+    tags: ['Foxwoods', 'Dealer Spotlight', 'Bad Beats', 'River Cards', 'Poker Room', 'ATMNOPIN'],
     content: `Felix has professional poker dealer calm.
 
 He has seen every board texture. Every bad beat. Every river suckout.
@@ -842,7 +852,7 @@ His specialty is not the delivery of good cards.
 
 His specialty is the delivery of drama, handled with absolute professionalism.
 
-**ATMwithNoPIN Rating:**
+**ATMNOPIN Rating:**
 
 - Calm Under Pressure: 5/5
 - River Card Drama: 5/5
@@ -873,7 +883,7 @@ His specialty is the delivery of drama, handled with absolute professionalism.
     tell: 'Voice gets serious',
     threat_level: 'Stack movement imminent',
     icon_type: '♦',
-    tags: ['Foxwoods', 'Dealer Spotlight', 'Poker Room', 'All In', 'Cash Games', 'ATMwithNoPIN'],
+    tags: ['Foxwoods', 'Dealer Spotlight', 'Poker Room', 'All In', 'Cash Games', 'ATMNOPIN'],
     content: `Ray has perfect timing.
 
 Not comedy timing.
@@ -892,7 +902,7 @@ Ray has dealt this hand a thousand times.
 
 He keeps dealing.
 
-**ATMwithNoPIN Rating:**
+**ATMNOPIN Rating:**
 
 - All-In Announcements: 5/5
 - Voice Calibration: Clinical
@@ -923,7 +933,7 @@ He keeps dealing.
     tell: 'The game suddenly gets expensive',
     threat_level: 'Pot inflation specialist',
     icon_type: '♦',
-    tags: ['Foxwoods', 'Dealer Spotlight', 'Poker Room', 'Cash Games', 'Poker Humor', 'ATMwithNoPIN'],
+    tags: ['Foxwoods', 'Dealer Spotlight', 'Poker Room', 'Cash Games', 'Poker Humor', 'ATMNOPIN'],
     content: `Jenny enters the rotation with calm confidence.
 
 Then, almost immediately, someone puts too many chips in the middle.
@@ -940,7 +950,7 @@ Chronicle-worthy?
 
 Absolutely.
 
-**ATMwithNoPIN Rating:**
+**ATMNOPIN Rating:**
 
 - Arrival Timing: Suspiciously Precise
 - Pot Size Impact: Statistically Significant
@@ -1037,7 +1047,7 @@ function estimateReadingTime(content) {
   return Math.max(1, Math.ceil(words / 200));
 }
 
-const PLAYER_BADGES = ['Final Table Hero', 'Bad Beat Champion', 'River Victim', 'Poker Storyteller', 'Bubble Survivor', 'ATMwithNoPIN Legend', 'Fellow Fish'];
+const PLAYER_BADGES = ['Final Table Hero', 'Bad Beat Champion', 'River Victim', 'Poker Storyteller', 'Bubble Survivor', 'ATMNOPIN Legend', 'Fellow Fish'];
 
 const SEED_SUBMISSIONS = [
   {
@@ -1441,7 +1451,7 @@ function renderLayout(title, body) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(title)}</title>
-  <meta name="description" content="ATMwithNoPIN™ Poker blog and admin publishing system for table stories, updates, and bad beats." />
+  <meta name="description" content="ATMNOPIN™ Poker blog and admin publishing system for table stories, updates, and bad beats." />
   <style>
     :root { --black:#0a0a0a; --green:#00c853; --green-dim:#007a33; --gold:#c9a84c; --offwhite:#f0ece0; --gray:#999; }
     * { box-sizing:border-box; margin:0; padding:0; }
@@ -1484,7 +1494,7 @@ function renderLayout(title, body) {
 <body>
   <div class="shell">
     <nav>
-      <a href="/" style="color:var(--green); font-weight:700; text-transform:uppercase; letter-spacing:.18em;">ATMwithNoPIN™</a>
+      <a href="/" style="color:var(--green); font-weight:700; text-transform:uppercase; letter-spacing:.18em;">ATMNOPIN™</a>
       <ul class="nav-links">
         <li><a href="/blog">Stories</a></li>
         <li><a href="/chronicles">Chronicles</a></li>
@@ -1494,7 +1504,7 @@ function renderLayout(title, body) {
       </ul>
     </nav>
     ${body}
-    <div class="footer">ATMwithNoPIN™ poker entertainment brand operated by Sunfish Technologies LLC. All rights reserved.</div>
+    <div class="footer">ATMNOPIN™ poker entertainment brand operated by Sunfish Technologies LLC. All rights reserved.</div>
   </div>
 </body>
 </html>`;
@@ -1514,11 +1524,11 @@ function renderBlogListPage(posts) {
       <div style="margin-top:.5rem;">${(post.tags || []).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}</div>
     </article>`).join('');
 
-  return renderLayout('ATMwithNoPIN™ Blog | Table Stories', `
+  return renderLayout('ATMNOPIN™ Blog | Table Stories', `
     <section class="hero">
       <p class="eyebrow">Latest from the ATM</p>
       <h1>Table Stories &amp; Bad Beats</h1>
-      <p class="body-text" style="max-width:60ch;">A simple admin-friendly blog for tournament updates, Foxwoods sessions, funny hands, and the stories that make the ATMwithNoPIN™ brand feel like a real poker entertainment table.</p>
+      <p class="body-text" style="max-width:60ch;">A simple admin-friendly blog for tournament updates, Foxwoods sessions, funny hands, and the stories that make the ATMNOPIN™ brand feel like a real poker entertainment table.</p>
     </section>
     <section class="posts">${cards || '<div class="notice">No published posts yet. Create one in the admin area.</div>'}</section>`);
 }
@@ -1530,7 +1540,7 @@ function renderBlogPostPage(post) {
       ${img.alt ? `<p class="small" style="margin-top:.5rem;">${escapeHtml(img.alt)}</p>` : ''}
     </figure>`).join('');
 
-  return renderLayout(`${post.title} | ATMwithNoPIN™ Poker`, `
+  return renderLayout(`${post.title} | ATMNOPIN™ Poker`, `
     <section class="hero">
       <p class="eyebrow">${escapeHtml(post.status || 'Published')}</p>
       <h1>${escapeHtml(post.title)}</h1>
@@ -1550,7 +1560,7 @@ function renderBlogPostPage(post) {
 
 function renderAdminPage() {
   const chronCatOptions = CHRON_CATEGORIES.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-  return renderLayout('ATMwithNoPIN™ Admin', `
+  return renderLayout('ATMNOPIN™ Admin', `
     <style>
       .admin-tabs{display:flex;gap:.5rem;margin-top:1.5rem;margin-bottom:1rem;border-bottom:1px solid #1e1e1e;padding-bottom:.75rem;}
       .admin-tab{border:1px solid #242424;background:#111;color:#888;border-radius:8px;padding:.4rem .9rem;font:.72rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:all .2s;}
@@ -2139,7 +2149,7 @@ function renderChroniclesListPage(chronicles) {
     `<button class="chron-filter-btn${i === 0 ? ' active' : ''}" data-fval="${escapeHtml(f.value)}" data-ftype="${f.type}">${escapeHtml(f.label)}</button>`
   ).join('');
   const cards = published.map(renderChronicleCard).join('');
-  return renderLayout('Chronicles | ATMwithNoPIN™', `
+  return renderLayout('Chronicles | ATMNOPIN™', `
     <style>
       .chron-controls{display:flex;flex-direction:column;gap:.75rem;margin:1.5rem 0 1rem;}
       .chron-search{width:100%;max-width:520px;border:1px solid #242424;background:#121212;color:var(--offwhite);padding:.75rem 1rem;border-radius:10px;font:inherit;font-size:.85rem;}
@@ -2262,7 +2272,7 @@ function renderChroniclePage(chronicle, allChronicles) {
   const relatedHtml = related.map((c) =>
     `<article class="rel-card"><p class="meta">${escapeHtml(new Date(c.published_at || c.created_at).toLocaleDateString())}</p><h4><a href="/chronicles/${escapeHtml(c.slug)}">${escapeHtml(c.title)}</a></h4><p class="small" style="margin-top:.25rem;color:#888;">${escapeHtml((c.excerpt || '').slice(0, 100))}${(c.excerpt || '').length > 100 ? '…' : ''}</p></article>`
   ).join('');
-  return renderLayout(`${chronicle.title} | ATMwithNoPIN™ Chronicles`, `
+  return renderLayout(`${chronicle.title} | ATMNOPIN™ Chronicles`, `
     <style>
       .chron-hero-img{width:100%;max-height:420px;object-fit:cover;border-radius:14px;border:1px solid #1e1e1e;display:block;margin-bottom:1.25rem;}
       .chron-hero-ph{height:260px;background:linear-gradient(135deg,#0d2e1a 0%,#0a1a0f 100%);border-radius:14px;border:1px solid #1e1e1e;display:flex;align-items:center;justify-content:center;font-size:4rem;margin-bottom:1.25rem;}
@@ -2311,7 +2321,7 @@ function renderChroniclePage(chronicle, allChronicles) {
         <div class="share-row">
           <p class="meta">Share this story</p>
           <div class="share-btns">
-            <a class="share-btn" href="https://twitter.com/intent/tweet?text=${encodeURIComponent(chronicle.title + ' — ATMwithNoPIN™ Chronicles')}&url=${encodeURIComponent('https://atmwithnopin.com/chronicles/' + chronicle.slug)}" target="_blank" rel="noopener">𝕏 Share</a>
+            <a class="share-btn" href="https://twitter.com/intent/tweet?text=${encodeURIComponent(chronicle.title + ' — ATMNOPIN™ Chronicles')}&url=${encodeURIComponent('https://atmwithnopin.com/chronicles/' + chronicle.slug)}" target="_blank" rel="noopener">𝕏 Share</a>
             <button class="share-btn" onclick="navigator.clipboard.writeText('https://atmwithnopin.com/chronicles/${escapeHtml(chronicle.slug)}').then(function(){this.textContent='Copied!';var b=this;setTimeout(function(){b.textContent='Copy Link';},2000);}.bind(this))">Copy Link</button>
           </div>
         </div>
@@ -2396,7 +2406,7 @@ function renderCommunityWallPage(submissions) {
     `<button class="pw-filter-btn${f.filter === '' ? ' active' : ''}" data-filter="${escapeHtml(f.filter)}">${escapeHtml(f.label)}</button>`
   ).join('');
   const cards = approved.map(renderPlayerCard).join('');
-  return renderLayout('Community Wall | ATMwithNoPIN™', `
+  return renderLayout('Community Wall | ATMNOPIN™', `
     <style>
       .pw-controls{display:flex;flex-direction:column;gap:.75rem;margin:1.5rem 0 1rem;}
       .pw-filter-wrap{display:flex;flex-wrap:wrap;gap:.4rem;}
@@ -2424,9 +2434,9 @@ function renderCommunityWallPage(submissions) {
       .pw-get-featured p{color:#888;font-size:.82rem;margin-bottom:.75rem;}
     </style>
     <section class="hero">
-      <p class="eyebrow">ATMwithNoPIN™ Community</p>
+      <p class="eyebrow">ATMNOPIN™ Community</p>
       <h1>Community Wall</h1>
-      <p class="body-text" style="max-width:60ch;">The table characters, fellow fish, and poker friends of the ATMwithNoPIN™ universe. Every player has a story.</p>
+      <p class="body-text" style="max-width:60ch;">The table characters, fellow fish, and poker friends of the ATMNOPIN™ universe. Every player has a story.</p>
     </section>
     <div class="pw-controls">
       <div class="pw-filter-wrap">${filterBtns}</div>
@@ -2475,9 +2485,9 @@ function renderPlayerProfilePage(player, allPlayers) {
   const displayChar = player.suit || ((player.nickname || player.name || '?')[0] || '?').toUpperCase();
   const isOpenSeat = player.slug === 'open-seat-tbd';
   const descText = player.bio || player.biggest_accomplishment || player.funny_story || '';
-  return renderLayout(`${player.nickname || player.name} | ATMwithNoPIN™ Community`, `
+  return renderLayout(`${player.nickname || player.name} | ATMNOPIN™ Community`, `
     <meta name="description" content="${escapeHtml(descText.slice(0, 155))}" />
-    <meta property="og:title" content="${escapeHtml((player.nickname || player.name) + ' — ATMwithNoPIN™ Community')}" />
+    <meta property="og:title" content="${escapeHtml((player.nickname || player.name) + ' — ATMNOPIN™ Community')}" />
     <meta property="og:description" content="${escapeHtml(descText.slice(0, 155))}" />
     ${player.photo_url ? `<meta property="og:image" content="${escapeHtml(player.photo_url)}" />` : ''}
     <style>
@@ -2528,7 +2538,7 @@ function renderPlayerProfilePage(player, allPlayers) {
         ${!isOpenSeat ? `<div class="share-row">
           <p class="meta">Share this profile</p>
           <div class="share-btns">
-            <a class="share-btn" href="https://twitter.com/intent/tweet?text=${encodeURIComponent((player.nickname || player.name) + ' on ATMwithNoPIN™')}&url=${encodeURIComponent(shareUrl)}" target="_blank" rel="noopener">𝕏 Share</a>
+            <a class="share-btn" href="https://twitter.com/intent/tweet?text=${encodeURIComponent((player.nickname || player.name) + ' on ATMNOPIN™')}&url=${encodeURIComponent(shareUrl)}" target="_blank" rel="noopener">𝕏 Share</a>
             <button class="share-btn" onclick="navigator.clipboard.writeText('${escapeHtml(shareUrl)}').then(function(){this.textContent='Copied!';var b=this;setTimeout(function(){b.textContent='Copy Link';},2000);}.bind(this))">Copy Link</button>
           </div>
         </div>` : ''}
@@ -2544,7 +2554,7 @@ function renderPlayerProfilePage(player, allPlayers) {
 }
 
 function renderRequestFeaturePage(error) {
-  return renderLayout('Request to be Featured | ATMwithNoPIN™', `
+  return renderLayout('Request to be Featured | ATMNOPIN™', `
     <style>
       .rf-form label{display:grid;gap:.35rem;font-size:.78rem;color:var(--gray);text-transform:uppercase;letter-spacing:.12em;}
       .rf-form input,.rf-form textarea,.rf-form select{width:100%;border:1px solid #242424;background:#121212;color:var(--offwhite);padding:.8rem .9rem;border-radius:10px;font:inherit;}
@@ -2555,9 +2565,9 @@ function renderRequestFeaturePage(error) {
       .hp-field{position:absolute;left:-9999px;opacity:0;pointer-events:none;}
     </style>
     <section class="hero">
-      <p class="eyebrow">ATMwithNoPIN™ Community</p>
+      <p class="eyebrow">ATMNOPIN™ Community</p>
       <h1>Share Your Story</h1>
-      <p class="body-text" style="max-width:58ch;">Are you a poker player with a story to tell? Fill out the form and you might be featured on the ATMwithNoPIN™ community wall.</p>
+      <p class="body-text" style="max-width:58ch;">Are you a poker player with a story to tell? Fill out the form and you might be featured on the ATMNOPIN™ community wall.</p>
     </section>
     ${error ? `<div class="notice" style="border-color:#5c1f1f;margin-bottom:1rem;">${escapeHtml(error)}</div>` : ''}
     <section class="card" style="max-width:680px;margin-top:1rem;">
@@ -2575,7 +2585,7 @@ function renderRequestFeaturePage(error) {
         <label>Photo (JPG/PNG/WEBP, max 5MB)<input name="photo" type="file" accept="image/jpeg,image/png,image/webp" /></label>
         <div class="rf-perm">
           <input name="permission" type="checkbox" id="rfPerm" required />
-          <label for="rfPerm" style="text-transform:none;letter-spacing:0;font-size:.82rem;color:var(--offwhite);cursor:pointer;">I give ATMwithNoPIN™ permission to publish my name, photo, and stories on their website and social media.</label>
+          <label for="rfPerm" style="text-transform:none;letter-spacing:0;font-size:.82rem;color:var(--offwhite);cursor:pointer;">I give ATMNOPIN™ permission to publish my name, photo, and stories on their website and social media.</label>
         </div>
         <button type="submit">Submit My Story →</button>
         <div class="notice" id="rfStatus" style="display:none;"></div>
@@ -2654,7 +2664,7 @@ async function uploadImageToCloudinary(fileBuffer, filename, kind) {
   const body = new FormData();
   body.append('file', new Blob([fileBuffer], { type: 'image/webp' }), filename);
   body.append('upload_preset', uploadPreset);
-  body.append('folder', 'atmwithnopin');
+  body.append('folder', 'atmnopin');
 
   const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body });
   const data = await response.json();
@@ -2736,7 +2746,7 @@ function renderTournamentSection() {
 }
 
 function renderInsideTheATMPage() {
-  return renderLayout('Inside the ATM | ATMwithNoPIN™', `
+  return renderLayout('Inside the ATM | ATMNOPIN™', `
 <style>
   .ita-hero{padding:2.5rem 0 2rem;border-bottom:1px solid #1e1e1e;}
   .ita-hero .eyebrow{font-size:.6rem;letter-spacing:.25em;text-transform:uppercase;color:var(--green);margin-bottom:.75rem;}
@@ -2847,7 +2857,7 @@ function renderInsideTheATMPage() {
 <div class="ita-hero">
   <p class="eyebrow">// The ATM Universe</p>
   <h1 class="ita-h1">Inside the ATM</h1>
-  <p class="ita-lead">The people, places, rules, and ridiculous stories behind ATMwithNoPIN™ — from the Foxwoods home base to wherever the action takes us next.</p>
+  <p class="ita-lead">The people, places, rules, and ridiculous stories behind ATMNOPIN™ — from the Foxwoods home base to wherever the action takes us next.</p>
   <div style="margin-top:1.5rem;display:flex;gap:1rem;flex-wrap:wrap;">
     <a href="/chronicles" class="pill">Chronicles →</a>
     <a href="/community-wall" class="pill">Community Wall →</a>
@@ -2856,12 +2866,12 @@ function renderInsideTheATMPage() {
 </div>
 
 <div class="ita-section">
-  <p class="ita-label">// About ATMwithNoPIN™</p>
+  <p class="ita-label">// About ATMNOPIN™</p>
   <h2 class="ita-h2">Who is <em>Dhezz</em>?</h2>
   <div class="ita-about">
     <div>
       <p class="ita-body">Find Dhezz at Foxwoods, WSOP stops, and $2/$5 NLH games across the Northeast. The brand follows his poker journey through live updates, photos, videos, table stories, and occasional questionable calls.</p>
-      <p class="ita-body" style="margin-top:.8rem;">ATMwithNoPIN™ keeps the table humor intact — the fish jokes, the bad beat stories, and the confidence that somehow always feels one hand away from turning into a legendary session.</p>
+      <p class="ita-body" style="margin-top:.8rem;">ATMNOPIN™ keeps the table humor intact — the fish jokes, the bad beat stories, and the confidence that somehow always feels one hand away from turning into a legendary session.</p>
       <div style="margin-top:1.75rem;">
         <p class="ita-label">// House Rules</p>
         <div class="rules-stack">
@@ -2895,7 +2905,7 @@ function renderInsideTheATMPage() {
     </div>
     <div class="fw-right">
       <div class="fw-quote">Where legends are made, fortunes are lost, and Dhezz shows up anyway.</div>
-      <p class="fw-body">The greatest poker room in the Northeast, if only because the ATM with No PIN calls it home. Come find him at the $2/$5 table.</p>
+      <p class="fw-body">The greatest poker room in the Northeast, if only because the ATMNOPIN calls it home. Come find him at the $2/$5 table.</p>
       <p class="fw-punchline">He'll be the one smiling while his chips disappear.</p>
       <div class="fw-stats">
         <div><div class="fw-stat-num">$2/$5</div><div class="fw-stat-label">His game</div></div>
@@ -2952,7 +2962,7 @@ function renderInsideTheATMPage() {
 <div class="ita-section">
   <p class="ita-label">// The Usual Suspects</p>
   <h2 class="ita-h2">The Crew has <em>moved</em></h2>
-  <p class="ita-body">Manny, Jamie, Ducky Jay, and the rest of the usual suspects now live on the Community Wall — alongside every other player, table character, and poker friend in the ATMwithNoPIN™ universe.</p>
+  <p class="ita-body">Manny, Jamie, Ducky Jay, and the rest of the usual suspects now live on the Community Wall — alongside every other player, table character, and poker friend in the ATMNOPIN™ universe.</p>
   <div style="margin-top:1.5rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
     <a href="/community-wall" class="pill" style="background:var(--green);color:#000;border-color:var(--green);">Meet The Crew →</a>
     <a href="/request-feature" class="pill">Get Featured →</a>
@@ -2972,8 +2982,8 @@ function renderInsideTheATMPage() {
 
 <div style="margin-top:2.5rem;padding:2rem;background:#0c0c0c;border:1px solid #1e1e1e;display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
   <div style="padding:1.25rem;border:1px solid #1e1e1e;background:var(--black);"><p style="font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green);margin-bottom:.45rem;">Chronicles</p><p style="font-size:.78rem;color:#888;margin-bottom:.7rem;">Stories from dealers, floor staff, and poker life at the Hall of Fame Poker Room.</p><a href="/chronicles" style="color:var(--green);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;">Read Chronicles →</a></div>
-  <div style="padding:1.25rem;border:1px solid #1e1e1e;background:var(--black);"><p style="font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green);margin-bottom:.45rem;">Community</p><p style="font-size:.78rem;color:#888;margin-bottom:.7rem;">Poker players from the ATMwithNoPIN universe — their stories, bad beats, and badges.</p><a href="/community-wall" style="color:var(--green);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;">View Community →</a></div>
-  <div style="padding:1.25rem;border:1px solid #1e1e1e;background:var(--black);"><p style="font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:.45rem;">Get Featured</p><p style="font-size:.78rem;color:#888;margin-bottom:.7rem;">Got a story? Submit your profile and join the ATMwithNoPIN community wall.</p><a href="/request-feature" style="color:var(--gold);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;">Request Feature →</a></div>
+  <div style="padding:1.25rem;border:1px solid #1e1e1e;background:var(--black);"><p style="font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green);margin-bottom:.45rem;">Community</p><p style="font-size:.78rem;color:#888;margin-bottom:.7rem;">Poker players from the ATMNOPIN universe — their stories, bad beats, and badges.</p><a href="/community-wall" style="color:var(--green);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;">View Community →</a></div>
+  <div style="padding:1.25rem;border:1px solid #1e1e1e;background:var(--black);"><p style="font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:.45rem;">Get Featured</p><p style="font-size:.78rem;color:#888;margin-bottom:.7rem;">Got a story? Submit your profile and join the ATMNOPIN community wall.</p><a href="/request-feature" style="color:var(--gold);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;">Request Feature →</a></div>
 </div>
 `);
 }
@@ -3020,11 +3030,11 @@ const server = http.createServer(async (req, res) => {
   if (isAdminRoute && !adminSession) {
     if (pathname === '/admin') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(renderLayout('ATMwithNoPIN™ Admin Login', `
+      res.end(renderLayout('ATMNOPIN™ Admin Login', `
         <section class="hero">
           <p class="eyebrow">Secure admin</p>
           <h1>Admin login</h1>
-          <p class="body-text" style="max-width:52ch;">Use the credentials from your environment to access the ATMwithNoPIN™ blog and publishing dashboard.</p>
+          <p class="body-text" style="max-width:52ch;">Use the credentials from your environment to access the ATMNOPIN™ blog and publishing dashboard.</p>
         </section>
         <section class="card" style="max-width:480px; margin-top:1rem;">
           <div class="form-grid">
@@ -3610,9 +3620,9 @@ const server = http.createServer(async (req, res) => {
           }).join('')
         : '<div style="color:var(--gray);font-size:.9rem;">No community profiles yet. <a href="/request-feature" style="color:var(--green);">Be the first →</a></div>';
       const communitySection = `<section class="schedule" id="community-preview" style="border-top:1px solid #1a1a1a;">
-        <p class="section-label">// ATMwithNoPIN Community</p>
+        <p class="section-label">// ATMNOPIN Community</p>
         <h2>Community Wall</h2>
-        <p class="body-text" style="max-width:60ch;">Poker players from the ATMwithNoPIN universe — their stories, bad beats, and moments of glory.</p>
+        <p class="body-text" style="max-width:60ch;">Poker players from the ATMNOPIN universe — their stories, bad beats, and moments of glory.</p>
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin-top:1rem;">${communityCardsHtml}</div>
         <div style="margin-top:1.5rem;display:flex;gap:1rem;flex-wrap:wrap;">
           <a href="/community-wall" style="display:inline-block;color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View Community Wall →</a>
@@ -3626,8 +3636,8 @@ const server = http.createServer(async (req, res) => {
         .replace('<!-- CHRONICLES_PREVIEW -->', chronSection)
         .replace('<!-- TOURNAMENT_JOURNEY -->', renderTournamentSection())
         .replace('<!-- COMMUNITY_PREVIEW -->', communitySection)
-        .replace(/ATM With No PIN — Dhezz/g, 'ATMwithNoPIN™ Poker | Official Site')
-        .replace(/<title>ATM With No PIN — Dhezz<\/title>/, '<title>ATMwithNoPIN™ Poker | Official Site</title>');
+        .replace(/ATM With No PIN — Dhezz/g, 'ATMNOPIN™ Poker | Official Site')
+        .replace(/<title>ATM With No PIN — Dhezz<\/title>/, '<title>ATMNOPIN™ Poker | Official Site</title>');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(html);
     });

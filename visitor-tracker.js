@@ -1,4 +1,4 @@
-/* visitor-tracker.js — ATM with No PIN
+/* visitor-tracker.js — ATMNOPIN
    Logs each page visit to Firebase Firestore: visits collection
    Uses multiple geo APIs with fallback for best IPv6 coverage
 */
