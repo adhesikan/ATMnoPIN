@@ -3454,6 +3454,7 @@ function renderAdminPage() {
       <button class="admin-tab" data-panel="chronPanel">Chronicles</button>
       <button class="admin-tab" data-panel="communityPanel">Community</button>
       <button class="admin-tab" data-panel="visitorsPanel">Visitors</button>
+      <button class="admin-tab" data-panel="consentPanel">Consent Log</button>
     </div>
     <div id="blogPanel">
     <section class="grid">
@@ -3936,7 +3937,9 @@ function renderAdminPage() {
           document.getElementById('chronPanel').style.display = btn.dataset.panel === 'chronPanel' ? '' : 'none';
           document.getElementById('communityPanel').style.display = btn.dataset.panel === 'communityPanel' ? '' : 'none';
           document.getElementById('visitorsPanel').style.display = btn.dataset.panel === 'visitorsPanel' ? '' : 'none';
+          document.getElementById('consentPanel').style.display = btn.dataset.panel === 'consentPanel' ? '' : 'none';
           if (btn.dataset.panel === 'visitorsPanel' && !visitorsLoaded) { loadVisitors(); }
+          if (btn.dataset.panel === 'consentPanel' && !consentLoaded) { loadConsent(); }
         });
       });
     </script>
@@ -3963,13 +3966,19 @@ function renderAdminPage() {
         </div>
       </div>
       <div id="visitor-log"><div class="notice">Loading...</div></div>
-      <h3 style="margin:1.75rem 0 .6rem;font-size:.85rem;text-transform:uppercase;letter-spacing:.12em;color:var(--green);">Consent Log</h3>
-      <p class="small" style="margin-bottom:.75rem;color:#888;">IP and location recorded at time of form submission consent.</p>
-      <div id="consent-log"><div class="notice">Loading...</div></div>
     </div><!-- end visitorsPanel -->
+    <div id="consentPanel" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
+        <h2 style="margin:0;">Consent Log</h2>
+        <button id="refreshConsent" class="secondary" type="button">Refresh</button>
+      </div>
+      <p class="small" style="margin-bottom:.75rem;color:#888;">IP and location recorded at time of form submission. Each entry represents a user who checked the consent checkbox and submitted their story.</p>
+      <div id="consent-log"><div class="notice">Loading...</div></div>
+    </div><!-- end consentPanel -->
     <script>
     var visitData = [];
     var visitorsLoaded = false;
+    var consentLoaded = false;
     function vesc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
     function showVisitorLog(html) {
       var el = document.getElementById('visitor-log');
@@ -4017,12 +4026,19 @@ function renderAdminPage() {
           }).join('');
           showVisitorLog('<div style="overflow-x:auto;">' + hdr + rowsHtml + '</div>');
         }
+      } catch(e) {
+        showVisitorLog('<div class="notice" style="border-color:#5c1f1f;">Error loading visitor log: ' + vesc(e.message || String(e)) + '</div>');
+      }
+    }
+    async function loadConsent() {
+      consentLoaded = true;
+      showConsentLog('<div class="notice">Loading consent records...</div>');
+      try {
         var sr = await fetch('/api/admin/submissions');
         var subsData = sr.ok ? await sr.json() : [];
         renderConsentLog(subsData);
       } catch(e) {
-        showVisitorLog('<div class="notice" style="border-color:#5c1f1f;">Error loading visitor log: ' + vesc(e.message || String(e)) + '</div>');
-        showConsentLog('<div class="notice" style="border-color:#5c1f1f;">Error loading consent log.</div>');
+        showConsentLog('<div class="notice" style="border-color:#5c1f1f;">Error loading consent log: ' + vesc(e.message || String(e)) + '</div>');
       }
     }
     function renderConsentLog(subsData) {
@@ -4062,6 +4078,7 @@ function renderAdminPage() {
     }
     document.getElementById('refreshVisitors').addEventListener('click', loadVisitors);
     document.getElementById('exportVisitors').addEventListener('click', exportVisitorsCSV);
+    document.getElementById('refreshConsent').addEventListener('click', function() { consentLoaded = false; loadConsent(); });
     loadVisitors();
     </script>`);
 }
