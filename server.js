@@ -3026,7 +3026,8 @@ function playerProfileSlug(name, nickname) {
 async function loadSubmissions() {
   if (pgPool) {
     const { rows } = await pgPool.query('SELECT id, data FROM player_submissions ORDER BY created_at DESC');
-    return rows.map((row) => row.data);
+    console.log('[loadSubmissions] pg rows:', rows.length, rows[0] ? 'first id=' + rows[0].id : '(empty)');
+    return rows.map((row) => (typeof row.data === 'string' ? JSON.parse(row.data) : row.data));
   }
   if (sqliteDb) {
     const rows = sqliteDb.prepare('SELECT id, data FROM player_submissions ORDER BY created_at DESC').all();
@@ -3037,19 +3038,22 @@ async function loadSubmissions() {
 
 async function saveSubmissions(submissions) {
   if (pgPool) {
+    console.log('[saveSubmissions] pg: saving', submissions.length, 'records...');
     const client = await pgPool.connect();
     try {
       await client.query('BEGIN');
       await client.query('DELETE FROM player_submissions');
       for (const s of submissions) {
         await client.query(
-          'INSERT INTO player_submissions (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data',
-          [s.id, s]
+          'INSERT INTO player_submissions (id, data) VALUES ($1, $2::jsonb) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data',
+          [s.id, JSON.stringify(s)]
         );
       }
       await client.query('COMMIT');
+      console.log('[saveSubmissions] pg: committed', submissions.length, 'records');
     } catch (error) {
-      await client.query('ROLLBACK');
+      console.error('[saveSubmissions] pg error:', error.message);
+      await client.query('ROLLBACK').catch(() => {});
       throw error;
     } finally {
       client.release();
@@ -6491,15 +6495,18 @@ const server = http.createServer(async (req, res) => {
         approved_at: null,
       };
       submission.completion_score = computeCompletionScore(submission);
+      console.log('[submit] new submission id=' + submission.id + ' name=' + submission.name);
       const all = await loadSubmissions();
       all.unshift(submission);
       await saveSubmissions(all);
+      console.log('[submit] saved OK, total now', all.length);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         message: 'Story submitted! Complete your poker profile to unlock your AI Poker Personality and public player page.',
         profile_url: `/profile/setup/${edit_token}`,
       }));
     } catch (error) {
+      console.error('[submit] error:', error.message);
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: error.message }));
     }
