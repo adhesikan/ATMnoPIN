@@ -3445,6 +3445,54 @@ function renderBlogPostPage(post) {
     </section>`);
 }
 
+function renderSubmissionCardHtml(s) {
+  const esc = sanitizeHtml;
+  const id = esc(s.id || '');
+  const name = esc(s.name || 'Unnamed');
+  const status = s.status || 'pending';
+  const city = esc(s.city || '');
+  const createdAt = s.created_at ? new Date(s.created_at).toLocaleDateString() : '—';
+  const nickname = s.nickname ? `<em>&quot;${esc(s.nickname)}&quot;</em>` : '';
+  const score = s.completion_score || 0;
+  const scoreColor = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--gold)' : '#888';
+  const thumb = s.photo_url
+    ? `<img class="sub-thumb" src="${esc(s.photo_url)}" alt="" />`
+    : `<div class="sub-thumb-ph">${esc(((s.nickname||s.name||'?')[0]||'?').toUpperCase())}</div>`;
+  const readyBadge = (s.submitted_for_review && s.status !== 'approved')
+    ? '<span class="sub-pill" style="background:rgba(0,200,83,.12);border-color:rgba(0,200,83,.3);color:var(--green);font-size:.55rem;margin-left:.3rem;">Ready</span>' : '';
+  return `<div class="sub-card" id="sc-${id}">
+    <div class="sub-header" onclick="toggleSubDetail('${id}')">
+      ${thumb}
+      <div class="sub-info"><strong>${name}</strong>${nickname}
+        <p class="small">${city} &middot; ${createdAt}</p>
+        <p class="small" style="color:${scoreColor}">Profile: ${score}%${s.points ? ' &middot; ' + s.points + ' pts' : ''}</p>
+      </div>
+      <span class="sub-pill sub-${esc(status)}">${esc(status)}</span>${readyBadge}
+    </div>
+    <div class="sub-detail" id="sd-${id}" style="display:none;">
+      ${s.email ? `<div class="sub-field"><div class="sub-field-lbl">Email</div><div class="sub-field-val">${esc(s.email)}</div></div>` : ''}
+      ${s.favorite_game ? `<div class="sub-field"><div class="sub-field-lbl">Favorite Game</div><div class="sub-field-val">${esc(s.favorite_game)}</div></div>` : ''}
+      ${s.favorite_casino ? `<div class="sub-field"><div class="sub-field-lbl">Favorite Casino</div><div class="sub-field-val">${esc(s.favorite_casino)}</div></div>` : ''}
+      ${s.biggest_accomplishment ? `<div class="sub-field"><div class="sub-field-lbl">Biggest Accomplishment</div><div class="sub-field-val">${esc(s.biggest_accomplishment)}</div></div>` : ''}
+      ${s.biggest_goal ? `<div class="sub-field"><div class="sub-field-lbl">Goal</div><div class="sub-field-val">${esc(s.biggest_goal)}</div></div>` : ''}
+      ${s.funny_story ? `<div class="sub-field"><div class="sub-field-lbl">Funny Story</div><div class="sub-field-val">${esc(s.funny_story)}</div></div>` : ''}
+      ${s.bad_beat_story ? `<div class="sub-field"><div class="sub-field-lbl">Bad Beat Story</div><div class="sub-field-val">${esc(s.bad_beat_story)}</div></div>` : ''}
+      ${s.social_link ? `<div class="sub-field"><div class="sub-field-lbl">Social</div><div class="sub-field-val"><a href="${esc(s.social_link)}" target="_blank" rel="noopener">${esc(s.social_link)}</a></div></div>` : ''}
+      ${s.admin_notes ? `<div class="sub-field"><div class="sub-field-lbl">Admin Note</div><div class="sub-field-val">${esc(s.admin_notes)}</div></div>` : ''}
+      <div class="sub-actions">
+        <button class="secondary" onclick="subApprove('${id}')">${status === 'approved' ? '✓ Approved' : 'Approve'}</button>
+        ${status !== 'rejected' ? `<button class="secondary" onclick="subReject('${id}')">Reject</button>` : ''}
+        <button class="secondary" onclick="subToggleHome('${id}')">${s.featured_on_home ? 'Unfeature Home' : 'Feature Home'}</button>
+        <button class="secondary" onclick="subDelete('${id}')">Delete</button>
+      </div>
+      <div class="sub-actions">
+        <input id="notes-${id}" type="text" style="flex:1;min-width:120px;padding:.4rem .6rem;font-size:.72rem;" placeholder="Admin note..." value="${esc(s.admin_notes||'')}" />
+        <button class="secondary" onclick="subSaveNotes('${id}')">Save Note</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderAdminPage(submissions = []) {
   const chronCatOptions = CHRON_CATEGORIES.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
   return renderLayout('ATMNOPIN™ Admin', `
@@ -3729,7 +3777,9 @@ function renderAdminPage(submissions = []) {
           <h2 style="margin:0;">Community Submissions</h2>
           <button class="secondary" id="sfRefresh" type="button">Refresh</button>
         </div>
-        <div id="subStats" class="row" style="margin:.75rem 0;gap:.5rem;flex-wrap:wrap;"></div>
+        <div id="subStats" class="row" style="margin:.75rem 0;gap:.5rem;flex-wrap:wrap;">
+          ${(()=>{ const p=submissions.filter(s=>s.status==='pending').length; const a=submissions.filter(s=>s.status==='approved').length; const r=submissions.filter(s=>s.status==='rejected').length; const ready=submissions.filter(s=>s.submitted_for_review&&s.status!=='approved').length; return `<span class="sub-pill sub-pending">Pending: ${p}</span><span class="sub-pill sub-approved">Approved: ${a}</span><span class="sub-pill sub-rejected">Rejected: ${r}</span>${ready?'<span class="sub-pill" style="background:rgba(0,200,83,.15);border-color:rgba(0,200,83,.4);color:var(--green);">Ready: '+ready+'</span>':''}`; })()}
+        </div>
         <div class="row" style="margin-bottom:.75rem;gap:.5rem;">
           <button class="secondary" data-subfilter="all" id="sfAll">All</button>
           <button class="secondary" data-subfilter="submitted" id="sfSubmitted">📬 Ready for Review</button>
@@ -3737,8 +3787,7 @@ function renderAdminPage(submissions = []) {
           <button class="secondary" data-subfilter="approved" id="sfApproved">Approved</button>
           <button class="secondary" data-subfilter="rejected" id="sfRejected">Rejected</button>
         </div>
-        <div id="subPreload" style="font-size:.6rem;color:#555;padding:.15rem 0 .5rem;">${submissions.length} records pre-loaded</div>
-        <div id="subList" class="form-grid"></div>
+        <div id="subList" class="form-grid">${submissions.length ? submissions.map(renderSubmissionCardHtml).join('') : '<div class="notice">No submissions yet.</div>'}</div>
       </article>
     </section>
     <style>
