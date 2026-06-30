@@ -2751,7 +2751,7 @@ function getPlayerBadges(s) {
 }
 
 async function callOpenAI(systemPrompt, userContent, maxTokens = 600, jsonMode = false) {
-  const key = process.env.OPENAI_API_KEY;
+  const key = (process.env.OPENAI_API_KEY || '').trim();
   if (!key) throw new Error('OPENAI_API_KEY not configured. Add it to Railway environment variables.');
   const body = {
     model: 'gpt-4o-mini',
