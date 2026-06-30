@@ -2709,7 +2709,80 @@ function estimateReadingTime(content) {
   return Math.max(1, Math.ceil(words / 200));
 }
 
-const PLAYER_BADGES = ['Final Table Hero', 'Bad Beat Champion', 'River Victim', 'Poker Storyteller', 'Bubble Survivor', 'ATMNOPIN Legend', 'Fellow Fish'];
+const PLAYER_BADGES = ['Final Table Hero', 'Bad Beat Champion', 'River Victim', 'Poker Storyteller', 'Bubble Survivor', 'ATMNOPIN Legend', 'Fellow Fish', 'Poker Jesus Approved', 'WSOP Warrior', 'Cash Game Character', 'Railbird Favorite'];
+
+const STORY_TYPES = ['Bad Beat', 'Funny Dealer Story', 'Tournament Run', 'Cash Game Story', 'WSOP Moment', 'Vegas Adventure'];
+const REWRITE_STYLES = [
+  { id: 'funny', label: 'Funny Version' },
+  { id: 'dramatic', label: 'Dramatic Version' },
+  { id: 'announcer', label: 'Sports Announcer Version' },
+  { id: 'roast', label: 'Poker Roast Version' },
+  { id: 'documentary', label: 'WSOP Documentary Version' },
+];
+const POINT_RULES = { approved_profile: 50, approved_funny_story: 25, approved_bad_beat_story: 25, approved_photo: 10, featured_on_home: 100, monthly_winner: 250 };
+const aiRateLimiter = new Map(); // token -> { count, resetAt }
+
+function computeCompletionScore(s) {
+  const checks = [
+    [!!(s.name), 10],
+    [!!(s.email), 5],
+    [!!(s.nickname), 5],
+    [!!(s.city), 5],
+    [!!(s.favorite_casino), 5],
+    [!!(s.favorite_game), 5],
+    [!!(s.biggest_accomplishment), 10],
+    [!!(s.biggest_goal), 5],
+    [!!(s.funny_story), 10],
+    [!!(s.bad_beat_story), 10],
+    [!!(s.social_link), 5],
+    [!!(s.photo_url), 15],
+    [!!(s.permission_granted || s.permission), 5],
+    [!!(s.ai_personality && s.ai_personality.status !== 'rejected'), 5],
+  ];
+  const total = checks.reduce((sum, [, w]) => sum + w, 0);
+  const earned = checks.reduce((sum, [v, w]) => sum + (v ? w : 0), 0);
+  return Math.round((earned / total) * 100);
+}
+
+function getPlayerBadges(s) {
+  if (Array.isArray(s.badges) && s.badges.length) return s.badges;
+  if (s.badge) return [s.badge];
+  return [];
+}
+
+async function callOpenAI(systemPrompt, userContent, maxTokens = 600, jsonMode = false) {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error('OPENAI_API_KEY not configured. Add it to Railway environment variables.');
+  const body = {
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: String(userContent).slice(0, 3000) },
+    ],
+    max_tokens: maxTokens,
+    temperature: 0.85,
+  };
+  if (jsonMode) body.response_format = { type: 'json_object' };
+  const r = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(25000),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error?.message || `OpenAI HTTP ${r.status}`); }
+  const d = await r.json();
+  return d.choices[0].message.content.trim();
+}
+
+function checkAIRateLimit(token) {
+  const now = Date.now();
+  const s = aiRateLimiter.get(token) || { count: 0, resetAt: now + 86400000 };
+  if (now > s.resetAt) { s.count = 0; s.resetAt = now + 86400000; }
+  if (s.count >= 5) return false;
+  s.count++;
+  aiRateLimiter.set(token, s);
+  return true;
+}
 
 const SEED_SUBMISSIONS = [
   {
@@ -3674,44 +3747,97 @@ function renderAdminPage() {
     <script>
     var subFilter = 'all';
     var allSubs = [];
+    var ALL_BADGES = ${JSON.stringify(PLAYER_BADGES)};
     async function loadSubList() {
       var res = await fetch('/api/admin/submissions');
       allSubs = await res.json();
       renderSubList();
     }
+    function vescSub(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
     function renderSubList() {
       var filtered = subFilter === 'all' ? allSubs : allSubs.filter(function(s) { return s.status === subFilter; });
       var pending = allSubs.filter(function(s) { return s.status === 'pending'; }).length;
+      var pendingAI = allSubs.filter(function(s) { return s.ai_personality && s.ai_personality.status === 'pending_review'; }).length;
+      var pendingChron = allSubs.filter(function(s) { return Array.isArray(s.ai_chronicles) && s.ai_chronicles.some(function(c) { return c.status === 'pending_review'; }); }).length;
       var approved = allSubs.filter(function(s) { return s.status === 'approved'; }).length;
       document.getElementById('subStats').innerHTML =
         '<span class="sub-pill sub-pending">Pending: ' + pending + '</span>' +
         '<span class="sub-pill sub-approved">Approved: ' + approved + '</span>' +
-        '<span class="sub-pill sub-rejected">Rejected: ' + (allSubs.length - pending - approved) + '</span>';
-      var badgeOptions = ${JSON.stringify(PLAYER_BADGES)}.map(function(b) { return '<option value="' + b + '">' + b + '</option>'; }).join('');
+        '<span class="sub-pill sub-rejected">Rejected: ' + (allSubs.length - pending - approved) + '</span>' +
+        (pendingAI ? '<span class="sub-pill" style="background:rgba(160,60,220,.12);border-color:rgba(160,60,220,.3);color:#cc77ff;">AI Review: ' + pendingAI + '</span>' : '') +
+        (pendingChron ? '<span class="sub-pill" style="background:rgba(201,168,76,.1);border-color:rgba(201,168,76,.3);color:var(--gold);">Stories: ' + pendingChron + '</span>' : '');
+      var badgeCheckboxes = function(curBadges) {
+        return ALL_BADGES.map(function(b) {
+          var checked = curBadges.indexOf(b) > -1 ? ' checked' : '';
+          return '<label style="display:flex;align-items:center;gap:.35rem;font-size:.7rem;cursor:pointer;"><input type="checkbox" value="' + vescSub(b) + '"' + checked + ' />' + vescSub(b) + '</label>';
+        }).join('');
+      };
       document.getElementById('subList').innerHTML = filtered.length ? filtered.map(function(s) {
         var thumb = s.photo_url
           ? '<img class="sub-thumb" src="' + s.photo_url + '" alt="" />'
           : '<div class="sub-thumb-ph">' + ((s.nickname||s.name||'?')[0]||'?').toUpperCase() + '</div>';
         var pill = '<span class="sub-pill sub-' + s.status + '">' + s.status + '</span>';
+        var curBadges = Array.isArray(s.badges) && s.badges.length ? s.badges : (s.badge ? [s.badge] : []);
+        var aiP = s.ai_personality;
+        var chronicles = Array.isArray(s.ai_chronicles) ? s.ai_chronicles : [];
+        var pendingChr = chronicles.filter(function(c) { return c.status === 'pending_review'; });
+        var score = s.completion_score || 0;
+        var scoreColor = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--gold)' : '#888';
         return '<div class="sub-card" id="sc-' + s.id + '">'
           + '<div class="sub-header" data-subid="' + s.id + '" onclick="toggleSubDetail(\'' + s.id + '\')">'
-          + thumb + '<div class="sub-info"><strong>' + (s.name||'Unnamed') + '</strong>' + (s.nickname ? '<em>&quot;' + s.nickname + '&quot;</em>' : '') + '<p class="small">' + (s.city||'') + ' · ' + new Date(s.created_at).toLocaleDateString() + '</p></div>' + pill
+          + thumb
+          + '<div class="sub-info"><strong>' + vescSub(s.name||'Unnamed') + '</strong>' + (s.nickname ? '<em>&quot;' + vescSub(s.nickname) + '&quot;</em>' : '') + '<p class="small">' + vescSub(s.city||'') + ' · ' + new Date(s.created_at).toLocaleDateString() + '</p>'
+          + '<p class="small" style="color:' + scoreColor + '">Profile: ' + score + '%' + (s.points ? ' · 🏆 ' + s.points + ' pts' : '') + (aiP ? ' · ✨AI ' + (aiP.status === 'approved' ? '✓' : aiP.status === 'pending_review' ? '⏳' : '✗') : '') + (pendingChr.length ? ' · 📖' + pendingChr.length + ' story' : '') + '</p>'
+          + '</div>' + pill
           + '</div>'
           + '<div class="sub-detail" id="sd-' + s.id + '">'
-          + (s.email ? '<div class="sub-field"><div class="sub-field-lbl">Email</div><div class="sub-field-val">' + s.email + '</div></div>' : '')
-          + (s.favorite_game ? '<div class="sub-field"><div class="sub-field-lbl">Favorite Game</div><div class="sub-field-val">' + s.favorite_game + '</div></div>' : '')
-          + (s.biggest_accomplishment ? '<div class="sub-field"><div class="sub-field-lbl">Biggest Accomplishment</div><div class="sub-field-val">' + s.biggest_accomplishment + '</div></div>' : '')
-          + (s.funny_story ? '<div class="sub-field"><div class="sub-field-lbl">Funny Story</div><div class="sub-field-val">' + s.funny_story + '</div></div>' : '')
-          + (s.bad_beat_story ? '<div class="sub-field"><div class="sub-field-lbl">Bad Beat Story</div><div class="sub-field-val">' + s.bad_beat_story + '</div></div>' : '')
-          + (s.social_link ? '<div class="sub-field"><div class="sub-field-lbl">Social Link</div><div class="sub-field-val"><a href="' + s.social_link + '" target="_blank" rel="noopener">' + s.social_link + '</a></div></div>' : '')
-          + (s.admin_notes ? '<div class="sub-field"><div class="sub-field-lbl">Admin Notes</div><div class="sub-field-val">' + s.admin_notes + '</div></div>' : '')
-          + (s.consent_at ? '<div class="sub-field" style="border-top:1px solid #1a1a1a;margin-top:.5rem;padding-top:.5rem;"><div class="sub-field-lbl" style="color:var(--green);">Consent Recorded</div><div class="sub-field-val" style="font-size:.65rem;color:#888;">' + new Date(s.consent_at).toLocaleString() + ' &nbsp;|&nbsp; IP: ' + (s.consent_ip||'—') + ' &nbsp;|&nbsp; ' + [s.consent_city,s.consent_region,s.consent_country].filter(function(x){return x&&x!=='unknown';}).join(', ')||'—' + '</div></div>' : '')
-          + '<div class="sub-actions">'
-          + (s.status !== 'approved' ? '<select id="badge-' + s.id + '" style="width:auto;padding:.4rem .6rem;font-size:.72rem;"><option value="">No Badge</option>' + badgeOptions + '</select>' : '')
-          + (s.status !== 'approved' ? '<button class="secondary" onclick="subApprove(\'' + s.id + '\')">Approve</button>' : '')
+          + (s.email ? '<div class="sub-field"><div class="sub-field-lbl">Email</div><div class="sub-field-val">' + vescSub(s.email) + '</div></div>' : '')
+          + (s.favorite_game ? '<div class="sub-field"><div class="sub-field-lbl">Favorite Game</div><div class="sub-field-val">' + vescSub(s.favorite_game) + '</div></div>' : '')
+          + (s.favorite_casino ? '<div class="sub-field"><div class="sub-field-lbl">Favorite Casino</div><div class="sub-field-val">' + vescSub(s.favorite_casino) + '</div></div>' : '')
+          + (s.biggest_accomplishment ? '<div class="sub-field"><div class="sub-field-lbl">Biggest Accomplishment</div><div class="sub-field-val">' + vescSub(s.biggest_accomplishment) + '</div></div>' : '')
+          + (s.biggest_goal ? '<div class="sub-field"><div class="sub-field-lbl">Biggest Goal</div><div class="sub-field-val">' + vescSub(s.biggest_goal) + '</div></div>' : '')
+          + (s.funny_story ? '<div class="sub-field"><div class="sub-field-lbl">Funny Story</div><div class="sub-field-val">' + vescSub(s.funny_story) + '</div></div>' : '')
+          + (s.bad_beat_story ? '<div class="sub-field"><div class="sub-field-lbl">Bad Beat Story</div><div class="sub-field-val">' + vescSub(s.bad_beat_story) + '</div></div>' : '')
+          + (s.social_link ? '<div class="sub-field"><div class="sub-field-lbl">Social Link</div><div class="sub-field-val"><a href="' + vescSub(s.social_link) + '" target="_blank" rel="noopener">' + vescSub(s.social_link) + '</a></div></div>' : '')
+          + (s.edit_token ? '<div class="sub-field"><div class="sub-field-lbl">Profile Setup Link</div><div class="sub-field-val" style="font-size:.68rem;word-break:break-all;">/profile/setup/' + vescSub(s.edit_token) + '</div></div>' : '')
+          + (s.consent_at ? '<div class="sub-field" style="border-top:1px solid #1a1a1a;margin-top:.5rem;padding-top:.5rem;"><div class="sub-field-lbl" style="color:var(--green);">Consent Recorded</div><div class="sub-field-val" style="font-size:.65rem;color:#888;">' + new Date(s.consent_at).toLocaleString() + ' &nbsp;|&nbsp; IP: ' + (s.consent_ip||'—') + '</div></div>' : '')
+          // AI Personality section
+          + (aiP ? '<div class="sub-field" style="border-top:1px solid #1a1a1a;margin-top:.5rem;padding-top:.5rem;"><div class="sub-field-lbl" style="color:#cc77ff;">✨ AI Poker Personality (' + (aiP.status||'unknown') + ')</div>'
+            + '<div class="sub-field-val" style="font-size:.75rem;color:#b0a898;line-height:1.6;white-space:pre-wrap;max-height:200px;overflow-y:auto;">' + vescSub(aiP.text||'') + '</div>'
+            + (aiP.tagline ? '<div style="font-size:.7rem;color:var(--gold);margin-top:.3rem;font-style:italic;">"' + vescSub(aiP.tagline) + '"</div>' : '')
+            + (aiP.status === 'pending_review' ? '<div class="sub-actions" style="flex-wrap:wrap;"><button class="secondary" onclick="subAIApprove(\'' + s.id + '\')">Approve AI</button><button class="secondary" onclick="subAIReject(\'' + s.id + '\')">Reject AI</button></div>' : '')
+            + (aiP.status === 'approved' ? '<div class="sub-actions"><button class="secondary" onclick="subAIReject(\'' + s.id + '\')">Remove AI</button></div>' : '')
+            + '</div>' : '')
+          // Pending chronicles
+          + (pendingChr.length ? '<div class="sub-field" style="border-top:1px solid #1a1a1a;margin-top:.5rem;padding-top:.5rem;"><div class="sub-field-lbl" style="color:var(--gold);">📖 Pending Stories (' + pendingChr.length + ')</div>'
+            + pendingChr.map(function(c) {
+              return '<div style="border:1px solid #1e1e1e;border-radius:8px;padding:.6rem;margin-top:.4rem;">'
+                + '<div style="font-size:.6rem;color:var(--green);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem;">' + vescSub(c.story_type||'Story') + ' · ' + vescSub(c.selected_style||'') + '</div>'
+                + '<div style="font-size:.75rem;color:#b0a898;line-height:1.55;white-space:pre-wrap;max-height:160px;overflow-y:auto;">' + vescSub(c.selected_text||'') + '</div>'
+                + '<div class="sub-actions"><button class="secondary" onclick="subChronicleApprove(\'' + s.id + '\',\'' + c.id + '\')">Approve Story</button><button class="secondary" onclick="subChronicleReject(\'' + s.id + '\',\'' + c.id + '\')">Reject Story</button></div>'
+                + '</div>';
+            }).join('')
+            + '</div>' : '')
+          // Actions
+          + '<div class="sub-actions" style="flex-wrap:wrap;">'
+          + '<button class="secondary" onclick="subApprove(\'' + s.id + '\')">' + (s.status === 'approved' ? '✓ Approved' : 'Approve') + '</button>'
           + (s.status !== 'rejected' ? '<button class="secondary" onclick="subReject(\'' + s.id + '\')">Reject</button>' : '')
           + '<button class="secondary" onclick="subToggleHome(\'' + s.id + '\')">' + (s.featured_on_home ? 'Unfeature Home' : 'Feature Home') + '</button>'
-          + '<input id="notes-' + s.id + '" type="text" style="width:auto;flex:1;min-width:120px;padding:.4rem .6rem;font-size:.72rem;" placeholder="Add note..." value="' + (s.admin_notes||'').replace(/"/g,'&quot;') + '" />'
+          + '<button class="secondary" onclick="subToggleMonthly(\'' + s.id + '\')">' + (s.is_monthly_winner ? '🏅 Monthly ✓' : 'Monthly Winner') + '</button>'
+          + '</div>'
+          // Badges (multi)
+          + '<div class="sub-field" style="margin-top:.5rem;"><div class="sub-field-lbl">Badges</div><div id="badges-' + s.id + '" style="display:flex;flex-wrap:wrap;gap:.4rem;margin:.4rem 0;">' + badgeCheckboxes(curBadges) + '</div>'
+          + '<button class="secondary" style="font-size:.68rem;" onclick="subSaveBadges(\'' + s.id + '\')">Save Badges</button></div>'
+          // Points
+          + '<div class="sub-actions" style="flex-wrap:wrap;align-items:center;">'
+          + '<span style="font-size:.7rem;color:#888;">Points: <strong style="color:var(--gold);">' + (s.points||0) + '</strong></span>'
+          + '<input id="pts-' + s.id + '" type="number" style="width:70px;padding:.4rem .5rem;font-size:.72rem;" placeholder="+/-" />'
+          + '<input id="pts-reason-' + s.id + '" type="text" style="width:140px;padding:.4rem .5rem;font-size:.72rem;" placeholder="Reason..." />'
+          + '<button class="secondary" style="font-size:.68rem;" onclick="subAddPoints(\'' + s.id + '\')">Add Points</button>'
+          + '</div>'
+          // Notes + Delete
+          + '<div class="sub-actions" style="flex-wrap:wrap;">'
+          + '<input id="notes-' + s.id + '" type="text" style="width:auto;flex:1;min-width:120px;padding:.4rem .6rem;font-size:.72rem;" placeholder="Admin note..." value="' + vescSub(s.admin_notes||'') + '" />'
           + '<button class="secondary" onclick="subSaveNotes(\'' + s.id + '\')">Save Note</button>'
           + '<button class="secondary" onclick="subDelete(\'' + s.id + '\')">Delete</button>'
           + '</div>'
@@ -3723,17 +3849,36 @@ function renderAdminPage() {
       var el = document.getElementById('sd-' + id);
       if (el) el.style.display = el.style.display === 'none' || !el.style.display ? '' : 'none';
     }
-    async function subApprove(id) {
-      var badge = document.getElementById('badge-' + id);
-      var payload = { status: 'approved' };
-      if (badge && badge.value) payload.badge = badge.value;
-      await subUpdate(id, payload);
-    }
+    async function subApprove(id) { await subUpdate(id, { status: 'approved' }); }
     async function subReject(id) { await subUpdate(id, { status: 'rejected' }); }
     async function subToggleHome(id) {
       var s = allSubs.find(function(x) { return x.id === id; });
       if (s) await subUpdate(id, { featured_on_home: !s.featured_on_home });
     }
+    async function subToggleMonthly(id) {
+      var s = allSubs.find(function(x) { return x.id === id; });
+      if (s) await subUpdate(id, { is_monthly_winner: !s.is_monthly_winner });
+    }
+    async function subSaveBadges(id) {
+      var container = document.getElementById('badges-' + id);
+      if (!container) return;
+      var checked = Array.from(container.querySelectorAll('input[type=checkbox]:checked')).map(function(c) { return c.value; });
+      await subUpdate(id, { badges: checked });
+    }
+    async function subAddPoints(id) {
+      var ptEl = document.getElementById('pts-' + id);
+      var reaEl = document.getElementById('pts-reason-' + id);
+      var delta = parseInt(ptEl ? ptEl.value : 0) || 0;
+      if (!delta) { alert('Enter a points value (positive to add, negative to subtract).'); return; }
+      var reason = reaEl ? reaEl.value.trim() : '';
+      await subUpdate(id, { points_delta: delta, points_reason: reason });
+      if (ptEl) ptEl.value = '';
+      if (reaEl) reaEl.value = '';
+    }
+    async function subAIApprove(id) { await subUpdate(id, { ai_personality_status: 'approved' }); }
+    async function subAIReject(id) { await subUpdate(id, { ai_personality_status: 'rejected' }); }
+    async function subChronicleApprove(subId, chronId) { await subUpdate(subId, { chronicle_id: chronId, chronicle_status: 'approved' }); }
+    async function subChronicleReject(subId, chronId) { await subUpdate(subId, { chronicle_id: chronId, chronicle_status: 'rejected' }); }
     async function subSaveNotes(id) {
       var el = document.getElementById('notes-' + id);
       if (el) await subUpdate(id, { admin_notes: el.value });
@@ -4189,25 +4334,505 @@ function renderPlayerCard(p) {
   const excerpt = p.bio || p.biggest_accomplishment || p.funny_story || '';
   const isCrew = p.player_type === 'crew';
   const isOpenSeat = p.slug === 'open-seat-tbd';
-  return `<article class="player-card" data-badge="${escapeHtml(p.badge || '')}" data-tags="${escapeHtml(tagsAttr)}" data-featured="${p.featured_on_home ? 'true' : 'false'}">
+  const badges = getPlayerBadges(p);
+  const primaryBadge = badges[0] || '';
+  const aiP = p.ai_personality;
+  const aiTagline = (aiP && aiP.status === 'approved' && aiP.tagline) ? aiP.tagline : '';
+  return `<article class="player-card" data-badge="${escapeHtml(primaryBadge)}" data-badges="${escapeHtml(badges.join(','))}" data-tags="${escapeHtml(tagsAttr)}" data-featured="${p.featured_on_home ? 'true' : 'false'}" data-points="${p.points || 0}" data-monthly="${p.is_monthly_winner ? 'true' : 'false'}">
     ${p.photo_url
       ? `<div class="player-photo-wrap"><img src="${escapeHtml(p.photo_url)}" alt="${escapeHtml(p.nickname || p.name)}" loading="lazy" /></div>`
       : `<div class="player-photo-ph${isOpenSeat ? ' player-photo-ph-open' : ''}">${escapeHtml(displayChar)}</div>`}
     <div class="player-card-body">
-      ${renderBadge(p.badge)}
+      <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.25rem;">${badges.slice(0, 2).map((b) => renderBadge(b)).join('')}</div>
       <h3 class="player-card-name">${escapeHtml(p.nickname || p.name)}</h3>
       ${p.nickname && p.name && p.name !== 'You?' ? `<p class="small">${escapeHtml(p.name)}</p>` : ''}
       ${p.city ? `<p class="small" style="margin-top:.15rem;">${escapeHtml(p.city)}</p>` : ''}
-      <p class="player-card-excerpt">${escapeHtml(excerpt.slice(0, 110))}${excerpt.length > 110 ? '…' : ''}</p>
+      ${aiTagline ? `<p class="player-card-excerpt" style="color:var(--gold);font-style:italic;">"${escapeHtml(aiTagline)}"</p>` : `<p class="player-card-excerpt">${escapeHtml(excerpt.slice(0, 110))}${excerpt.length > 110 ? '…' : ''}</p>`}
       ${isCrew && p.specialty ? `<div class="crew-stats-mini">
         <div class="csm-row"><span class="csm-label">Specialty</span><span class="csm-val">${escapeHtml(p.specialty)}</span></div>
         <div class="csm-row"><span class="csm-label">Threat</span><span class="csm-val">${escapeHtml(p.threat_level || '')}</span></div>
       </div>` : ''}
+      ${p.points ? `<p style="font-size:.62rem;color:var(--gold);margin-top:.3rem;letter-spacing:.05em;">🏆 ${p.points} pts</p>` : ''}
       ${isOpenSeat
         ? `<a href="/request-feature" class="player-view-cta">Claim This Seat →</a>`
         : `<a href="/players/${escapeHtml(p.slug)}" class="player-view-cta">View Profile →</a>`}
     </div>
   </article>`;
+}
+
+function renderProfileSetupPage(profile) {
+  const score = computeCompletionScore(profile);
+  const pct = score;
+  const hasPhoto = !!profile.photo_url;
+  const aiUnlocked = pct >= 40;
+  const cardUnlocked = profile.status === 'approved' && hasPhoto && pct >= 70;
+  const token = profile.edit_token || '';
+  const badges = getPlayerBadges(profile);
+  const aiP = profile.ai_personality || null;
+  const aiStatus = aiP ? aiP.status : null;
+  const chronicles = Array.isArray(profile.ai_chronicles) ? profile.ai_chronicles : [];
+
+  function unlockMsg() {
+    if (pct < 40) return 'Complete your basics to unlock your public player page.';
+    if (!hasPhoto) return 'Upload a photo to unlock your Poker Trading Card.';
+    if (!profile.ai_personality) return 'Add your poker story to unlock your AI Poker Personality.';
+    if (!profile.bad_beat_story) return 'Submit a bad beat story to become eligible for community badges.';
+    return 'Profile looking strong. Pending admin review.';
+  }
+
+  return renderLayout('Poker Profile Setup | ATMNOPIN™', `
+    <style>
+      .ps-wrap{max-width:720px;margin:0 auto;}
+      .ps-progress-wrap{margin:1.5rem 0;padding:1.25rem;background:#0c1a10;border:1px solid #1a3a22;border-radius:14px;}
+      .ps-progress-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;}
+      .ps-progress-title{font-size:.7rem;text-transform:uppercase;letter-spacing:.18em;color:var(--green);}
+      .ps-progress-pct{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--green);line-height:1;}
+      .ps-bar-track{height:8px;background:#1a2a1a;border-radius:999px;overflow:hidden;}
+      .ps-bar-fill{height:100%;background:var(--green);border-radius:999px;transition:width .6s ease;}
+      .ps-unlock-msg{margin-top:.6rem;font-size:.75rem;color:#b0a898;}
+      .ps-section{border:1px solid #1e1e1e;border-radius:14px;overflow:hidden;margin-bottom:.75rem;}
+      .ps-section-hdr{display:flex;justify-content:space-between;align-items:center;padding:.9rem 1rem;cursor:pointer;user-select:none;background:#101010;}
+      .ps-section-hdr:hover{background:#141414;}
+      .ps-section-title{font-size:.78rem;text-transform:uppercase;letter-spacing:.14em;color:var(--offwhite);}
+      .ps-section-tag{font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;padding:.15rem .5rem;border-radius:999px;border:1px solid #2a2a2a;color:#888;}
+      .ps-section-tag.done{border-color:rgba(0,200,83,.35);color:var(--green);background:rgba(0,200,83,.07);}
+      .ps-section-tag.locked{border-color:#333;color:#555;background:#0c0c0c;}
+      .ps-section-body{display:none;padding:1rem;border-top:1px solid #1a1a1a;background:#0c0c0c;}
+      .ps-section-body.open{display:block;}
+      .ps-form label{display:grid;gap:.3rem;font-size:.72rem;color:var(--gray);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.65rem;}
+      .ps-form input,.ps-form textarea,.ps-form select{width:100%;border:1px solid #242424;background:#121212;color:var(--offwhite);padding:.75rem .85rem;border-radius:10px;font:inherit;}
+      .ps-form textarea{min-height:90px;resize:vertical;}
+      .ps-save-btn{background:rgba(0,200,83,.12);border:1px solid rgba(0,200,83,.35);color:var(--green);border-radius:8px;padding:.5rem 1.1rem;font:.72rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:all .2s;}
+      .ps-save-btn:hover{background:rgba(0,200,83,.2);}
+      .ps-save-btn:disabled{opacity:.4;cursor:not-allowed;}
+      .ps-saved-msg{font-size:.7rem;color:var(--green);margin-left:.6rem;opacity:0;transition:opacity .3s;}
+      .ps-saved-msg.show{opacity:1;}
+      .ps-locked-msg{text-align:center;padding:1.5rem;color:#555;font-size:.8rem;}
+      .ps-locked-msg .lock-icon{font-size:1.5rem;display:block;margin-bottom:.4rem;}
+      .ai-box{border:1px solid #1a3a22;background:#0a1a10;border-radius:12px;padding:1rem;margin-top:.5rem;}
+      .ai-box-label{font-size:.6rem;text-transform:uppercase;letter-spacing:.18em;color:var(--green);margin-bottom:.4rem;}
+      .ai-box-text{font-size:.82rem;color:var(--offwhite);line-height:1.65;white-space:pre-wrap;}
+      .ai-disclaimer{font-size:.65rem;color:#555;margin-top:.5rem;font-style:italic;}
+      .story-type-select{margin-bottom:.65rem;}
+      .ai-rewrite-option{border:1px solid #1e1e1e;border-radius:10px;padding:.75rem 1rem;margin-bottom:.5rem;cursor:pointer;transition:all .2s;}
+      .ai-rewrite-option:hover{border-color:rgba(0,200,83,.4);}
+      .ai-rewrite-option.selected{border-color:var(--green);background:rgba(0,200,83,.06);}
+      .ai-rewrite-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.12em;color:var(--green);margin-bottom:.3rem;}
+      .ai-rewrite-text{font-size:.78rem;color:#b0a898;line-height:1.6;}
+      .ps-points-row{display:flex;align-items:center;gap:1rem;margin-bottom:.75rem;}
+      .ps-pts{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;color:var(--gold);line-height:1;}
+      .ps-pts-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.15em;color:#888;}
+      .ps-badge-row{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem;}
+      .card-preview-link{display:inline-block;margin-top:.75rem;border:1px solid rgba(201,168,76,.4);background:rgba(201,168,76,.07);color:var(--gold);border-radius:8px;padding:.5rem 1rem;font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;text-decoration:none;}
+    </style>
+    <section class="hero">
+      <p class="eyebrow">ATMNOPIN™ Community</p>
+      <h1>Your Poker Profile</h1>
+      <p class="body-text" style="max-width:55ch;">Complete each section to unlock your public player page, AI Poker Personality, and Poker Trading Card.</p>
+    </section>
+    <div class="ps-wrap" id="psRoot">
+      <!-- Progress -->
+      <div class="ps-progress-wrap">
+        <div class="ps-progress-label">
+          <span class="ps-progress-title">Poker Profile Completion</span>
+          <span class="ps-progress-pct" id="psPct">${pct}%</span>
+        </div>
+        <div class="ps-bar-track"><div class="ps-bar-fill" id="psBar" style="width:${pct}%;"></div></div>
+        <p class="ps-unlock-msg" id="psUnlock">${escapeHtml(unlockMsg())}</p>
+      </div>
+      <!-- Points & Badges -->
+      ${(profile.points || badges.length) ? `<div class="ps-section">
+        <div class="ps-section-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
+          <span class="ps-section-title">🏆 Points &amp; Badges</span>
+          <span class="ps-section-tag done">${profile.points || 0} pts</span>
+        </div>
+        <div class="ps-section-body">
+          <div class="ps-points-row">
+            <div><div class="ps-pts">${profile.points || 0}</div><div class="ps-pts-label">Total Points</div></div>
+          </div>
+          ${badges.length ? `<div class="ps-badge-row">${badges.map((b) => `<span style="display:inline-block;background:${badgeStyle(b)};border:1px solid;border-radius:999px;padding:.2rem .6rem;font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;">${escapeHtml(b)}</span>`).join('')}</div>` : '<p class="small" style="color:#555;">No badges yet. Badges are awarded by the ATMNOPIN crew.</p>'}
+          ${cardUnlocked ? `<a class="card-preview-link" href="/players/${escapeHtml(profile.slug)}/card">🃏 View Your Poker Trading Card →</a>` : ''}
+        </div>
+      </div>` : ''}
+      <!-- Section 1: Basic Info -->
+      <div class="ps-section">
+        <div class="ps-section-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
+          <span class="ps-section-title">1 — Basic Poker Info</span>
+          <span class="ps-section-tag${(profile.city || profile.favorite_casino || profile.favorite_game) ? ' done' : ''}">
+            ${(profile.city || profile.favorite_casino || profile.favorite_game) ? 'Done ✓' : 'Incomplete'}
+          </span>
+        </div>
+        <div class="ps-section-body open">
+          <form class="ps-form" id="sectionBasic">
+            <label>City / Hometown<input name="city" value="${escapeHtml(profile.city || '')}" maxlength="100" placeholder="Las Vegas, NV" /></label>
+            <label>Favorite Casino<input name="favorite_casino" value="${escapeHtml(profile.favorite_casino || '')}" maxlength="100" placeholder="Foxwoods, Horseshoe, Venetian..." /></label>
+            <label>Favorite Poker Game<input name="favorite_game" value="${escapeHtml(profile.favorite_game || '')}" maxlength="100" placeholder="$2/$5 NLH, PLO, Tournaments..." /></label>
+            <label>Social Media Link<input name="social_link" type="url" value="${escapeHtml(profile.social_link || '')}" maxlength="300" placeholder="https://twitter.com/yourhandle" /></label>
+            <div style="display:flex;align-items:center;margin-top:.4rem;">
+              <button type="button" class="ps-save-btn" onclick="psAutoSave('sectionBasic',this)">Save</button>
+              <span class="ps-saved-msg" id="sectionBasicMsg">Saved ✓</span>
+            </div>
+          </form>
+        </div>
+      </div>
+      <!-- Section 2: Poker Stories -->
+      <div class="ps-section">
+        <div class="ps-section-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
+          <span class="ps-section-title">2 — Your Poker Stories</span>
+          <span class="ps-section-tag${(profile.biggest_accomplishment || profile.funny_story || profile.bad_beat_story) ? ' done' : ''}">
+            ${(profile.biggest_accomplishment || profile.funny_story || profile.bad_beat_story) ? 'Done ✓' : 'Incomplete'}
+          </span>
+        </div>
+        <div class="ps-section-body">
+          <form class="ps-form" id="sectionStories">
+            <label>Biggest Poker Accomplishment<textarea name="biggest_accomplishment" maxlength="800" placeholder="Final tabled the WSOP Main, ran good once...">${escapeHtml(profile.biggest_accomplishment || '')}</textarea></label>
+            <label>Biggest Poker Goal<input name="biggest_goal" value="${escapeHtml(profile.biggest_goal || '')}" maxlength="400" placeholder="Win a bracelet, grind to a million..." /></label>
+            <label>Funniest Poker Story<textarea name="funny_story" maxlength="2000" placeholder="The story you always tell at the table...">${escapeHtml(profile.funny_story || '')}</textarea></label>
+            <label>Worst Bad Beat<textarea name="bad_beat_story" maxlength="2000" placeholder="Aces cracked. Again.">${escapeHtml(profile.bad_beat_story || '')}</textarea></label>
+            <div style="display:flex;align-items:center;margin-top:.4rem;">
+              <button type="button" class="ps-save-btn" onclick="psAutoSave('sectionStories',this)">Save</button>
+              <span class="ps-saved-msg" id="sectionStoriesMsg">Saved ✓</span>
+            </div>
+          </form>
+        </div>
+      </div>
+      <!-- Section 3: Photo -->
+      <div class="ps-section">
+        <div class="ps-section-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
+          <span class="ps-section-title">3 — Profile Photo</span>
+          <span class="ps-section-tag${hasPhoto ? ' done' : ''}">
+            ${hasPhoto ? 'Uploaded ✓' : 'No Photo'}
+          </span>
+        </div>
+        <div class="ps-section-body">
+          ${hasPhoto ? `<img src="${escapeHtml(profile.photo_url)}" alt="Your photo" style="width:100%;max-height:280px;object-fit:cover;border-radius:10px;margin-bottom:.75rem;" />` : ''}
+          <form class="ps-form" id="sectionPhoto" enctype="multipart/form-data">
+            <label>Upload Photo (JPG/PNG/WEBP, max 5MB)<input name="photo" type="file" accept="image/jpeg,image/png,image/webp" /></label>
+            <div style="display:flex;align-items:center;margin-top:.4rem;">
+              <button type="button" class="ps-save-btn" onclick="psPhotoUpload(this)">Upload Photo</button>
+              <span class="ps-saved-msg" id="sectionPhotoMsg">Uploaded ✓</span>
+            </div>
+          </form>
+          ${!hasPhoto ? '<p class="small" style="color:#666;margin-top:.5rem;">Upload a photo to unlock your Poker Trading Card.</p>' : ''}
+        </div>
+      </div>
+      <!-- Section 4: AI Poker Personality -->
+      <div class="ps-section">
+        <div class="ps-section-hdr" onclick="${aiUnlocked ? 'this.nextElementSibling.classList.toggle(\'open\')' : ''}">
+          <span class="ps-section-title">4 — AI Poker Personality ✨</span>
+          <span class="ps-section-tag${aiUnlocked ? (aiStatus ? ' done' : '') : ' locked'}">
+            ${aiUnlocked ? (aiStatus === 'approved' ? 'Approved ✓' : aiStatus === 'pending_review' ? 'Pending Review' : aiStatus === 'rejected' ? 'Needs Edit' : 'Generate') : '🔒 Complete 40% first'}
+          </span>
+        </div>
+        <div class="ps-section-body${aiUnlocked ? ' open' : ''}">
+          ${!aiUnlocked ? `<div class="ps-locked-msg"><span class="lock-icon">🔒</span>Complete 40% of your profile to unlock your AI Poker Personality.</div>` : `
+          <p class="small" style="color:#888;margin-bottom:1rem;">Powered by AI and clearly labeled as entertainment. Our AI reads your poker stories and creates a playful poker personality summary for your public profile.</p>
+          ${aiP && aiP.text ? `<div class="ai-box">
+            <div class="ai-box-label">AI Poker Personality${aiStatus === 'pending_review' ? ' — Pending Admin Review' : aiStatus === 'approved' ? ' — Approved ✓' : ''}</div>
+            <div class="ai-box-text">${escapeHtml(aiP.text)}</div>
+            ${aiP.tagline ? `<div style="margin-top:.6rem;font-size:.72rem;color:var(--gold);font-style:italic;">"${escapeHtml(aiP.tagline)}"</div>` : ''}
+            ${aiP.style ? `<div style="margin-top:.4rem;font-size:.65rem;color:#888;">Playing Style: ${escapeHtml(aiP.style)}</div>` : ''}
+            <div class="ai-disclaimer">✦ AI-generated content for entertainment purposes only. Appears publicly only after admin review.</div>
+          </div>` : ''}
+          <div style="margin-top:.85rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;">
+            <button class="ps-save-btn" id="aiGenBtn" onclick="psGenerateAI(this)">${aiP ? 'Regenerate Personality' : 'Generate My AI Poker Personality ✨'}</button>
+            <span class="ps-saved-msg" id="aiGenMsg"></span>
+          </div>
+          <p class="small" style="color:#555;margin-top:.5rem;">Limited to 5 generations per day.</p>`}
+        </div>
+      </div>
+      <!-- Section 5: AI Chronicle Submission -->
+      <div class="ps-section">
+        <div class="ps-section-hdr" onclick="${aiUnlocked ? 'this.nextElementSibling.classList.toggle(\'open\')' : ''}">
+          <span class="ps-section-title">5 — Submit a Poker Story ✨</span>
+          <span class="ps-section-tag${!aiUnlocked ? ' locked' : chronicles.length ? ' done' : ''}">
+            ${!aiUnlocked ? '🔒 Complete 40% first' : chronicles.length ? chronicles.length + ' Submitted' : 'Write Story'}
+          </span>
+        </div>
+        <div class="ps-section-body">
+          ${!aiUnlocked ? `<div class="ps-locked-msg"><span class="lock-icon">🔒</span>Complete 40% of your profile to unlock story submission.</div>` : `
+          <p class="small" style="color:#888;margin-bottom:1rem;">Submit a raw story and our AI will offer 5 rewrite versions — funny, dramatic, sports announcer, poker roast, or WSOP documentary style. You pick one. Admin reviews before it publishes.</p>
+          ${chronicles.length ? `<div style="margin-bottom:1rem;">
+            ${chronicles.map((c, i) => `<div style="border:1px solid #1e1e1e;border-radius:10px;padding:.75rem;margin-bottom:.5rem;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:.72rem;color:var(--green);text-transform:uppercase;letter-spacing:.1em;">${escapeHtml(c.story_type || 'Story')}</span>
+                <span style="font-size:.62rem;color:#555;border:1px solid #222;border-radius:999px;padding:.1rem .5rem;">${escapeHtml(c.status || 'draft')}</span>
+              </div>
+              <p style="font-size:.78rem;color:#b0a898;margin-top:.35rem;">${escapeHtml((c.raw_text || '').slice(0, 120))}${(c.raw_text || '').length > 120 ? '…' : ''}</p>
+              ${c.selected_style ? `<p style="font-size:.65rem;color:var(--gold);margin-top:.3rem;">Selected: ${escapeHtml(c.selected_style)}</p>` : (Array.isArray(c.rewrites) && c.rewrites.length ? `<button class="ps-save-btn" style="margin-top:.5rem;font-size:.62rem;" onclick="psShowRewrites(${i})">View AI Rewrites</button>` : '')}
+            </div>`).join('')}
+          </div>` : ''}
+          <form class="ps-form" id="sectionChronicle">
+            <label>Story Type<select name="story_type" class="story-type-select">
+              ${STORY_TYPES.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
+            </select></label>
+            <label>Your Story (rough draft is fine)<textarea name="raw_text" maxlength="3000" rows="5" placeholder="Tell us what happened. AI will rewrite it in 5 different styles..."></textarea></label>
+            <div style="display:flex;align-items:center;margin-top:.4rem;">
+              <button type="button" class="ps-save-btn" id="chronicleBtn" onclick="psSubmitChronicle(this)">Generate AI Rewrites ✨</button>
+              <span class="ps-saved-msg" id="chronicleMsg"></span>
+            </div>
+          </form>
+          <div id="rewriteResults" style="display:none;margin-top:1rem;"></div>`}
+        </div>
+      </div>
+      <!-- Section 6: Public Profile Status -->
+      <div class="ps-section">
+        <div class="ps-section-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
+          <span class="ps-section-title">6 — Public Profile Status</span>
+          <span class="ps-section-tag${profile.status === 'approved' ? ' done' : ''}">
+            ${profile.status === 'approved' ? 'Live ✓' : profile.status === 'rejected' ? 'Rejected' : 'Pending Review'}
+          </span>
+        </div>
+        <div class="ps-section-body">
+          ${profile.status === 'approved' ? `<p class="small" style="color:var(--green);margin-bottom:.6rem;">✓ Your profile is live on the Community Wall.</p><a href="/players/${escapeHtml(profile.slug)}" style="color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View Public Profile →</a>${cardUnlocked ? `<br><a class="card-preview-link" href="/players/${escapeHtml(profile.slug)}/card">🃏 View Poker Trading Card →</a>` : ''}` : `<p class="small" style="color:#888;">Your profile is pending admin review. You'll appear on the Community Wall once approved. In the meantime, keep filling out your profile — the more complete it is, the better your public page will look.</p>`}
+          ${profile.status !== 'approved' && pct >= 70 ? '<p class="small" style="color:var(--gold);margin-top:.5rem;">Your profile looks great! The ATMNOPIN crew reviews submissions regularly.</p>' : ''}
+        </div>
+      </div>
+    </div>
+
+    <script>
+    (function() {
+      var TOKEN = '${escapeHtml(token)}';
+      var score = ${pct};
+
+      function vesc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+      function updateProgress(newScore) {
+        score = newScore;
+        document.getElementById('psPct').textContent = newScore + '%';
+        document.getElementById('psBar').style.width = newScore + '%';
+        var msg = '';
+        if (newScore < 40) msg = 'Complete your basics to unlock your public player page.';
+        else if (!${hasPhoto ? 'true' : 'false'}) msg = 'Upload a photo to unlock your Poker Trading Card.';
+        else msg = 'Profile looking strong. Pending admin review.';
+        document.getElementById('psUnlock').textContent = msg;
+      }
+
+      function showSaved(id, ok, text) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = text || (ok ? 'Saved ✓' : 'Error saving');
+        el.style.color = ok ? 'var(--green)' : '#ff6666';
+        el.classList.add('show');
+        setTimeout(function() { el.classList.remove('show'); }, 2800);
+      }
+
+      window.psAutoSave = async function(formId, btn) {
+        var form = document.getElementById(formId);
+        if (!form) return;
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+        var data = {};
+        var inputs = form.querySelectorAll('input[name],textarea[name],select[name]');
+        inputs.forEach(function(el) { data[el.name] = el.value; });
+        try {
+          var r = await fetch('/api/profile/' + TOKEN, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
+          var d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'Save failed');
+          if (d.completion_score !== undefined) updateProgress(d.completion_score);
+          showSaved(formId + 'Msg', true);
+        } catch(e) {
+          showSaved(formId + 'Msg', false, e.message);
+        }
+        btn.disabled = false;
+        btn.textContent = 'Save';
+      };
+
+      window.psPhotoUpload = async function(btn) {
+        var form = document.getElementById('sectionPhoto');
+        var fileInput = form.querySelector('input[type=file]');
+        if (!fileInput.files.length) { alert('Please select a photo first.'); return; }
+        btn.disabled = true; btn.textContent = 'Uploading...';
+        var fd = new FormData();
+        fd.append('photo', fileInput.files[0]);
+        try {
+          var r = await fetch('/api/profile/' + TOKEN + '/photo', { method: 'POST', body: fd });
+          var d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'Upload failed');
+          if (d.completion_score !== undefined) updateProgress(d.completion_score);
+          showSaved('sectionPhotoMsg', true, 'Uploaded ✓');
+          if (d.photo_url) {
+            var existing = form.previousElementSibling;
+            var preview = document.createElement('img');
+            preview.src = d.photo_url; preview.style.cssText = 'width:100%;max-height:280px;object-fit:cover;border-radius:10px;margin-bottom:.75rem;display:block;';
+            form.parentNode.insertBefore(preview, form);
+          }
+        } catch(e) { showSaved('sectionPhotoMsg', false, e.message); }
+        btn.disabled = false; btn.textContent = 'Upload Photo';
+      };
+
+      window.psGenerateAI = async function(btn) {
+        btn.disabled = true; btn.textContent = 'Generating...';
+        var msgEl = document.getElementById('aiGenMsg');
+        msgEl.textContent = ''; msgEl.classList.remove('show');
+        try {
+          var r = await fetch('/api/profile/' + TOKEN + '/ai-personality', { method: 'POST' });
+          var d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'Generation failed');
+          msgEl.textContent = 'Generated! Pending admin review.';
+          msgEl.style.color = 'var(--green)';
+          msgEl.classList.add('show');
+          var box = document.querySelector('.ai-box');
+          if (!box) {
+            box = document.createElement('div');
+            box.className = 'ai-box';
+            btn.parentNode.parentNode.insertBefore(box, btn.parentNode);
+          }
+          box.innerHTML = '<div class="ai-box-label">AI Poker Personality — Pending Admin Review</div>'
+            + '<div class="ai-box-text">' + vesc(d.text || '') + '</div>'
+            + (d.tagline ? '<div style="margin-top:.6rem;font-size:.72rem;color:var(--gold);font-style:italic;">"' + vesc(d.tagline) + '"</div>' : '')
+            + (d.style ? '<div style="margin-top:.4rem;font-size:.65rem;color:#888;">Playing Style: ' + vesc(d.style) + '</div>' : '')
+            + '<div class="ai-disclaimer">✦ AI-generated content for entertainment purposes only. Appears publicly only after admin review.</div>';
+          btn.textContent = 'Regenerate Personality';
+        } catch(e) {
+          msgEl.textContent = e.message;
+          msgEl.style.color = '#ff6666';
+          msgEl.classList.add('show');
+        }
+        btn.disabled = false;
+      };
+
+      window.psSubmitChronicle = async function(btn) {
+        var form = document.getElementById('sectionChronicle');
+        var storyType = form.querySelector('[name=story_type]').value;
+        var rawText = form.querySelector('[name=raw_text]').value.trim();
+        if (!rawText || rawText.length < 30) { alert('Please write at least a brief story (30+ characters).'); return; }
+        btn.disabled = true; btn.textContent = 'Generating Rewrites...';
+        var msgEl = document.getElementById('chronicleMsg');
+        msgEl.textContent = ''; msgEl.classList.remove('show');
+        try {
+          var r = await fetch('/api/profile/' + TOKEN + '/ai-chronicle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ story_type: storyType, raw_text: rawText }),
+          });
+          var d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'Generation failed');
+          msgEl.textContent = 'Rewrites ready! Pick your favorite.';
+          msgEl.style.color = 'var(--green)';
+          msgEl.classList.add('show');
+          showRewrites(d.chronicle_id, d.rewrites, form);
+          form.querySelector('[name=raw_text]').value = '';
+        } catch(e) {
+          msgEl.textContent = e.message;
+          msgEl.style.color = '#ff6666';
+          msgEl.classList.add('show');
+        }
+        btn.disabled = false; btn.textContent = 'Generate AI Rewrites ✨';
+      };
+
+      function showRewrites(chronicleId, rewrites, afterEl) {
+        var container = document.getElementById('rewriteResults');
+        if (!container) return;
+        container.style.display = '';
+        container.innerHTML = '<p style="font-size:.75rem;color:#888;margin-bottom:.75rem;">Choose your favorite rewrite and submit it for review:</p>'
+          + rewrites.map(function(rw, i) {
+            return '<div class="ai-rewrite-option" data-idx="' + i + '" onclick="psSelectRewrite(\'' + chronicleId + '\', this, ' + JSON.stringify(rewrites) + ', ' + i + ')">'
+              + '<div class="ai-rewrite-label">' + vesc(rw.style_label || rw.style) + '</div>'
+              + '<div class="ai-rewrite-text">' + vesc(rw.text || '') + '</div>'
+              + '</div>';
+          }).join('')
+          + '<p style="font-size:.65rem;color:#555;margin-top:.6rem;">Submitting a rewrite sends it to admin for review before it appears publicly.</p>';
+      }
+
+      window.psShowRewrites = function(idx) {
+        var chronicles = ${JSON.stringify(chronicles)};
+        var c = chronicles[idx];
+        if (!c || !c.rewrites) return;
+        var container = document.getElementById('rewriteResults');
+        if (container) { container.style.display = ''; showRewrites(c.id, c.rewrites, null); }
+      };
+
+      window.psSelectRewrite = async function(chronicleId, el, rewrites, idx) {
+        document.querySelectorAll('.ai-rewrite-option').forEach(function(o) { o.classList.remove('selected'); });
+        el.classList.add('selected');
+        try {
+          var r = await fetch('/api/profile/' + TOKEN + '/ai-chronicle/' + chronicleId + '/select', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ selected_index: idx }),
+          });
+          var d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'Error selecting rewrite');
+          el.insertAdjacentHTML('afterend', '<p style="font-size:.7rem;color:var(--green);margin-top:.5rem;">✓ Submitted for review. The ATMNOPIN crew will publish it if approved.</p>');
+          document.querySelectorAll('.ai-rewrite-option').forEach(function(o) { o.style.pointerEvents = 'none'; });
+        } catch(e) { alert(e.message); }
+      };
+    })();
+    </script>`);
+}
+
+function renderTradingCardPage(player) {
+  const badges = getPlayerBadges(player);
+  const topBadges = badges.slice(0, 3);
+  const aiP = player.ai_personality;
+  const tagline = (aiP && aiP.status === 'approved' && aiP.tagline) ? aiP.tagline : '';
+  const displayChar = player.suit || ((player.nickname || player.name || '?')[0] || '?').toUpperCase();
+  const profileUrl = `https://atmwithnopin.com/players/${player.slug}`;
+
+  return renderLayout(`${player.nickname || player.name} — Poker Trading Card | ATMNOPIN™`, `
+    <style>
+      body{background:#0a0a0a;}
+      .tc-page{display:flex;flex-direction:column;align-items:center;padding:2rem 1rem;min-height:80vh;}
+      .tc-card{width:320px;background:linear-gradient(145deg,#0d2e1a,#0a1010);border:2px solid #c9a84c;border-radius:18px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.6);}
+      .tc-top{background:linear-gradient(135deg,#0d3a1e,#071a0d);padding:.75rem 1rem .5rem;text-align:center;border-bottom:1px solid rgba(201,168,76,.25);}
+      .tc-brand{font-family:'Bebas Neue',sans-serif;font-size:.8rem;letter-spacing:.3em;color:var(--gold);opacity:.7;}
+      .tc-photo{width:100%;height:260px;object-fit:cover;display:block;}
+      .tc-photo-ph{height:260px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:6rem;color:var(--green);background:linear-gradient(135deg,#0d2e1a,#0a1a0f);}
+      .tc-body{padding:1rem;}
+      .tc-nickname{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--offwhite);line-height:1;margin-bottom:.15rem;}
+      .tc-name{font-size:.65rem;color:#888;text-transform:uppercase;letter-spacing:.15em;margin-bottom:.5rem;}
+      .tc-stat-row{display:flex;gap:.25rem;flex-wrap:wrap;margin-bottom:.5rem;}
+      .tc-stat{background:#0c1a10;border:1px solid #1a2a1a;border-radius:8px;padding:.3rem .6rem;font-size:.6rem;color:#b0a898;display:flex;flex-direction:column;gap:.1rem;flex:1;min-width:80px;}
+      .tc-stat-label{font-size:.5rem;text-transform:uppercase;letter-spacing:.15em;color:var(--green);}
+      .tc-tagline{font-size:.72rem;color:var(--gold);font-style:italic;line-height:1.5;margin:.5rem 0;padding:.5rem;border-top:1px solid rgba(201,168,76,.2);border-bottom:1px solid rgba(201,168,76,.2);}
+      .tc-badges{display:flex;flex-wrap:wrap;gap:.3rem;margin:.5rem 0;}
+      .tc-badge{font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;border-radius:999px;padding:.15rem .5rem;border:1px solid;}
+      .tc-bottom{padding:.6rem 1rem;background:linear-gradient(135deg,#071a0d,#050f05);border-top:1px solid rgba(201,168,76,.2);text-align:center;}
+      .tc-url{font-size:.55rem;color:#555;letter-spacing:.1em;text-transform:uppercase;}
+      .tc-points{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--gold);}
+      .tc-pts-label{font-size:.5rem;text-transform:uppercase;letter-spacing:.15em;color:#888;}
+      .tc-actions{margin-top:1.5rem;display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;}
+      .tc-action-btn{border:1px solid #242424;background:#111;color:var(--offwhite);border-radius:8px;padding:.5rem 1rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;text-decoration:none;transition:all .2s;}
+      .tc-action-btn:hover{border-color:var(--green);color:var(--green);}
+      .tc-disclaimer{font-size:.6rem;color:#444;text-align:center;margin-top:.75rem;max-width:320px;}
+      @media print {.tc-actions,.tc-disclaimer{display:none;}}
+    </style>
+    <div class="tc-page">
+      <div class="tc-card">
+        <div class="tc-top">
+          <div class="tc-brand">ATMNOPIN™ Community</div>
+        </div>
+        ${player.photo_url
+          ? `<img class="tc-photo" src="${escapeHtml(player.photo_url)}" alt="${escapeHtml(player.nickname || player.name)}" />`
+          : `<div class="tc-photo-ph">${escapeHtml(displayChar)}</div>`}
+        <div class="tc-body">
+          <div class="tc-nickname">${escapeHtml(player.nickname || player.name)}</div>
+          ${player.nickname && player.name ? `<div class="tc-name">${escapeHtml(player.name)}</div>` : ''}
+          <div class="tc-stat-row">
+            ${player.favorite_game ? `<div class="tc-stat"><span class="tc-stat-label">Game</span>${escapeHtml(player.favorite_game)}</div>` : ''}
+            ${player.city ? `<div class="tc-stat"><span class="tc-stat-label">Hometown</span>${escapeHtml(player.city)}</div>` : ''}
+            ${player.favorite_casino ? `<div class="tc-stat"><span class="tc-stat-label">Casino</span>${escapeHtml(player.favorite_casino)}</div>` : ''}
+            ${player.points ? `<div class="tc-stat"><span class="tc-stat-label">Points</span><span class="tc-points">${player.points}</span></div>` : ''}
+          </div>
+          ${tagline ? `<div class="tc-tagline">"${escapeHtml(tagline)}"</div>` : ''}
+          ${topBadges.length ? `<div class="tc-badges">${topBadges.map((b) => `<span class="tc-badge" style="${badgeStyle(b)}">${escapeHtml(b)}</span>`).join('')}</div>` : ''}
+        </div>
+        <div class="tc-bottom">
+          <div class="tc-url">${escapeHtml(profileUrl)}</div>
+        </div>
+      </div>
+      <div class="tc-actions">
+        <a class="tc-action-btn" href="/players/${escapeHtml(player.slug)}">← Back to Profile</a>
+        <button class="tc-action-btn" onclick="window.print()">Print / Save as PDF</button>
+        <button class="tc-action-btn" onclick="navigator.share ? navigator.share({title:'${escapeHtml(player.nickname || player.name)} — Poker Card',url:'${escapeHtml(profileUrl)}'}) : navigator.clipboard.writeText('${escapeHtml(profileUrl)}').then(function(){this.textContent='Link Copied!';}.bind(this))">Share</button>
+      </div>
+      <p class="tc-disclaimer">This Poker Trading Card is generated by ATMNOPIN™. Content requires admin approval before appearing publicly.</p>
+    </div>`);
 }
 
 function renderCommunityWallPage(submissions) {
@@ -4226,7 +4851,11 @@ function renderCommunityWallPage(submissions) {
     { label: 'Table Characters', filter: 'Table Characters' },
     { label: 'Foxwoods', filter: 'Foxwoods' },
     { label: '$2/$5 NLH', filter: '$2/$5 NLH' },
+    { label: 'Final Table Hero', filter: '__badge__Final Table Hero' },
+    { label: 'Bad Beat Champion', filter: '__badge__Bad Beat Champion' },
+    { label: 'WSOP Warrior', filter: '__badge__WSOP Warrior' },
     { label: 'Featured', filter: '__featured__' },
+    { label: 'Monthly Winner', filter: '__monthly__' },
   ];
   const filterBtns = wallFilters.map((f) =>
     `<button class="pw-filter-btn${f.filter === '' ? ' active' : ''}" data-filter="${escapeHtml(f.filter)}">${escapeHtml(f.label)}</button>`
@@ -4236,6 +4865,9 @@ function renderCommunityWallPage(submissions) {
     <style>
       .pw-controls{display:flex;flex-direction:column;gap:.75rem;margin:1.5rem 0 1rem;}
       .pw-filter-wrap{display:flex;flex-wrap:wrap;gap:.4rem;}
+      .pw-sort-wrap{display:flex;align-items:center;gap:.6rem;}
+      .pw-sort-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.14em;color:#666;}
+      .pw-sort-select{background:#111;border:1px solid #2a2a2a;color:#aaa;border-radius:8px;padding:.3rem .6rem;font:.68rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;}
       .pw-filter-btn{border:1px solid #2a2a2a;background:#111;color:#999;border-radius:999px;padding:.3rem .7rem;font:.68rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:all .2s;}
       .pw-filter-btn:hover,.pw-filter-btn.active{border-color:rgba(0,200,83,.4);background:rgba(0,200,83,.08);color:var(--green);}
       .pw-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:.5rem;}
@@ -4266,6 +4898,15 @@ function renderCommunityWallPage(submissions) {
     </section>
     <div class="pw-controls">
       <div class="pw-filter-wrap">${filterBtns}</div>
+      <div class="pw-sort-wrap">
+        <span class="pw-sort-label">Sort:</span>
+        <select class="pw-sort-select" id="pwSort">
+          <option value="newest">Newest</option>
+          <option value="points">Most Points</option>
+          <option value="badges">Most Badges</option>
+          <option value="featured">Featured</option>
+        </select>
+      </div>
     </div>
     <div class="pw-grid" id="pwGrid">
       ${cards || '<p class="pw-no-results">No players featured yet. <a href="/request-feature">Be the first →</a></p>'}
@@ -4276,29 +4917,52 @@ function renderCommunityWallPage(submissions) {
     </div>
     <script>
     (function() {
-      var all = Array.from(document.querySelectorAll('.player-card'));
+      var grid = document.getElementById('pwGrid');
+      var all = Array.from(grid.querySelectorAll('.player-card'));
       var active = '';
-      function matches(card, filter) {
-        if (!filter) return true;
-        if (filter === '__featured__') return card.dataset.featured === 'true';
+      var sortMode = 'newest';
+
+      function matches(card) {
+        if (!active) return true;
+        if (active === '__featured__') return card.dataset.featured === 'true';
+        if (active === '__monthly__') return card.dataset.monthly === 'true';
+        if (active.startsWith('__badge__')) {
+          var bname = active.slice('__badge__'.length).toLowerCase();
+          return (card.dataset.badges || '').toLowerCase().split(',').some(function(b) { return b.trim() === bname; });
+        }
         var badge = card.dataset.badge || '';
         var tags = (card.dataset.tags || '').split(',').map(function(t) { return t.trim(); });
-        return badge === filter || tags.indexOf(filter) > -1;
+        return badge === active || tags.indexOf(active) > -1;
       }
+
+      function sortCards(cards) {
+        return cards.slice().sort(function(a, b) {
+          if (sortMode === 'points') return (parseInt(b.dataset.points)||0) - (parseInt(a.dataset.points)||0);
+          if (sortMode === 'badges') return (b.dataset.badges||'').split(',').filter(Boolean).length - (a.dataset.badges||'').split(',').filter(Boolean).length;
+          if (sortMode === 'featured') return (b.dataset.featured==='true'?1:0) - (a.dataset.featured==='true'?1:0);
+          return 0; // newest = original DOM order
+        });
+      }
+
       function paint() {
-        all.forEach(function(c) { c.style.display = matches(c, active) ? '' : 'none'; });
-        var vis = all.filter(function(c) { return c.style.display !== 'none'; });
+        var vis = all.filter(matches);
+        var sorted = sortCards(vis);
+        var hidden = all.filter(function(c) { return !matches(c); });
+        hidden.forEach(function(c) { c.style.display = 'none'; });
+        sorted.forEach(function(c) { c.style.display = ''; grid.appendChild(c); });
         var nr = document.getElementById('pwNoRes');
         if (!vis.length && all.length) {
-          if (!nr) { nr = Object.assign(document.createElement('p'), {id:'pwNoRes',className:'pw-no-results',textContent:'No players with this filter yet.'}); document.getElementById('pwGrid').appendChild(nr); }
+          if (!nr) { nr = Object.assign(document.createElement('p'), {id:'pwNoRes',className:'pw-no-results',textContent:'No players with this filter yet.'}); grid.appendChild(nr); }
         } else if (nr) nr.remove();
       }
+
       document.querySelectorAll('.pw-filter-btn').forEach(function(b) {
         b.addEventListener('click', function() {
           document.querySelectorAll('.pw-filter-btn').forEach(function(x) { x.classList.remove('active'); });
           b.classList.add('active'); active = b.dataset.filter || ''; paint();
         });
       });
+      document.getElementById('pwSort').addEventListener('change', function() { sortMode = this.value; paint(); });
     })();
     </script>`);
 }
@@ -4311,6 +4975,13 @@ function renderPlayerProfilePage(player, allPlayers) {
   const displayChar = player.suit || ((player.nickname || player.name || '?')[0] || '?').toUpperCase();
   const isOpenSeat = player.slug === 'open-seat-tbd';
   const descText = player.bio || player.biggest_accomplishment || player.funny_story || '';
+  const badges = getPlayerBadges(player);
+  const aiP = player.ai_personality;
+  const approvedAI = (aiP && aiP.status === 'approved') ? aiP : null;
+  const cardUnlocked = player.status === 'approved' && !!player.photo_url && (player.completion_score || 0) >= 70;
+  const approvedChronicles = Array.isArray(player.ai_chronicles)
+    ? player.ai_chronicles.filter((c) => c.status === 'approved')
+    : [];
   return renderLayout(`${player.nickname || player.name} | ATMNOPIN™ Community`, `
     <meta name="description" content="${escapeHtml(descText.slice(0, 155))}" />
     <meta property="og:title" content="${escapeHtml((player.nickname || player.name) + ' — ATMNOPIN™ Community')}" />
@@ -4334,15 +5005,27 @@ function renderPlayerProfilePage(player, allPlayers) {
       .crew-stats-table{width:100%;margin-top:.5rem;border-collapse:collapse;}
       .crew-stats-table td{padding:.5rem 0;border-bottom:1px solid #1a1a1a;vertical-align:top;font-size:.8rem;}
       .crew-stats-table td:first-child{font-size:.58rem;text-transform:uppercase;letter-spacing:.15em;color:var(--green);width:36%;padding-right:1rem;}
+      .pp-ai-box{background:#0a1a10;border:1px solid #1a3a22;border-radius:12px;padding:1rem;margin-top:.5rem;}
+      .pp-ai-tagline{font-size:.85rem;color:var(--gold);font-style:italic;line-height:1.6;margin-bottom:.5rem;}
+      .pp-ai-text{font-size:.8rem;color:#b0a898;line-height:1.7;white-space:pre-wrap;}
+      .pp-ai-disclaimer{font-size:.6rem;color:#444;margin-top:.5rem;font-style:italic;}
+      .pp-badge-row{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.4rem;}
+      .pp-points-tag{display:inline-block;border:1px solid rgba(201,168,76,.3);background:rgba(201,168,76,.07);color:var(--gold);border-radius:999px;padding:.15rem .6rem;font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;}
+      .pp-story-card{border:1px solid #1e1e1e;border-radius:10px;padding:.85rem;margin-bottom:.6rem;background:#0c0c0c;}
+      .pp-story-type{font-size:.6rem;text-transform:uppercase;letter-spacing:.14em;color:var(--green);margin-bottom:.3rem;}
+      .pp-card-link{display:inline-block;margin-top:.6rem;border:1px solid rgba(201,168,76,.4);background:rgba(201,168,76,.07);color:var(--gold);border-radius:8px;padding:.4rem .85rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;text-decoration:none;transition:all .2s;}
+      .pp-card-link:hover{background:rgba(201,168,76,.15);}
     </style>
     <section class="hero">
       <p class="eyebrow"><a href="/community-wall" style="color:var(--green);">Community Wall</a> › Player Profile</p>
       <h1>${escapeHtml(player.nickname || player.name)}</h1>
       <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-top:.5rem;">
-        ${renderBadge(player.badge)}
+        ${badges.map((b) => renderBadge(b)).join('')}
+        ${player.points ? `<span class="pp-points-tag">🏆 ${player.points} pts</span>` : ''}
         ${player.city ? `<span class="meta">${escapeHtml(player.city)}</span>` : ''}
         ${player.favorite_game ? `<span class="meta">${escapeHtml(player.favorite_game)}</span>` : ''}
         ${player.poker_room ? `<span class="meta">📍 ${escapeHtml(player.poker_room)}</span>` : ''}
+        ${player.is_monthly_winner ? `<span style="display:inline-block;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.4);color:var(--gold);border-radius:999px;padding:.15rem .6rem;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;">Monthly Winner 🏅</span>` : ''}
       </div>
     </section>
     <section class="grid" style="margin-top:1rem;">
@@ -4350,17 +5033,27 @@ function renderPlayerProfilePage(player, allPlayers) {
         ${player.photo_url
           ? `<img class="pp-photo" src="${escapeHtml(player.photo_url)}" alt="${escapeHtml(player.nickname || player.name)}" />`
           : `<div class="pp-photo-ph">${escapeHtml(displayChar)}</div>`}
+        ${approvedAI ? `<div class="pp-section"><p class="pp-section-label">✨ AI Poker Personality</p><div class="pp-ai-box">
+          ${approvedAI.tagline ? `<p class="pp-ai-tagline">"${escapeHtml(approvedAI.tagline)}"</p>` : ''}
+          ${approvedAI.text ? `<p class="pp-ai-text">${escapeHtml(approvedAI.text)}</p>` : ''}
+          ${approvedAI.style ? `<p style="font-size:.65rem;color:#888;margin-top:.4rem;">Playing Style: ${escapeHtml(approvedAI.style)}</p>` : ''}
+          <p class="pp-ai-disclaimer">✦ AI-generated content for entertainment purposes only.</p>
+        </div></div>` : ''}
         ${player.bio ? `<div class="pp-section"><p class="pp-section-label">About</p><p class="body-text">${escapeHtml(player.bio)}</p></div>` : ''}
         ${(player.specialty || player.tell || player.threat_level) ? `<div class="pp-section"><p class="pp-section-label">Player Profile</p><table class="crew-stats-table"><tbody>
           ${player.specialty ? `<tr><td>Specialty</td><td>${escapeHtml(player.specialty)}</td></tr>` : ''}
           ${player.tell ? `<tr><td>Tell</td><td>${escapeHtml(player.tell)}</td></tr>` : ''}
           ${player.threat_level ? `<tr><td>Threat Level</td><td>${escapeHtml(player.threat_level)}</td></tr>` : ''}
+          ${player.favorite_casino ? `<tr><td>Favorite Casino</td><td>${escapeHtml(player.favorite_casino)}</td></tr>` : ''}
+          ${player.biggest_goal ? `<tr><td>Biggest Goal</td><td>${escapeHtml(player.biggest_goal)}</td></tr>` : ''}
         </tbody></table></div>` : ''}
         ${!player.bio && player.biggest_accomplishment ? `<div class="pp-section"><p class="pp-section-label">Biggest Accomplishment</p><p class="body-text">${escapeHtml(player.biggest_accomplishment)}</p></div>` : ''}
         ${player.funny_story ? `<div class="pp-section"><p class="pp-section-label">Funniest Poker Story</p><div>${renderMarkdown(player.funny_story)}</div></div>` : ''}
         ${player.bad_beat_story ? `<div class="pp-section"><p class="pp-section-label">Bad Beat Story</p><div>${renderMarkdown(player.bad_beat_story)}</div></div>` : ''}
+        ${approvedChronicles.length ? `<div class="pp-section"><p class="pp-section-label">✨ Community Chronicles</p>${approvedChronicles.map((c) => `<div class="pp-story-card"><div class="pp-story-type">${escapeHtml(c.story_type || 'Story')}</div><p style="font-size:.8rem;color:#b0a898;line-height:1.6;">${escapeHtml(c.selected_text || '')}</p></div>`).join('')}</div>` : ''}
         ${isOpenSeat ? `<div class="pp-section" style="text-align:center;padding:1.5rem 0;"><p class="meta" style="margin-bottom:.75rem;">The crew has one seat open. Foxwoods. $2/$5. Come sit down.</p><a href="/request-feature" class="pill">Claim This Seat →</a></div>` : ''}
         ${player.social_link && !isOpenSeat ? `<div class="pp-section"><p class="pp-section-label">Find Me Online</p><a class="pp-social-link" href="${escapeHtml(player.social_link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(player.social_link)}</a></div>` : ''}
+        ${cardUnlocked && !isOpenSeat ? `<div class="pp-section"><a class="pp-card-link" href="/players/${escapeHtml(player.slug)}/card">🃏 View Poker Trading Card →</a></div>` : ''}
         ${!isOpenSeat ? `<div class="share-row">
           <p class="meta">Share this profile</p>
           <div class="share-btns">
@@ -4372,7 +5065,10 @@ function renderPlayerProfilePage(player, allPlayers) {
       ${others.length ? `<aside class="card">
         <h2>More Players</h2>
         <div class="others-section">
-          ${others.map((p) => `<article class="other-card">${renderBadge(p.badge)}<h4><a href="/players/${escapeHtml(p.slug)}">${escapeHtml(p.nickname || p.name)}</a></h4>${p.city ? `<p class="small">${escapeHtml(p.city)}</p>` : ''}</article>`).join('')}
+          ${others.map((p) => {
+            const obs = getPlayerBadges(p);
+            return `<article class="other-card">${obs.slice(0,1).map((b) => renderBadge(b)).join('')}<h4><a href="/players/${escapeHtml(p.slug)}">${escapeHtml(p.nickname || p.name)}</a></h4>${p.city ? `<p class="small">${escapeHtml(p.city)}</p>` : ''}${p.points ? `<p style="font-size:.6rem;color:var(--gold);margin-top:.2rem;">🏆 ${p.points} pts</p>` : ''}</article>`;
+          }).join('')}
         </div>
         <div style="margin-top:1rem;"><a href="/community-wall" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View All Players →</a></div>
       </aside>` : ''}
@@ -4403,10 +5099,12 @@ function renderRequestFeaturePage(error) {
         <label>Poker Nickname<input name="nickname" type="text" maxlength="80" placeholder="What they call you at the table" /></label>
         <label>Email *<input name="email" type="email" required maxlength="200" placeholder="you@example.com" /></label>
         <label>City / Hometown<input name="city" type="text" maxlength="100" placeholder="Las Vegas, NV" /></label>
+        <label>Favorite Casino<input name="favorite_casino" type="text" maxlength="100" placeholder="Foxwoods, Horseshoe, Venetian..." /></label>
         <label>Favorite Poker Game<input name="favorite_game" type="text" maxlength="100" placeholder="$2/$5 NLH, PLO, etc." /></label>
         <label>Biggest Poker Accomplishment<textarea name="biggest_accomplishment" maxlength="800" placeholder="Final tabled the WSOP Main, ran good once..."></textarea></label>
         <label>Funniest Poker Story<textarea name="funny_story" maxlength="2000" placeholder="The story you always tell at the table..."></textarea></label>
         <label>Bad Beat Story<textarea name="bad_beat_story" maxlength="2000" placeholder="Aces cracked. Again."></textarea></label>
+        <label>Biggest Poker Goal<input name="biggest_goal" type="text" maxlength="400" placeholder="Win a WSOP bracelet, final table a major..." /></label>
         <label>Social Media Link<input name="social_link" type="url" maxlength="300" placeholder="https://twitter.com/yourhandle" /></label>
         <label>Photo (JPG/PNG/WEBP, max 5MB)<input name="photo" type="file" accept="image/jpeg,image/png,image/webp" /></label>
         <div class="rf-perm">
@@ -4434,9 +5132,13 @@ function renderRequestFeaturePage(error) {
           if (!res.ok) throw new Error(data.error || 'Submission failed.');
           statusEl.textContent = data.message || 'Thanks! Your story has been submitted for review.';
           statusEl.style.borderColor = '#1f5c31';
-          form.reset();
           form.style.opacity = '.5';
           form.style.pointerEvents = 'none';
+          if (data.profile_url) {
+            setTimeout(function() { window.location.href = data.profile_url; }, 1200);
+          } else {
+            form.reset();
+          }
         } catch(err) {
           statusEl.textContent = err.message;
           statusEl.style.borderColor = '#5c1f1f';
@@ -5218,6 +5920,248 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── Profile setup routes (magic-link token) ──────────────────────────────
+
+  if (pathname.startsWith('/profile/setup/') && req.method === 'GET') {
+    const token = pathname.split('/').pop();
+    const all = await loadSubmissions();
+    const profile = all.find((s) => s.edit_token === token);
+    if (!profile) {
+      res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(renderLayout('Profile Not Found | ATMNOPIN™', `<section class="hero"><h1>Profile Not Found</h1><p class="body-text">This profile link is invalid or has expired. <a href="/request-feature">Submit a new story →</a></p></section>`));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderProfileSetupPage(profile));
+    return;
+  }
+
+  if (pathname.startsWith('/api/profile/') && req.method === 'GET') {
+    const parts = pathname.split('/');
+    const token = parts[3];
+    const all = await loadSubmissions();
+    const profile = all.find((s) => s.edit_token === token);
+    if (!profile) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found.' })); return; }
+    const safe = { ...profile };
+    delete safe.consent_ip; delete safe.consent_city; delete safe.consent_region; delete safe.consent_country;
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(safe));
+    return;
+  }
+
+  if (pathname.startsWith('/api/profile/') && !pathname.includes('/ai-') && !pathname.includes('/photo') && req.method === 'POST') {
+    const token = pathname.split('/')[3];
+    const all = await loadSubmissions();
+    const idx = all.findIndex((s) => s.edit_token === token);
+    if (idx === -1) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found.' })); return; }
+    try {
+      const body = await parseJsonBody(req);
+      const allowed = ['city', 'favorite_casino', 'favorite_game', 'social_link', 'biggest_accomplishment', 'biggest_goal', 'funny_story', 'bad_beat_story', 'nickname'];
+      const updated = { ...all[idx] };
+      for (const key of allowed) {
+        if (body[key] !== undefined) updated[key] = String(body[key] || '').trim().slice(0, key.includes('story') ? 2000 : 400);
+      }
+      updated.updated_at = new Date().toISOString();
+      updated.completion_score = computeCompletionScore(updated);
+      all[idx] = updated;
+      await saveSubmissions(all);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, completion_score: updated.completion_score }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  if (pathname.match(/^\/api\/profile\/[^/]+\/photo$/) && req.method === 'POST') {
+    const token = pathname.split('/')[3];
+    const all = await loadSubmissions();
+    const idx = all.findIndex((s) => s.edit_token === token);
+    if (idx === -1) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found.' })); return; }
+    try {
+      const contentType = req.headers['content-type'] || '';
+      const boundary = contentType.split('boundary=')[1];
+      if (!boundary) throw new Error('Multipart form required.');
+      const bodyBuffer = await readBodyBuffer(req);
+      const form = parseMultipartForm(bodyBuffer, boundary);
+      if (!form.files.photo || !form.files.photo.filename) throw new Error('No photo file.');
+      const photoFile = form.files.photo;
+      if (!isSafeImage(photoFile.filename)) throw new Error('Invalid file type.');
+      if (photoFile.data.length > 5 * 1024 * 1024) throw new Error('Photo is too large. Max 5MB.');
+      let uploadResult = null;
+      try { uploadResult = await uploadImageToCloudinary(photoFile.data, photoFile.filename, 'featured'); } catch { uploadResult = null; }
+      if (!uploadResult) uploadResult = uploadImageLocally(photoFile.data, photoFile.filename);
+      const updated = { ...all[idx], photo_url: uploadResult.url, updated_at: new Date().toISOString() };
+      updated.completion_score = computeCompletionScore(updated);
+      all[idx] = updated;
+      await saveSubmissions(all);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, photo_url: uploadResult.url, completion_score: updated.completion_score }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  if (pathname.match(/^\/api\/profile\/[^/]+\/ai-personality$/) && req.method === 'POST') {
+    const token = pathname.split('/')[3];
+    if (!checkAIRateLimit(token)) {
+      res.writeHead(429, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Rate limit reached. Max 5 AI generations per day. Try again tomorrow.' }));
+      return;
+    }
+    const all = await loadSubmissions();
+    const idx = all.findIndex((s) => s.edit_token === token);
+    if (idx === -1) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found.' })); return; }
+    const p = all[idx];
+    const score = computeCompletionScore(p);
+    if (score < 40) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Complete at least 40% of your profile to generate an AI Poker Personality.' })); return; }
+    try {
+      const context = [
+        `Name: ${p.name || ''}${p.nickname ? ' (nicknamed "' + p.nickname + '")' : ''}`,
+        p.city ? `Hometown: ${p.city}` : '',
+        p.favorite_casino ? `Favorite Casino: ${p.favorite_casino}` : '',
+        p.favorite_game ? `Favorite Game: ${p.favorite_game}` : '',
+        p.biggest_accomplishment ? `Biggest Accomplishment: ${p.biggest_accomplishment.slice(0, 300)}` : '',
+        p.biggest_goal ? `Biggest Goal: ${p.biggest_goal.slice(0, 200)}` : '',
+        p.funny_story ? `Funny Story: ${p.funny_story.slice(0, 300)}` : '',
+        p.bad_beat_story ? `Bad Beat: ${p.bad_beat_story.slice(0, 300)}` : '',
+      ].filter(Boolean).join('\n');
+      const systemPrompt = `You are a poker entertainment writer for ATMNOPIN™, a poker content brand with a funny, irreverent, Foxwoods-table-banter style. Write a poker personality summary for this player. Be playful, clever, and a little roast-y but never mean. Output JSON with these fields: text (2-3 paragraph poker personality bio, 150-250 words), tagline (one punchy one-liner shareable quote, under 20 words), style (one phrase describing their poker playing style), strengths (array of 2-3 funny strengths), weaknesses (array of 2-3 funny weaknesses), suggested_nickname (funny poker nickname if they don't have one already, else null), suggested_badges (array of 1-3 badge names from this list: ${PLAYER_BADGES.join(', ')}).`;
+      const raw = await callOpenAI(systemPrompt, context, 700, true);
+      const parsed = JSON.parse(raw);
+      const aiP = {
+        text: String(parsed.text || '').slice(0, 1500),
+        tagline: String(parsed.tagline || '').slice(0, 120),
+        style: String(parsed.style || '').slice(0, 80),
+        strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 3).map((s) => String(s).slice(0, 80)) : [],
+        weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses.slice(0, 3).map((s) => String(s).slice(0, 80)) : [],
+        suggested_nickname: parsed.suggested_nickname ? String(parsed.suggested_nickname).slice(0, 60) : null,
+        suggested_badges: Array.isArray(parsed.suggested_badges) ? parsed.suggested_badges.filter((b) => PLAYER_BADGES.includes(b)).slice(0, 3) : [],
+        status: 'pending_review',
+        generated_at: new Date().toISOString(),
+      };
+      const updated = { ...all[idx], ai_personality: aiP, updated_at: new Date().toISOString() };
+      updated.completion_score = computeCompletionScore(updated);
+      all[idx] = updated;
+      await saveSubmissions(all);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, ...aiP, completion_score: updated.completion_score }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  if (pathname.match(/^\/api\/profile\/[^/]+\/ai-chronicle$/) && req.method === 'POST') {
+    const token = pathname.split('/')[3];
+    if (!checkAIRateLimit(token)) {
+      res.writeHead(429, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Rate limit reached. Max 5 AI generations per day.' }));
+      return;
+    }
+    const all = await loadSubmissions();
+    const idx = all.findIndex((s) => s.edit_token === token);
+    if (idx === -1) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found.' })); return; }
+    const score = computeCompletionScore(all[idx]);
+    if (score < 40) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Complete at least 40% of your profile first.' })); return; }
+    try {
+      const body = await parseJsonBody(req);
+      const storyType = String(body.story_type || 'Bad Beat').slice(0, 50);
+      const rawText = String(body.raw_text || '').trim().slice(0, 2000);
+      if (rawText.length < 30) throw new Error('Story is too short. Write at least a brief summary.');
+      const playerName = all[idx].nickname || all[idx].name || 'the player';
+      const rewritePrompts = [
+        { style: 'funny', label: 'Funny Version', instruction: 'Rewrite this poker story in a funny, self-deprecating style. Add poker humor and table banter. 100-150 words.' },
+        { style: 'dramatic', label: 'Dramatic Version', instruction: 'Rewrite this poker story with dramatic, cinematic tension like a final table ESPN broadcast. 100-150 words.' },
+        { style: 'announcer', label: 'Sports Announcer Version', instruction: 'Rewrite this poker story as if a live sports announcer is calling it at the World Series of Poker. 100-150 words.' },
+        { style: 'roast', label: 'Poker Roast Version', instruction: 'Rewrite this story as a friendly poker roast of the player. Playful, not mean. 100-150 words.' },
+        { style: 'documentary', label: 'WSOP Documentary Version', instruction: 'Rewrite this story as narration from a WSOP poker documentary with voiceover gravitas. 100-150 words.' },
+      ];
+      const systemBase = `You are a poker story writer for ATMNOPIN™. The subject is ${playerName}. Write vivid, entertaining poker content.`;
+      const rewrites = await Promise.all(rewritePrompts.map(async (rp) => {
+        const text = await callOpenAI(`${systemBase} ${rp.instruction}`, rawText, 300);
+        return { style: rp.style, style_label: rp.label, text: text.slice(0, 1000) };
+      }));
+      const chronicle = {
+        id: crypto.randomUUID(),
+        story_type: storyType,
+        raw_text: rawText,
+        rewrites,
+        selected_style: null,
+        selected_text: null,
+        status: 'draft',
+        submitted_at: new Date().toISOString(),
+      };
+      const updated = { ...all[idx] };
+      updated.ai_chronicles = Array.isArray(updated.ai_chronicles) ? [...updated.ai_chronicles, chronicle] : [chronicle];
+      updated.updated_at = new Date().toISOString();
+      all[idx] = updated;
+      await saveSubmissions(all);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, chronicle_id: chronicle.id, rewrites }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  if (pathname.match(/^\/api\/profile\/[^/]+\/ai-chronicle\/[^/]+\/select$/) && req.method === 'POST') {
+    const parts = pathname.split('/');
+    const token = parts[3];
+    const chronicleId = parts[5];
+    const all = await loadSubmissions();
+    const idx = all.findIndex((s) => s.edit_token === token);
+    if (idx === -1) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found.' })); return; }
+    try {
+      const body = await parseJsonBody(req);
+      const selIdx = parseInt(body.selected_index);
+      const updated = { ...all[idx] };
+      const chronicles = Array.isArray(updated.ai_chronicles) ? [...updated.ai_chronicles] : [];
+      const cIdx = chronicles.findIndex((c) => c.id === chronicleId);
+      if (cIdx === -1) throw new Error('Chronicle not found.');
+      const rw = chronicles[cIdx].rewrites[selIdx];
+      if (!rw) throw new Error('Invalid rewrite index.');
+      chronicles[cIdx] = { ...chronicles[cIdx], selected_style: rw.style_label, selected_text: rw.text, status: 'pending_review' };
+      updated.ai_chronicles = chronicles;
+      updated.updated_at = new Date().toISOString();
+      all[idx] = updated;
+      await saveSubmissions(all);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // ── Trading card route ────────────────────────────────────────────────────
+
+  if (pathname.match(/^\/players\/[^/]+\/card$/) && req.method === 'GET') {
+    const slug = pathname.split('/')[2];
+    const all = await loadSubmissions();
+    const player = all.find((p) => p.slug === slug && p.status === 'approved');
+    if (!player) {
+      res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(renderLayout('Card Not Found | ATMNOPIN™', `<section class="hero"><h1>Card Not Available</h1><p class="body-text">This player's Trading Card is not available yet. The profile must be approved and include a photo.</p><p style="margin-top:.75rem;"><a href="/community-wall">← Community Wall</a></p></section>`));
+      return;
+    }
+    const cardUnlocked = !!player.photo_url && (player.completion_score || 0) >= 70;
+    if (!cardUnlocked) {
+      res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(renderLayout('Card Locked | ATMNOPIN™', `<section class="hero"><h1>Trading Card Locked</h1><p class="body-text">Complete 70% of your poker profile and add a photo to unlock your Poker Trading Card.</p><p style="margin-top:.75rem;"><a href="/community-wall">← Community Wall</a></p></section>`));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderTradingCardPage(player));
+    return;
+  }
+
   if (pathname === '/request-feature' && req.method === 'POST') {
     try {
       const contentType = req.headers['content-type'] || '';
@@ -5256,15 +6200,20 @@ const server = http.createServer(async (req, res) => {
         photo_url = uploadResult.url;
       }
       const id = crypto.randomUUID();
+      const edit_token = crypto.randomUUID();
+      const nickname = String(f.nickname || '').trim();
       const submission = {
         id,
-        slug: playerProfileSlug(name, String(f.nickname || '').trim()),
+        slug: playerProfileSlug(name, nickname),
+        edit_token,
         name,
-        nickname: String(f.nickname || '').trim(),
+        nickname,
         email,
         city: String(f.city || '').trim(),
+        favorite_casino: String(f.favorite_casino || '').trim(),
         favorite_game: String(f.favorite_game || '').trim(),
         biggest_accomplishment: String(f.biggest_accomplishment || '').trim().slice(0, 800),
+        biggest_goal: String(f.biggest_goal || '').trim().slice(0, 400),
         funny_story: String(f.funny_story || '').trim().slice(0, 2000),
         bad_beat_story: String(f.bad_beat_story || '').trim().slice(0, 2000),
         social_link: String(f.social_link || '').trim().slice(0, 300),
@@ -5277,17 +6226,28 @@ const server = http.createServer(async (req, res) => {
         consent_country: consentGeo.country || 'unknown',
         status: 'pending',
         badge: '',
+        badges: [],
+        points: 0,
+        point_log: [],
         featured_on_home: false,
+        is_monthly_winner: false,
         admin_notes: '',
+        ai_personality: null,
+        ai_chronicles: [],
+        completion_score: 0,
         created_at: consentAt,
         updated_at: consentAt,
         approved_at: null,
       };
+      submission.completion_score = computeCompletionScore(submission);
       const all = await loadSubmissions();
       all.unshift(submission);
       await saveSubmissions(all);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ message: 'Thanks for sharing your story! We\'ll review your submission and reach out if you\'re featured.' }));
+      res.end(JSON.stringify({
+        message: 'Story submitted! Complete your poker profile to unlock your AI Poker Personality and public player page.',
+        profile_url: `/profile/setup/${edit_token}`,
+      }));
     } catch (error) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: error.message }));
@@ -5350,15 +6310,33 @@ const server = http.createServer(async (req, res) => {
       const idx = all.findIndex((x) => x.id === id);
       if (idx === -1) throw new Error('Submission not found.');
       const old = all[idx];
-      const updated = {
-        ...old,
-        status: body.status !== undefined ? body.status : old.status,
-        badge: body.badge !== undefined ? String(body.badge || '') : old.badge,
-        featured_on_home: body.featured_on_home !== undefined ? !!body.featured_on_home : !!old.featured_on_home,
-        admin_notes: body.admin_notes !== undefined ? String(body.admin_notes || '') : old.admin_notes,
-        updated_at: new Date().toISOString(),
-        approved_at: body.status === 'approved' && !old.approved_at ? new Date().toISOString() : old.approved_at || null,
-      };
+      const updated = { ...old, updated_at: new Date().toISOString() };
+      if (body.status !== undefined) {
+        updated.status = body.status;
+        if (body.status === 'approved' && !old.approved_at) updated.approved_at = new Date().toISOString();
+      }
+      if (body.badge !== undefined) updated.badge = String(body.badge || '');
+      if (Array.isArray(body.badges)) updated.badges = body.badges.filter((b) => PLAYER_BADGES.includes(b));
+      if (body.featured_on_home !== undefined) updated.featured_on_home = !!body.featured_on_home;
+      if (body.is_monthly_winner !== undefined) updated.is_monthly_winner = !!body.is_monthly_winner;
+      if (body.admin_notes !== undefined) updated.admin_notes = String(body.admin_notes || '');
+      if (body.points_delta !== undefined) {
+        const delta = parseInt(body.points_delta) || 0;
+        updated.points = Math.max(0, (old.points || 0) + delta);
+        const log = Array.isArray(old.point_log) ? [...old.point_log] : [];
+        log.push({ amount: delta, reason: String(body.points_reason || ''), awarded_at: new Date().toISOString() });
+        updated.point_log = log.slice(-50);
+      }
+      if (body.ai_personality_status !== undefined && updated.ai_personality) {
+        updated.ai_personality = { ...updated.ai_personality, status: body.ai_personality_status };
+      }
+      if (body.chronicle_id && body.chronicle_status) {
+        const chronicles = Array.isArray(updated.ai_chronicles) ? [...updated.ai_chronicles] : [];
+        const cIdx = chronicles.findIndex((c) => c.id === body.chronicle_id);
+        if (cIdx !== -1) chronicles[cIdx] = { ...chronicles[cIdx], status: body.chronicle_status };
+        updated.ai_chronicles = chronicles;
+      }
+      updated.completion_score = computeCompletionScore(updated);
       all[idx] = updated;
       await saveSubmissions(all);
       res.writeHead(200, { 'Content-Type': 'application/json' });
