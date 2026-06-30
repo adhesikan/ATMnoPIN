@@ -3719,6 +3719,7 @@ function renderAdminPage() {
         <div id="subStats" class="row" style="margin:.75rem 0;gap:.5rem;flex-wrap:wrap;"></div>
         <div class="row" style="margin-bottom:.75rem;gap:.5rem;">
           <button class="secondary" data-subfilter="all" id="sfAll">All</button>
+          <button class="secondary" data-subfilter="submitted" id="sfSubmitted">📬 Ready for Review</button>
           <button class="secondary" data-subfilter="pending" id="sfPending">Pending</button>
           <button class="secondary" data-subfilter="approved" id="sfApproved">Approved</button>
           <button class="secondary" data-subfilter="rejected" id="sfRejected">Rejected</button>
@@ -3755,8 +3756,11 @@ function renderAdminPage() {
     }
     function vescSub(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
     function renderSubList() {
-      var filtered = subFilter === 'all' ? allSubs : allSubs.filter(function(s) { return s.status === subFilter; });
+      var filtered = subFilter === 'submitted'
+        ? allSubs.filter(function(s) { return s.submitted_for_review && s.status !== 'approved'; })
+        : (subFilter === 'all' ? allSubs : allSubs.filter(function(s) { return s.status === subFilter; }));
       var pending = allSubs.filter(function(s) { return s.status === 'pending'; }).length;
+      var submitted = allSubs.filter(function(s) { return s.submitted_for_review && s.status !== 'approved'; }).length;
       var pendingAI = allSubs.filter(function(s) { return s.ai_personality && s.ai_personality.status === 'pending_review'; }).length;
       var pendingChron = allSubs.filter(function(s) { return Array.isArray(s.ai_chronicles) && s.ai_chronicles.some(function(c) { return c.status === 'pending_review'; }); }).length;
       var approved = allSubs.filter(function(s) { return s.status === 'approved'; }).length;
@@ -3764,6 +3768,7 @@ function renderAdminPage() {
         '<span class="sub-pill sub-pending">Pending: ' + pending + '</span>' +
         '<span class="sub-pill sub-approved">Approved: ' + approved + '</span>' +
         '<span class="sub-pill sub-rejected">Rejected: ' + (allSubs.length - pending - approved) + '</span>' +
+        (submitted ? '<span class="sub-pill" style="background:rgba(0,200,83,.15);border-color:rgba(0,200,83,.4);color:var(--green);">📬 Ready: ' + submitted + '</span>' : '') +
         (pendingAI ? '<span class="sub-pill" style="background:rgba(160,60,220,.12);border-color:rgba(160,60,220,.3);color:#cc77ff;">AI Review: ' + pendingAI + '</span>' : '') +
         (pendingChron ? '<span class="sub-pill" style="background:rgba(201,168,76,.1);border-color:rgba(201,168,76,.3);color:var(--gold);">Stories: ' + pendingChron + '</span>' : '');
       var badgeCheckboxes = function(curBadges) {
@@ -3777,6 +3782,7 @@ function renderAdminPage() {
           ? '<img class="sub-thumb" src="' + s.photo_url + '" alt="" />'
           : '<div class="sub-thumb-ph">' + ((s.nickname||s.name||'?')[0]||'?').toUpperCase() + '</div>';
         var pill = '<span class="sub-pill sub-' + s.status + '">' + s.status + '</span>';
+        var readyBadge = (s.submitted_for_review && s.status !== 'approved') ? '<span class="sub-pill" style="background:rgba(0,200,83,.12);border-color:rgba(0,200,83,.3);color:var(--green);font-size:.55rem;margin-left:.3rem;">📬 Ready</span>' : '';
         var curBadges = Array.isArray(s.badges) && s.badges.length ? s.badges : (s.badge ? [s.badge] : []);
         var aiP = s.ai_personality;
         var chronicles = Array.isArray(s.ai_chronicles) ? s.ai_chronicles : [];
@@ -3788,7 +3794,7 @@ function renderAdminPage() {
           + thumb
           + '<div class="sub-info"><strong>' + vescSub(s.name||'Unnamed') + '</strong>' + (s.nickname ? '<em>&quot;' + vescSub(s.nickname) + '&quot;</em>' : '') + '<p class="small">' + vescSub(s.city||'') + ' · ' + new Date(s.created_at).toLocaleDateString() + '</p>'
           + '<p class="small" style="color:' + scoreColor + '">Profile: ' + score + '%' + (s.points ? ' · 🏆 ' + s.points + ' pts' : '') + (aiP ? ' · ✨AI ' + (aiP.status === 'approved' ? '✓' : aiP.status === 'pending_review' ? '⏳' : '✗') : '') + (pendingChr.length ? ' · 📖' + pendingChr.length + ' story' : '') + '</p>'
-          + '</div>' + pill
+          + '</div>' + pill + readyBadge
           + '</div>'
           + '<div class="sub-detail" id="sd-' + s.id + '">'
           + (s.email ? '<div class="sub-field"><div class="sub-field-lbl">Email</div><div class="sub-field-val">' + vescSub(s.email) + '</div></div>' : '')
@@ -3897,7 +3903,7 @@ function renderAdminPage() {
         renderSubList();
       } else { alert(data.error || 'Update failed'); }
     }
-    ['sfAll','sfPending','sfApproved','sfRejected'].forEach(function(btnId) {
+    ['sfAll','sfSubmitted','sfPending','sfApproved','sfRejected'].forEach(function(btnId) {
       var el = document.getElementById(btnId);
       if (el) el.addEventListener('click', function() { subFilter = btnId.replace('sf','').toLowerCase(); renderSubList(); });
     });
@@ -4424,6 +4430,9 @@ function renderProfileSetupPage(profile) {
       .ps-pts-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.15em;color:#888;}
       .ps-badge-row{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem;}
       .card-preview-link{display:inline-block;margin-top:.75rem;border:1px solid rgba(201,168,76,.4);background:rgba(201,168,76,.07);color:var(--gold);border-radius:8px;padding:.5rem 1rem;font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;text-decoration:none;}
+      .ps-submit-final-btn{width:100%;padding:.9rem;font-size:.78rem;background:var(--green);border:none;color:#000;border-radius:10px;cursor:pointer;font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-family:'DM Mono',monospace;margin-top:.25rem;}
+      .ps-submit-final-btn:hover{background:#00e060;}
+      .ps-submit-final-btn:disabled{opacity:.5;cursor:not-allowed;}
     </style>
     <section class="hero">
       <p class="eyebrow">ATMNOPIN™ Community</p>
@@ -4575,17 +4584,19 @@ function renderProfileSetupPage(profile) {
           <div id="rewriteResults" style="display:none;margin-top:1rem;"></div>`}
         </div>
       </div>
-      <!-- Section 6: Public Profile Status -->
+      <!-- Section 6: Submit for Review -->
       <div class="ps-section">
         <div class="ps-section-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
-          <span class="ps-section-title">6 — Public Profile Status</span>
-          <span class="ps-section-tag${profile.status === 'approved' ? ' done' : ''}">
-            ${profile.status === 'approved' ? 'Live ✓' : profile.status === 'rejected' ? 'Rejected' : 'Pending Review'}
+          <span class="ps-section-title">6 — Submit for Review</span>
+          <span class="ps-section-tag${profile.status === 'approved' ? ' done' : profile.submitted_for_review ? ' done' : ''}" id="sec6Tag">
+            ${profile.status === 'approved' ? 'Live ✓' : profile.status === 'rejected' ? 'Rejected' : profile.submitted_for_review ? 'Submitted ✓' : 'Not Yet Submitted'}
           </span>
         </div>
-        <div class="ps-section-body">
-          ${profile.status === 'approved' ? `<p class="small" style="color:var(--green);margin-bottom:.6rem;">✓ Your profile is live on the Community Wall.</p><a href="/players/${escapeHtml(profile.slug)}" style="color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View Public Profile →</a>${cardUnlocked ? `<br><a class="card-preview-link" href="/players/${escapeHtml(profile.slug)}/card">🃏 View Poker Trading Card →</a>` : ''}` : `<p class="small" style="color:#888;">Your profile is pending admin review. You'll appear on the Community Wall once approved. In the meantime, keep filling out your profile — the more complete it is, the better your public page will look.</p>`}
-          ${profile.status !== 'approved' && pct >= 70 ? '<p class="small" style="color:var(--gold);margin-top:.5rem;">Your profile looks great! The ATMNOPIN crew reviews submissions regularly.</p>' : ''}
+        <div class="ps-section-body open">
+          ${profile.status === 'approved' ? `<p class="small" style="color:var(--green);margin-bottom:.6rem;">✓ Your profile is live on the Community Wall.</p><a href="/players/${escapeHtml(profile.slug)}" style="color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View Public Profile →</a>${cardUnlocked ? `<br><a class="card-preview-link" href="/players/${escapeHtml(profile.slug)}/card">🃏 View Poker Trading Card →</a>` : ''}` : `
+          <p class="small" style="color:#888;margin-bottom:.75rem;">Fill in as much as you can above, then hit Submit when you're ready. The more complete your profile, the better your public page will look.</p>
+          ${profile.submitted_for_review ? `<p class="small" style="color:var(--green);">✓ Profile submitted! The ATMNOPIN crew will review it and get you live on the Community Wall soon.</p>` : `<button class="ps-submit-final-btn" id="submitFinalBtn" onclick="psSubmitProfile(this)">Submit My Profile for Review →</button>`}
+          ${pct >= 70 ? '<p class="small" style="color:var(--gold);margin-top:.75rem;">Profile is looking strong — great time to submit!</p>' : ''}`}
         </div>
       </div>
     </div>
@@ -4793,6 +4804,28 @@ function renderProfileSetupPage(profile) {
           el.insertAdjacentHTML('afterend', '<p style="font-size:.7rem;color:var(--green);margin-top:.5rem;">✓ Submitted for review. The ATMNOPIN crew will publish it if approved.</p>');
           document.querySelectorAll('.ai-rewrite-option').forEach(function(o) { o.style.pointerEvents = 'none'; });
         } catch(e) { alert(e.message); }
+      };
+
+      window.psSubmitProfile = async function(btn) {
+        btn.disabled = true;
+        btn.textContent = 'Submitting...';
+        try {
+          var r = await fetch('/api/profile/' + TOKEN + '/submit', { method: 'POST' });
+          var d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'Submit failed');
+          btn.style.display = 'none';
+          var msg = document.createElement('p');
+          msg.className = 'small';
+          msg.style.cssText = 'color:var(--green);margin-top:.5rem;';
+          msg.textContent = '✓ Profile submitted! The ATMNOPIN crew will review it and get you live on the Community Wall soon.';
+          btn.parentNode.appendChild(msg);
+          var tag = document.getElementById('sec6Tag');
+          if (tag) { tag.className = 'ps-section-tag done'; tag.textContent = 'Submitted ✓'; }
+        } catch(e) {
+          btn.disabled = false;
+          btn.textContent = 'Submit My Profile for Review →';
+          alert(e.message || 'Submit failed. Please try again.');
+        }
       };
     })();
     </script>`);
@@ -6001,7 +6034,20 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (pathname.startsWith('/api/profile/') && !pathname.includes('/ai-') && !pathname.includes('/photo') && req.method === 'POST') {
+  if (pathname.match(/^\/api\/profile\/[^/]+\/submit$/) && req.method === 'POST') {
+    const token = pathname.split('/')[3];
+    const all = await loadSubmissions();
+    const idx = all.findIndex((s) => s.edit_token === token);
+    if (idx === -1) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found.' })); return; }
+    const updated = { ...all[idx], submitted_for_review: true, submitted_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    all[idx] = updated;
+    await saveSubmissions(all);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (pathname.startsWith('/api/profile/') && !pathname.includes('/ai-') && !pathname.includes('/photo') && !pathname.endsWith('/submit') && req.method === 'POST') {
     const token = pathname.split('/')[3];
     const all = await loadSubmissions();
     const idx = all.findIndex((s) => s.edit_token === token);
