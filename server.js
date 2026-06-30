@@ -665,8 +665,8 @@ Tell: Rubber duck visible on stack from any seat at the table.
     tell: 'To be discovered',
     threat_level: 'Unrated',
     icon_type: '♥',
-    cta_label: 'Submit Your Story',
-    cta_href: '/request-feature',
+    cta_label: 'Get Featured',
+    cta_href: '/ai-profile-generator',
     tags: ['Community', 'Player Spotlight', 'Get Featured', 'Table Characters', 'Foxwoods', '$2/$5 NLH', 'Community Story', 'ATMNOPIN'],
     content: `The ATMNOPIN universe is not a closed table.
 
@@ -2912,7 +2912,7 @@ const SEED_SUBMISSIONS = [
     biggest_accomplishment: 'Unknown — yet.',
     funny_story: '',
     bad_beat_story: '',
-    social_link: '/request-feature',
+    social_link: '/ai-profile-generator',
     photo_url: '',
     permission: true,
     status: 'approved',
@@ -2965,7 +2965,7 @@ const HERO_PROFILES = [
     location:'Horseshoe / WSOP', badge:'Dealer Spotlight', badgeClass:'hc-badge-dealer', icon:'♦', href:'/chronicles', cta:'Read Chronicles →' },
   { id:'hp-you', name:'You?', nickname:'TBD', type:'you',
     summary:'One seat is open. Submit your story and earn your nickname.',
-    location:'Any Poker Room', badge:'Get Featured', badgeClass:'hc-badge-you', icon:'?', href:'/request-feature', cta:'Submit Your Story →' },
+    location:'Any Poker Room', badge:'Get Featured', badgeClass:'hc-badge-you', icon:'?', href:'/ai-profile-generator', cta:'Get Featured →' },
 ];
 
 const submissionRateLimit = new Map();
@@ -4188,7 +4188,7 @@ function renderChroniclesListPage(chronicles) {
       <div class="chron-filter-wrap">${filterBtns}</div>
     </div>
     <div class="chron-grid" id="chronGrid">
-      ${cards || '<div class="chron-no-results"><p style="font-size:1rem;color:var(--offwhite);margin-bottom:.4rem;">No stories yet.</p><p class="small" style="color:#777;margin-bottom:1rem;">The ATM is loading. Check back soon or submit your own story.</p><a href="/request-feature" class="pill">Submit Your Story</a></div>'}
+      ${cards || '<div class="chron-no-results"><p style="font-size:1rem;color:var(--offwhite);margin-bottom:.4rem;">No stories yet.</p><p class="small" style="color:#777;margin-bottom:1rem;">The ATM is loading. Check back soon or submit your own story.</p><a href="/ai-profile-generator" class="pill">Get Featured →</a></div>'}
     </div>
     <div class="chron-load-wrap" id="chronLoadWrap" style="display:none;">
       <button type="button" class="chron-load-btn" id="chronLoadBtn">Load More Stories</button>
@@ -4214,7 +4214,7 @@ function renderChroniclesListPage(chronicles) {
         vis.slice(0, shown).forEach(function(c) { c.style.display = ''; });
         var nr = document.getElementById('chronNoRes');
         if (!vis.length) {
-          if (!nr) { nr = document.createElement('div'); nr.id='chronNoRes'; nr.className='chron-no-results'; nr.innerHTML='<p style="font-size:1rem;color:var(--offwhite);margin-bottom:.4rem;">No stories in this pile yet.</p><p class="small" style="color:#777;margin-bottom:1rem;">The ATM is loading. Check back soon or submit a story.</p><a href="/request-feature" class="pill">Submit Your Story</a>'; document.getElementById('chronGrid').appendChild(nr); }
+          if (!nr) { nr = document.createElement('div'); nr.id='chronNoRes'; nr.className='chron-no-results'; nr.innerHTML='<p style="font-size:1rem;color:var(--offwhite);margin-bottom:.4rem;">No stories in this pile yet.</p><p class="small" style="color:#777;margin-bottom:1rem;">The ATM is loading. Check back soon or submit a story.</p><a href="/ai-profile-generator" class="pill">Get Featured →</a>'; document.getElementById('chronGrid').appendChild(nr); }
         } else if (nr) nr.remove();
         document.getElementById('chronLoadWrap').style.display = vis.length > shown ? '' : 'none';
       }
@@ -4377,7 +4377,7 @@ function renderPlayerCard(p) {
       </div>` : ''}
       ${p.points ? `<p style="font-size:.62rem;color:var(--gold);margin-top:.3rem;letter-spacing:.05em;">🏆 ${p.points} pts</p>` : ''}
       ${isOpenSeat
-        ? `<a href="/request-feature" class="player-view-cta">Claim This Seat →</a>`
+        ? `<a href="/ai-profile-generator" class="player-view-cta">Get Featured →</a>`
         : `<a href="/players/${escapeHtml(p.slug)}" class="player-view-cta">View Profile →</a>`}
     </div>
   </article>`;
@@ -5008,11 +5008,11 @@ function renderCommunityWallPage(submissions) {
       </div>
     </div>
     <div class="pw-grid" id="pwGrid">
-      ${cards || '<p class="pw-no-results">No players featured yet. <a href="/request-feature">Be the first →</a></p>'}
+      ${cards || '<p class="pw-no-results">No players featured yet. <a href="/ai-profile-generator">Be the first →</a></p>'}
     </div>
     <div class="pw-get-featured">
       <p>Sat at the table with Dhezz? Got a story, a bad beat, or a nickname worth immortalizing?</p>
-      <a href="/request-feature" class="pill">Get Featured →</a>
+      <a href="/ai-profile-generator" class="pill">Get Featured →</a>
     </div>
     <script>
     (function() {
@@ -5156,7 +5156,7 @@ function renderPlayerProfilePage(player, allPlayers) {
         ${player.funny_story ? `<div class="pp-section"><p class="pp-section-label">Funniest Poker Story</p><div>${renderMarkdown(player.funny_story)}</div></div>` : ''}
         ${player.bad_beat_story ? `<div class="pp-section"><p class="pp-section-label">Bad Beat Story</p><div>${renderMarkdown(player.bad_beat_story)}</div></div>` : ''}
         ${approvedChronicles.length ? `<div class="pp-section"><p class="pp-section-label">✨ Community Chronicles</p>${approvedChronicles.map((c) => `<div class="pp-story-card"><div class="pp-story-type">${escapeHtml(c.story_type || 'Story')}</div><p style="font-size:.8rem;color:#b0a898;line-height:1.6;">${escapeHtml(c.selected_text || '')}</p></div>`).join('')}</div>` : ''}
-        ${isOpenSeat ? `<div class="pp-section" style="text-align:center;padding:1.5rem 0;"><p class="meta" style="margin-bottom:.75rem;">The crew has one seat open. Foxwoods. $2/$5. Come sit down.</p><a href="/request-feature" class="pill">Claim This Seat →</a></div>` : ''}
+        ${isOpenSeat ? `<div class="pp-section" style="text-align:center;padding:1.5rem 0;"><p class="meta" style="margin-bottom:.75rem;">The crew has one seat open. Foxwoods. $2/$5. Come sit down.</p><a href="/ai-profile-generator" class="pill">Get Featured →</a></div>` : ''}
         ${player.social_link && !isOpenSeat ? `<div class="pp-section"><p class="pp-section-label">Find Me Online</p><a class="pp-social-link" href="${escapeHtml(player.social_link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(player.social_link)}</a></div>` : ''}
         ${cardUnlocked && !isOpenSeat ? `<div class="pp-section"><a class="pp-card-link" href="/players/${escapeHtml(player.slug)}/card">🃏 View Poker Trading Card →</a></div>` : ''}
         ${!isOpenSeat ? `<div class="share-row">
@@ -5312,99 +5312,6 @@ function renderAIProfileGeneratorPage(error) {
     </script>`);
 }
 
-function renderRequestFeaturePage(error) {
-  return renderLayout('Request to be Featured | ATMNOPIN™', `
-    <style>
-      .rf-form label{display:grid;gap:.35rem;font-size:.78rem;color:var(--gray);text-transform:uppercase;letter-spacing:.12em;}
-      .rf-form input,.rf-form textarea,.rf-form select{width:100%;border:1px solid #242424;background:#121212;color:var(--offwhite);padding:.8rem .9rem;border-radius:10px;font:inherit;}
-      .rf-form textarea{min-height:100px;}
-      .rf-opt{font-size:.62rem;text-transform:none;letter-spacing:0;color:#555;margin-left:.3rem;font-style:italic;}
-      .rf-req{color:var(--green);margin-left:.15rem;}
-      .rf-section-hdr{font-size:.6rem;text-transform:uppercase;letter-spacing:.2em;color:var(--green);padding:.5rem 0 .3rem;border-bottom:1px solid #1a1a1a;margin-bottom:.25rem;}
-      .rf-perm{display:flex;align-items:flex-start;gap:.6rem;padding:.75rem;border:1px solid #1e3a28;background:#0c1a10;border-radius:10px;}
-      .rf-perm input{width:auto;flex-shrink:0;margin-top:.15rem;}
-      .rf-submit-btn{width:100%;padding:1rem;font-size:.82rem;letter-spacing:.18em;background:var(--green);border:none;color:#000;border-radius:10px;cursor:pointer;font-weight:700;text-transform:uppercase;transition:opacity .2s;}
-      .rf-submit-btn:hover{opacity:.88;}
-      .rf-submit-btn:disabled{opacity:.5;cursor:not-allowed;}
-      .hp-field{position:absolute;left:-9999px;opacity:0;pointer-events:none;}
-    </style>
-    <section class="hero">
-      <p class="eyebrow">ATMNOPIN™ Community</p>
-      <h1>Share Your Story</h1>
-      <p class="body-text" style="max-width:58ch;">Are you a poker player with a story to tell? Fill out the form below to apply to be featured on the ATMNOPIN™ community wall.</p>
-    </section>
-    ${error ? `<div class="notice" style="border-color:#5c1f1f;margin-bottom:1rem;">${escapeHtml(error)}</div>` : ''}
-    <section class="card" style="max-width:680px;margin-top:1rem;">
-      <p class="small" style="color:#555;margin-bottom:1.25rem;"><span style="color:var(--green);">*</span> Required &nbsp;·&nbsp; All other fields are optional but unlock your AI Poker Personality and raise your profile score.</p>
-      <form id="rfForm" class="rf-form form-grid" method="POST" action="/request-feature" enctype="multipart/form-data">
-        <input class="hp-field" type="text" name="hp_url" tabindex="-1" autocomplete="off" aria-hidden="true" />
-
-        <div class="rf-section-hdr">About You</div>
-        <label>Full Name <span class="rf-req">*</span><input name="name" type="text" required maxlength="100" placeholder="Your real name" /></label>
-        <label>Email <span class="rf-req">*</span><input name="email" type="email" required maxlength="200" placeholder="you@example.com" /></label>
-        <label>Poker Nickname <span class="rf-opt">(optional)</span><input name="nickname" type="text" maxlength="80" placeholder="What they call you at the table" /></label>
-        <label>City / Hometown <span class="rf-opt">(optional)</span><input name="city" type="text" maxlength="100" placeholder="Las Vegas, NV" /></label>
-
-        <div class="rf-section-hdr">Your Game</div>
-        <label>Favorite Casino <span class="rf-opt">(optional)</span><input name="favorite_casino" type="text" maxlength="100" placeholder="Foxwoods, Horseshoe, Venetian..." /></label>
-        <label>Favorite Poker Game <span class="rf-opt">(optional)</span><input name="favorite_game" type="text" maxlength="100" placeholder="$2/$5 NLH, PLO, etc." /></label>
-        <label>Biggest Poker Accomplishment <span class="rf-opt">(optional)</span><textarea name="biggest_accomplishment" maxlength="800" placeholder="Final tabled the WSOP Main, ran good once..."></textarea></label>
-        <label>Biggest Poker Goal <span class="rf-opt">(optional)</span><input name="biggest_goal" type="text" maxlength="400" placeholder="Win a WSOP bracelet, final table a major..." /></label>
-
-        <div class="rf-section-hdr">Your Stories</div>
-        <label>Funniest Poker Story <span class="rf-opt">(optional — unlocks AI Poker Personality)</span><textarea name="funny_story" maxlength="2000" placeholder="The story you always tell at the table..."></textarea></label>
-        <label>Bad Beat Story <span class="rf-opt">(optional — unlocks AI Poker Personality)</span><textarea name="bad_beat_story" maxlength="2000" placeholder="Aces cracked. Again."></textarea></label>
-
-        <div class="rf-section-hdr">Social & Photo</div>
-        <label>Social Media Link <span class="rf-opt">(optional)</span><input name="social_link" type="url" maxlength="300" placeholder="https://twitter.com/yourhandle" /></label>
-        <label>Profile Photo <span class="rf-opt">(optional — JPG/PNG/WEBP, max 5MB)</span><input name="photo" type="file" accept="image/jpeg,image/png,image/webp" /></label>
-
-        <div class="rf-perm" style="margin-top:.5rem;">
-          <input name="permission" type="checkbox" id="rfPerm" required />
-          <label for="rfPerm" style="text-transform:none;letter-spacing:0;font-size:.82rem;color:var(--offwhite);cursor:pointer;">I give ATMNOPIN™ permission to publish my name, photo, and stories on their website and social media. <span style="color:var(--green);">*</span></label>
-        </div>
-
-        <button class="rf-submit-btn" type="submit" id="rfSubmitBtn">Submit My Story →</button>
-        <div class="notice" id="rfStatus" style="display:none;"></div>
-      </form>
-    </section>
-    <script>
-    (function() {
-      var form = document.getElementById('rfForm');
-      var statusEl = document.getElementById('rfStatus');
-      var submitBtn = document.getElementById('rfSubmitBtn');
-      if (!form) return;
-      form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting...'; }
-        statusEl.style.display = '';
-        statusEl.style.borderColor = '#1e1e1e';
-        statusEl.textContent = 'Submitting your story...';
-        try {
-          var fd = new FormData(form);
-          var res = await fetch('/request-feature', { method: 'POST', body: fd });
-          var data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'Submission failed.');
-          statusEl.textContent = data.message || 'Thanks! Your story has been submitted for review.';
-          statusEl.style.borderColor = '#1f5c31';
-          form.style.opacity = '.5';
-          form.style.pointerEvents = 'none';
-          if (data.profile_url) {
-            setTimeout(function() { window.location.href = data.profile_url; }, 1200);
-          } else {
-            form.reset();
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit My Story →'; }
-          }
-        } catch(err) {
-          statusEl.textContent = err.message;
-          statusEl.style.borderColor = '#5c1f1f';
-          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit My Story →'; }
-        }
-      });
-    })();
-    </script>`);
-}
-
 function verifyAdmin(req) {
   const cookie = req.headers.cookie || '';
   const match = cookie.match(/admin_session=([^;]+)/);
@@ -5504,11 +5411,11 @@ function renderHeroCarousel() {
     <a href="/community-wall" class="hc-cat">&#x2666; Dealers</a>
     <a href="/community-wall" class="hc-cat">&#x2663; Floor Staff</a>
     <a href="/community-wall" class="hc-cat">&#x2665; Poker Friends</a>
-    <a href="/request-feature" class="hc-cat hc-cat-you">? You?</a>
+    <a href="/ai-profile-generator" class="hc-cat hc-cat-you">? You?</a>
   </nav>
   <div class="hc-cta-bar">
-    <p class="hc-cta-text">Submit your story, nickname, and poker room. All reviewed before posting.</p>
-    <a href="/request-feature" class="hc-cta-btn">Submit Your Story</a>
+    <p class="hc-cta-text">Generate your AI poker profile and get featured on the community wall.</p>
+    <a href="/ai-profile-generator" class="hc-cta-btn">Get Featured →</a>
   </div>
 </div>`;
 }
@@ -5750,7 +5657,7 @@ function renderInsideTheATMPage() {
   <p class="ita-body">Manny, Jamie, Ducky Jay, and the rest of the usual suspects now live on the Community Wall — alongside every other player, table character, and poker friend in the ATMNOPIN™ universe.</p>
   <div style="margin-top:1.5rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
     <a href="/community-wall" class="pill" style="background:var(--green);color:#000;border-color:var(--green);">Meet The Crew →</a>
-    <a href="/request-feature" class="pill">Get Featured →</a>
+    <a href="/ai-profile-generator" class="pill">Get Featured →</a>
   </div>
 </div>
 
@@ -5768,7 +5675,7 @@ function renderInsideTheATMPage() {
 <div style="margin-top:2.5rem;padding:2rem;background:#0c0c0c;border:1px solid #1e1e1e;display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
   <div style="padding:1.25rem;border:1px solid #1e1e1e;background:var(--black);"><p style="font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green);margin-bottom:.45rem;">Chronicles</p><p style="font-size:.78rem;color:#888;margin-bottom:.7rem;">Stories from dealers, floor staff, and poker life at the Hall of Fame Poker Room.</p><a href="/chronicles" style="color:var(--green);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;">Read Chronicles →</a></div>
   <div style="padding:1.25rem;border:1px solid #1e1e1e;background:var(--black);"><p style="font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green);margin-bottom:.45rem;">Community</p><p style="font-size:.78rem;color:#888;margin-bottom:.7rem;">Poker players from the ATMNOPIN universe — their stories, bad beats, and badges.</p><a href="/community-wall" style="color:var(--green);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;">View Community →</a></div>
-  <div style="padding:1.25rem;border:1px solid #1e1e1e;background:var(--black);"><p style="font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:.45rem;">Get Featured</p><p style="font-size:.78rem;color:#888;margin-bottom:.7rem;">Got a story? Submit your profile and join the ATMNOPIN community wall.</p><a href="/request-feature" style="color:var(--gold);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;">Request Feature →</a></div>
+  <div style="padding:1.25rem;border:1px solid #1e1e1e;background:var(--black);"><p style="font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:.45rem;">Get Featured</p><p style="font-size:.78rem;color:#888;margin-bottom:.7rem;">Got a story? Submit your profile and join the ATMNOPIN community wall.</p><a href="/ai-profile-generator" style="color:var(--gold);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;">Get Featured →</a></div>
 </div>
 `);
 }
@@ -6178,9 +6085,8 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/request-feature' && req.method === 'GET') {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(renderRequestFeaturePage());
-    logPageVisit(req, pathname);
+    res.writeHead(301, { 'Location': '/ai-profile-generator' });
+    res.end();
     return;
   }
 
@@ -6192,7 +6098,7 @@ const server = http.createServer(async (req, res) => {
     const profile = all.find((s) => s.edit_token === token);
     if (!profile) {
       res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(renderLayout('Profile Not Found | ATMNOPIN™', `<section class="hero"><h1>Profile Not Found</h1><p class="body-text">This profile link is invalid or has expired. <a href="/request-feature">Submit a new story →</a></p></section>`));
+      res.end(renderLayout('Profile Not Found | ATMNOPIN™', `<section class="hero"><h1>Profile Not Found</h1><p class="body-text">This profile link is invalid or has expired. <a href="/ai-profile-generator">Generate your profile →</a></p></section>`));
       return;
     }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -6736,7 +6642,7 @@ const server = http.createServer(async (req, res) => {
               <a href="/players/${escapeHtml(p.slug)}" style="color:var(--green);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;text-decoration:none;">View Profile →</a>
             </article>`;
           }).join('')
-        : '<div style="color:var(--gray);font-size:.9rem;">No community profiles yet. <a href="/request-feature" style="color:var(--green);">Be the first →</a></div>';
+        : '<div style="color:var(--gray);font-size:.9rem;">No community profiles yet. <a href="/ai-profile-generator" style="color:var(--green);">Be the first →</a></div>';
       const communitySection = `<section class="schedule" id="community-preview" style="border-top:1px solid #1a1a1a;">
         <p class="section-label">// ATMNOPIN Community</p>
         <h2>Community Wall</h2>
@@ -6744,7 +6650,7 @@ const server = http.createServer(async (req, res) => {
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin-top:1rem;">${communityCardsHtml}</div>
         <div style="margin-top:1.5rem;display:flex;gap:1rem;flex-wrap:wrap;">
           <a href="/community-wall" style="display:inline-block;color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View Community Wall →</a>
-          <a href="/request-feature" style="display:inline-block;color:var(--gold);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">Get Featured →</a>
+          <a href="/ai-profile-generator" style="display:inline-block;color:var(--gold);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">Get Featured →</a>
         </div>
       </section>`;
       const html = data
