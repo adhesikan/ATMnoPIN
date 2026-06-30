@@ -3716,7 +3716,10 @@ function renderAdminPage() {
     <div id="communityPanel" style="display:none;">
     <section class="grid">
       <article class="card" style="grid-column:1/-1;">
-        <h2>Community Submissions</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
+          <h2 style="margin:0;">Community Submissions</h2>
+          <button class="secondary" id="sfRefresh" type="button">Refresh</button>
+        </div>
         <div id="subStats" class="row" style="margin:.75rem 0;gap:.5rem;flex-wrap:wrap;"></div>
         <div class="row" style="margin-bottom:.75rem;gap:.5rem;">
           <button class="secondary" data-subfilter="all" id="sfAll">All</button>
@@ -3725,7 +3728,7 @@ function renderAdminPage() {
           <button class="secondary" data-subfilter="approved" id="sfApproved">Approved</button>
           <button class="secondary" data-subfilter="rejected" id="sfRejected">Rejected</button>
         </div>
-        <div id="subList" class="form-grid"></div>
+        <div id="subList" class="form-grid"><div class="notice">Loading...</div></div>
       </article>
     </section>
     <style>
@@ -3751,16 +3754,22 @@ function renderAdminPage() {
     var allSubs = [];
     var ALL_BADGES = ${JSON.stringify(PLAYER_BADGES)};
     async function loadSubList() {
-      var res = await fetch('/api/admin/submissions');
-      allSubs = await res.json();
-      renderSubList();
-      var needsAction = allSubs.filter(function(s) {
-        return (s.submitted_for_review && s.status !== 'approved')
-          || (s.ai_personality && s.ai_personality.status === 'pending_review')
-          || (Array.isArray(s.ai_chronicles) && s.ai_chronicles.some(function(c) { return c.status === 'pending_review'; }));
-      }).length;
-      var tabBtn = document.querySelector('[data-panel="communityPanel"]');
-      if (tabBtn && needsAction) tabBtn.textContent = 'Community (' + needsAction + ')';
+      document.getElementById('subList').innerHTML = '<div class="notice">Loading...</div>';
+      try {
+        var r = await fetch('/api/admin/submissions');
+        if (!r.ok) throw new Error('HTTP ' + r.status + ' — ' + r.statusText);
+        allSubs = await r.json();
+        renderSubList();
+        var needsAction = allSubs.filter(function(s) {
+          return (s.submitted_for_review && s.status !== 'approved')
+            || (s.ai_personality && s.ai_personality.status === 'pending_review')
+            || (Array.isArray(s.ai_chronicles) && s.ai_chronicles.some(function(c) { return c.status === 'pending_review'; }));
+        }).length;
+        var tabBtn = document.querySelector('[data-panel="communityPanel"]');
+        if (tabBtn) tabBtn.textContent = needsAction ? 'Community (' + needsAction + ')' : 'Community';
+      } catch(e) {
+        document.getElementById('subList').innerHTML = '<div class="notice" style="border-color:#5c1f1f;">Error loading submissions: ' + vescSub(e.message || String(e)) + '</div>';
+      }
     }
     function vescSub(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
     function renderSubList() {
@@ -3925,6 +3934,7 @@ function renderAdminPage() {
       var el = document.getElementById(btnId);
       if (el) el.addEventListener('click', function() { subFilter = btnId.replace('sf','').toLowerCase(); renderSubList(); });
     });
+    document.getElementById('sfRefresh').addEventListener('click', loadSubList);
     loadSubList();
     </script>
     </div><!-- end communityPanel -->
@@ -3938,6 +3948,7 @@ function renderAdminPage() {
           document.getElementById('communityPanel').style.display = btn.dataset.panel === 'communityPanel' ? '' : 'none';
           document.getElementById('visitorsPanel').style.display = btn.dataset.panel === 'visitorsPanel' ? '' : 'none';
           document.getElementById('consentPanel').style.display = btn.dataset.panel === 'consentPanel' ? '' : 'none';
+          if (btn.dataset.panel === 'communityPanel') { loadSubList(); }
           if (btn.dataset.panel === 'visitorsPanel' && !visitorsLoaded) { loadVisitors(); }
           if (btn.dataset.panel === 'consentPanel' && !consentLoaded) { loadConsent(); }
         });
