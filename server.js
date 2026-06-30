@@ -3761,7 +3761,7 @@ function renderAdminPage(submissions = []) {
     </style>
     <script>
     var subFilter = 'all';
-    var allSubs = ${JSON.stringify(submissions).replace(/<\/script>/gi, '<\\/script>')};
+    var allSubs = (function(){ try { return JSON.parse(atob('${Buffer.from(JSON.stringify(submissions)).toString('base64')}')); } catch(e) { return []; } })();
     var subsLoaded = allSubs.length > 0;
     var ALL_BADGES = ${JSON.stringify(PLAYER_BADGES)};
     async function loadSubList() {
@@ -3959,7 +3959,20 @@ function renderAdminPage(submissions = []) {
       if (el) el.addEventListener('click', function() { subFilter = btnId.replace('sf','').toLowerCase(); renderSubList(); });
     });
     document.getElementById('sfRefresh').addEventListener('click', function() { subsLoaded = false; loadSubList(); });
-    if (allSubs.length > 0) { try { renderSubList(); } catch(e) { document.getElementById('subList').innerHTML = '<div class="notice" style="border-color:#5c1f1f;">Init render error: ' + vescSub(String(e.message||e)) + '</div>'; } }
+    (function() {
+      var dbg = document.getElementById('subPreload');
+      if (dbg) dbg.textContent = allSubs.length + ' loaded';
+      if (allSubs.length > 0) {
+        try { renderSubList(); if (dbg) dbg.textContent = allSubs.length + ' loaded · OK'; }
+        catch(e) {
+          if (dbg) dbg.textContent = allSubs.length + ' loaded · ERROR: ' + String(e);
+          var listEl = document.getElementById('subList');
+          if (listEl) listEl.textContent = 'Render error: ' + String(e);
+        }
+      } else {
+        if (dbg) dbg.textContent = '0 loaded — click Refresh';
+      }
+    })();
     </script>
     </div><!-- end communityPanel -->
     <script>
