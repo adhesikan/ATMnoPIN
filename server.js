@@ -5089,37 +5089,53 @@ function renderRequestFeaturePage(error) {
       .rf-form label{display:grid;gap:.35rem;font-size:.78rem;color:var(--gray);text-transform:uppercase;letter-spacing:.12em;}
       .rf-form input,.rf-form textarea,.rf-form select{width:100%;border:1px solid #242424;background:#121212;color:var(--offwhite);padding:.8rem .9rem;border-radius:10px;font:inherit;}
       .rf-form textarea{min-height:100px;}
+      .rf-opt{font-size:.62rem;text-transform:none;letter-spacing:0;color:#555;margin-left:.3rem;font-style:italic;}
+      .rf-req{color:var(--green);margin-left:.15rem;}
+      .rf-section-hdr{font-size:.6rem;text-transform:uppercase;letter-spacing:.2em;color:var(--green);padding:.5rem 0 .3rem;border-bottom:1px solid #1a1a1a;margin-bottom:.25rem;}
       .rf-perm{display:flex;align-items:flex-start;gap:.6rem;padding:.75rem;border:1px solid #1e3a28;background:#0c1a10;border-radius:10px;}
       .rf-perm input{width:auto;flex-shrink:0;margin-top:.15rem;}
-      .rf-perm span{font-size:.78rem;color:var(--gray);line-height:1.5;}
+      .rf-submit-btn{width:100%;padding:1rem;font-size:.82rem;letter-spacing:.18em;background:var(--green);border:none;color:#000;border-radius:10px;cursor:pointer;font-weight:700;text-transform:uppercase;transition:opacity .2s;}
+      .rf-submit-btn:hover{opacity:.88;}
+      .rf-submit-btn:disabled{opacity:.5;cursor:not-allowed;}
       .hp-field{position:absolute;left:-9999px;opacity:0;pointer-events:none;}
     </style>
     <section class="hero">
       <p class="eyebrow">ATMNOPIN™ Community</p>
       <h1>Share Your Story</h1>
-      <p class="body-text" style="max-width:58ch;">Are you a poker player with a story to tell? Fill out the form and you might be featured on the ATMNOPIN™ community wall.</p>
+      <p class="body-text" style="max-width:58ch;">Are you a poker player with a story to tell? Fill out the form below to apply to be featured on the ATMNOPIN™ community wall.</p>
     </section>
     ${error ? `<div class="notice" style="border-color:#5c1f1f;margin-bottom:1rem;">${escapeHtml(error)}</div>` : ''}
     <section class="card" style="max-width:680px;margin-top:1rem;">
+      <p class="small" style="color:#555;margin-bottom:1.25rem;"><span style="color:var(--green);">*</span> Required &nbsp;·&nbsp; All other fields are optional but unlock your AI Poker Personality and raise your profile score.</p>
       <form id="rfForm" class="rf-form form-grid" method="POST" action="/request-feature" enctype="multipart/form-data">
         <input class="hp-field" type="text" name="hp_url" tabindex="-1" autocomplete="off" aria-hidden="true" />
-        <label>Full Name *<input name="name" type="text" required maxlength="100" placeholder="Your real name" /></label>
-        <label>Poker Nickname<input name="nickname" type="text" maxlength="80" placeholder="What they call you at the table" /></label>
-        <label>Email *<input name="email" type="email" required maxlength="200" placeholder="you@example.com" /></label>
-        <label>City / Hometown<input name="city" type="text" maxlength="100" placeholder="Las Vegas, NV" /></label>
-        <label>Favorite Casino<input name="favorite_casino" type="text" maxlength="100" placeholder="Foxwoods, Horseshoe, Venetian..." /></label>
-        <label>Favorite Poker Game<input name="favorite_game" type="text" maxlength="100" placeholder="$2/$5 NLH, PLO, etc." /></label>
-        <label>Biggest Poker Accomplishment<textarea name="biggest_accomplishment" maxlength="800" placeholder="Final tabled the WSOP Main, ran good once..."></textarea></label>
-        <label>Funniest Poker Story<textarea name="funny_story" maxlength="2000" placeholder="The story you always tell at the table..."></textarea></label>
-        <label>Bad Beat Story<textarea name="bad_beat_story" maxlength="2000" placeholder="Aces cracked. Again."></textarea></label>
-        <label>Biggest Poker Goal<input name="biggest_goal" type="text" maxlength="400" placeholder="Win a WSOP bracelet, final table a major..." /></label>
-        <label>Social Media Link<input name="social_link" type="url" maxlength="300" placeholder="https://twitter.com/yourhandle" /></label>
-        <label>Photo (JPG/PNG/WEBP, max 5MB)<input name="photo" type="file" accept="image/jpeg,image/png,image/webp" /></label>
-        <div class="rf-perm">
+
+        <div class="rf-section-hdr">About You</div>
+        <label>Full Name <span class="rf-req">*</span><input name="name" type="text" required maxlength="100" placeholder="Your real name" /></label>
+        <label>Email <span class="rf-req">*</span><input name="email" type="email" required maxlength="200" placeholder="you@example.com" /></label>
+        <label>Poker Nickname <span class="rf-opt">(optional)</span><input name="nickname" type="text" maxlength="80" placeholder="What they call you at the table" /></label>
+        <label>City / Hometown <span class="rf-opt">(optional)</span><input name="city" type="text" maxlength="100" placeholder="Las Vegas, NV" /></label>
+
+        <div class="rf-section-hdr">Your Game</div>
+        <label>Favorite Casino <span class="rf-opt">(optional)</span><input name="favorite_casino" type="text" maxlength="100" placeholder="Foxwoods, Horseshoe, Venetian..." /></label>
+        <label>Favorite Poker Game <span class="rf-opt">(optional)</span><input name="favorite_game" type="text" maxlength="100" placeholder="$2/$5 NLH, PLO, etc." /></label>
+        <label>Biggest Poker Accomplishment <span class="rf-opt">(optional)</span><textarea name="biggest_accomplishment" maxlength="800" placeholder="Final tabled the WSOP Main, ran good once..."></textarea></label>
+        <label>Biggest Poker Goal <span class="rf-opt">(optional)</span><input name="biggest_goal" type="text" maxlength="400" placeholder="Win a WSOP bracelet, final table a major..." /></label>
+
+        <div class="rf-section-hdr">Your Stories</div>
+        <label>Funniest Poker Story <span class="rf-opt">(optional — unlocks AI Poker Personality)</span><textarea name="funny_story" maxlength="2000" placeholder="The story you always tell at the table..."></textarea></label>
+        <label>Bad Beat Story <span class="rf-opt">(optional — unlocks AI Poker Personality)</span><textarea name="bad_beat_story" maxlength="2000" placeholder="Aces cracked. Again."></textarea></label>
+
+        <div class="rf-section-hdr">Social & Photo</div>
+        <label>Social Media Link <span class="rf-opt">(optional)</span><input name="social_link" type="url" maxlength="300" placeholder="https://twitter.com/yourhandle" /></label>
+        <label>Profile Photo <span class="rf-opt">(optional — JPG/PNG/WEBP, max 5MB)</span><input name="photo" type="file" accept="image/jpeg,image/png,image/webp" /></label>
+
+        <div class="rf-perm" style="margin-top:.5rem;">
           <input name="permission" type="checkbox" id="rfPerm" required />
-          <label for="rfPerm" style="text-transform:none;letter-spacing:0;font-size:.82rem;color:var(--offwhite);cursor:pointer;">I give ATMNOPIN™ permission to publish my name, photo, and stories on their website and social media.</label>
+          <label for="rfPerm" style="text-transform:none;letter-spacing:0;font-size:.82rem;color:var(--offwhite);cursor:pointer;">I give ATMNOPIN™ permission to publish my name, photo, and stories on their website and social media. <span style="color:var(--green);">*</span></label>
         </div>
-        <button type="submit">Submit My Story →</button>
+
+        <button class="rf-submit-btn" type="submit" id="rfSubmitBtn">Submit My Story →</button>
         <div class="notice" id="rfStatus" style="display:none;"></div>
       </form>
     </section>
@@ -5127,9 +5143,11 @@ function renderRequestFeaturePage(error) {
     (function() {
       var form = document.getElementById('rfForm');
       var statusEl = document.getElementById('rfStatus');
+      var submitBtn = document.getElementById('rfSubmitBtn');
       if (!form) return;
       form.addEventListener('submit', async function(e) {
         e.preventDefault();
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting...'; }
         statusEl.style.display = '';
         statusEl.style.borderColor = '#1e1e1e';
         statusEl.textContent = 'Submitting your story...';
@@ -5146,10 +5164,12 @@ function renderRequestFeaturePage(error) {
             setTimeout(function() { window.location.href = data.profile_url; }, 1200);
           } else {
             form.reset();
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit My Story →'; }
           }
         } catch(err) {
           statusEl.textContent = err.message;
           statusEl.style.borderColor = '#5c1f1f';
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit My Story →'; }
         }
       });
     })();
