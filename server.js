@@ -4483,7 +4483,7 @@ function renderProfileSetupPage(profile) {
             ${(profile.biggest_accomplishment || profile.funny_story || profile.bad_beat_story) ? 'Done ✓' : 'Incomplete'}
           </span>
         </div>
-        <div class="ps-section-body">
+        <div class="ps-section-body open">
           <form class="ps-form" id="sectionStories">
             <label>Biggest Poker Accomplishment<textarea name="biggest_accomplishment" maxlength="800" placeholder="Final tabled the WSOP Main, ran good once...">${escapeHtml(profile.biggest_accomplishment || '')}</textarea></label>
             <label>Biggest Poker Goal<input name="biggest_goal" value="${escapeHtml(profile.biggest_goal || '')}" maxlength="400" placeholder="Win a bracelet, grind to a million..." /></label>
@@ -4517,15 +4517,15 @@ function renderProfileSetupPage(profile) {
         </div>
       </div>
       <!-- Section 4: AI Poker Personality -->
-      <div class="ps-section">
-        <div class="ps-section-hdr" onclick="${aiUnlocked ? 'this.nextElementSibling.classList.toggle(\'open\')' : ''}">
+      <div class="ps-section" id="aiSection">
+        <div class="ps-section-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
           <span class="ps-section-title">4 — AI Poker Personality ✨</span>
-          <span class="ps-section-tag${aiUnlocked ? (aiStatus ? ' done' : '') : ' locked'}">
-            ${aiUnlocked ? (aiStatus === 'approved' ? 'Approved ✓' : aiStatus === 'pending_review' ? 'Pending Review' : aiStatus === 'rejected' ? 'Needs Edit' : 'Generate') : '🔒 Complete 40% first'}
+          <span class="ps-section-tag${aiUnlocked ? (aiStatus ? ' done' : '') : ' locked'}" id="aiSectionTag">
+            ${aiUnlocked ? (aiStatus === 'approved' ? 'Approved ✓' : aiStatus === 'pending_review' ? 'Pending Review' : aiStatus === 'rejected' ? 'Needs Edit' : 'Generate') : '🔒 Locked'}
           </span>
         </div>
-        <div class="ps-section-body${aiUnlocked ? ' open' : ''}">
-          ${!aiUnlocked ? `<div class="ps-locked-msg"><span class="lock-icon">🔒</span>Complete 40% of your profile to unlock your AI Poker Personality.</div>` : `
+        <div class="ps-section-body${aiUnlocked ? ' open' : ''}" id="aiSectionBody">
+          ${!aiUnlocked ? `<div class="ps-locked-msg" id="aiLockedMsg"><span class="lock-icon">🔒</span>Save your poker stories in Section 2 above — once you hit 40% profile completion, the Generate button will appear here automatically.</div>` : `
           <p class="small" style="color:#888;margin-bottom:1rem;">Powered by AI and clearly labeled as entertainment. Our AI reads your poker stories and creates a playful poker personality summary for your public profile.</p>
           ${aiP && aiP.text ? `<div class="ai-box">
             <div class="ai-box-label">AI Poker Personality${aiStatus === 'pending_review' ? ' — Pending Admin Review' : aiStatus === 'approved' ? ' — Approved ✓' : ''}</div>
@@ -4542,11 +4542,11 @@ function renderProfileSetupPage(profile) {
         </div>
       </div>
       <!-- Section 5: AI Chronicle Submission -->
-      <div class="ps-section">
-        <div class="ps-section-hdr" onclick="${aiUnlocked ? 'this.nextElementSibling.classList.toggle(\'open\')' : ''}">
+      <div class="ps-section" id="chronicleSection">
+        <div class="ps-section-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
           <span class="ps-section-title">5 — Submit a Poker Story ✨</span>
-          <span class="ps-section-tag${!aiUnlocked ? ' locked' : chronicles.length ? ' done' : ''}">
-            ${!aiUnlocked ? '🔒 Complete 40% first' : chronicles.length ? chronicles.length + ' Submitted' : 'Write Story'}
+          <span class="ps-section-tag${!aiUnlocked ? ' locked' : chronicles.length ? ' done' : ''}" id="chronicleSectionTag">
+            ${!aiUnlocked ? '🔒 Locked' : chronicles.length ? chronicles.length + ' Submitted' : 'Write Story'}
           </span>
         </div>
         <div class="ps-section-body">
@@ -4602,10 +4602,32 @@ function renderProfileSetupPage(profile) {
         document.getElementById('psPct').textContent = newScore + '%';
         document.getElementById('psBar').style.width = newScore + '%';
         var msg = '';
-        if (newScore < 40) msg = 'Complete your basics to unlock your public player page.';
+        if (newScore < 40) msg = 'Add your poker stories to unlock your AI Poker Personality.';
         else if (!${hasPhoto ? 'true' : 'false'}) msg = 'Upload a photo to unlock your Poker Trading Card.';
         else msg = 'Profile looking strong. Pending admin review.';
         document.getElementById('psUnlock').textContent = msg;
+        if (newScore >= 40) {
+          var aiBody = document.getElementById('aiSectionBody');
+          var aiTag = document.getElementById('aiSectionTag');
+          var aiLocked = document.getElementById('aiLockedMsg');
+          var chrTag = document.getElementById('chronicleSectionTag');
+          if (aiBody && aiLocked) {
+            aiLocked.style.display = 'none';
+            if (!document.getElementById('aiGenBtn')) {
+              aiBody.insertAdjacentHTML('beforeend',
+                '<p class="small" style="color:#888;margin-bottom:1rem;">Powered by AI and clearly labeled as entertainment. Our AI reads your poker stories and creates a playful poker personality summary for your public profile.</p>'
+                + '<div style="margin-top:.85rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;">'
+                + '<button class="ps-save-btn" id="aiGenBtn" onclick="psGenerateAI(this)">Generate My AI Poker Personality ✨</button>'
+                + '<span class="ps-saved-msg" id="aiGenMsg"></span>'
+                + '</div>'
+                + '<p class="small" style="color:#555;margin-top:.5rem;">Limited to 5 generations per day.</p>'
+              );
+            }
+            aiBody.classList.add('open');
+          }
+          if (aiTag) { aiTag.className = 'ps-section-tag'; aiTag.textContent = 'Generate'; }
+          if (chrTag) { chrTag.className = 'ps-section-tag'; chrTag.textContent = 'Write Story'; }
+        }
       }
 
       function showSaved(id, ok, text) {
