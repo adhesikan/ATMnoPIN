@@ -3765,6 +3765,7 @@ function renderAdminPage() {
     var ALL_BADGES = ${JSON.stringify(PLAYER_BADGES)};
     async function loadSubList() {
       subsLoaded = true;
+      subFilter = 'all';
       var el = document.getElementById('subList');
       el.innerHTML = '<div class="notice">Loading submissions…</div>';
       try {
