@@ -3752,12 +3752,17 @@ function renderAdminPage() {
     <script>
     var subFilter = 'all';
     var allSubs = [];
+    var subsLoaded = false;
     var ALL_BADGES = ${JSON.stringify(PLAYER_BADGES)};
     async function loadSubList() {
+      subsLoaded = true;
       document.getElementById('subList').innerHTML = '<div class="notice">Loading...</div>';
       try {
         var r = await fetch('/api/admin/submissions');
-        if (!r.ok) throw new Error('HTTP ' + r.status + ' — ' + r.statusText);
+        if (!r.ok) {
+          var errBody = await r.json().catch(function() { return {}; });
+          throw new Error(errBody.error || ('HTTP ' + r.status + ' — ' + r.statusText));
+        }
         allSubs = await r.json();
         renderSubList();
         var needsAction = allSubs.filter(function(s) {
@@ -3934,7 +3939,7 @@ function renderAdminPage() {
       var el = document.getElementById(btnId);
       if (el) el.addEventListener('click', function() { subFilter = btnId.replace('sf','').toLowerCase(); renderSubList(); });
     });
-    document.getElementById('sfRefresh').addEventListener('click', loadSubList);
+    document.getElementById('sfRefresh').addEventListener('click', function() { subsLoaded = false; loadSubList(); });
     loadSubList();
     </script>
     </div><!-- end communityPanel -->
@@ -3948,7 +3953,7 @@ function renderAdminPage() {
           document.getElementById('communityPanel').style.display = btn.dataset.panel === 'communityPanel' ? '' : 'none';
           document.getElementById('visitorsPanel').style.display = btn.dataset.panel === 'visitorsPanel' ? '' : 'none';
           document.getElementById('consentPanel').style.display = btn.dataset.panel === 'consentPanel' ? '' : 'none';
-          if (btn.dataset.panel === 'communityPanel') { loadSubList(); }
+          if (btn.dataset.panel === 'communityPanel' && !subsLoaded) { loadSubList(); }
           if (btn.dataset.panel === 'visitorsPanel' && !visitorsLoaded) { loadVisitors(); }
           if (btn.dataset.panel === 'consentPanel' && !consentLoaded) { loadConsent(); }
         });
@@ -6519,16 +6524,28 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/api/admin/visitor-log' && req.method === 'GET') {
-    const logs = await loadVisitorLog(1000);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(logs));
+    try {
+      const logs = await loadVisitorLog(1000);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(logs));
+    } catch (err) {
+      console.error('loadVisitorLog error:', err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to load visitor log: ' + (err.message || String(err)) }));
+    }
     return;
   }
 
   if (pathname === '/api/admin/submissions' && req.method === 'GET') {
-    const all = await loadSubmissions();
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(all));
+    try {
+      const all = await loadSubmissions();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(all));
+    } catch (err) {
+      console.error('loadSubmissions error:', err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to load submissions: ' + (err.message || String(err)) }));
+    }
     return;
   }
 
