@@ -3849,14 +3849,16 @@ function renderAdminPage() {
           }).join('');
           showVisitorLog('<div style="overflow-x:auto;">' + hdr + rowsHtml + '</div>');
         }
-        renderConsentLog();
+        var sr = await fetch('/api/admin/submissions');
+        var subsData = sr.ok ? await sr.json() : [];
+        renderConsentLog(subsData);
       } catch(e) {
         showVisitorLog('<div class="notice" style="border-color:#5c1f1f;">Error loading visitor log: ' + vesc(e.message || String(e)) + '</div>');
         showConsentLog('<div class="notice" style="border-color:#5c1f1f;">Error loading consent log.</div>');
       }
     }
-    function renderConsentLog() {
-      var consented = (typeof allSubs !== 'undefined' ? allSubs : []).filter(function(s) { return s.consent_at; });
+    function renderConsentLog(subsData) {
+      var consented = (subsData || (typeof allSubs !== 'undefined' ? allSubs : [])).filter(function(s) { return s.consent_at; });
       if (!consented.length) { showConsentLog('<div class="notice">No consent records yet.</div>'); return; }
       var hdr = '<div style="display:grid;grid-template-columns:148px 120px 110px 160px 1fr;gap:.5rem;padding:.4rem 0;border-bottom:1px solid #1a1a1a;font-size:.57rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green);">'
         + '<span>Consent Time</span><span>Name</span><span>IP</span><span>Location</span><span>Country</span></div>';
@@ -3892,6 +3894,7 @@ function renderAdminPage() {
     }
     document.getElementById('refreshVisitors').addEventListener('click', loadVisitors);
     document.getElementById('exportVisitors').addEventListener('click', exportVisitorsCSV);
+    loadVisitors();
     </script>`);
 }
 
