@@ -3445,7 +3445,7 @@ function renderBlogPostPage(post) {
     </section>`);
 }
 
-function renderAdminPage() {
+function renderAdminPage(submissions = []) {
   const chronCatOptions = CHRON_CATEGORIES.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
   return renderLayout('ATMNOPIN™ Admin', `
     <style>
@@ -3760,8 +3760,8 @@ function renderAdminPage() {
     </style>
     <script>
     var subFilter = 'all';
-    var allSubs = [];
-    var subsLoaded = false;
+    var allSubs = ${JSON.stringify(submissions).replace(/<\/script>/gi, '<\\/script>')};
+    var subsLoaded = allSubs.length > 0;
     var ALL_BADGES = ${JSON.stringify(PLAYER_BADGES)};
     async function loadSubList() {
       subsLoaded = true;
@@ -3791,6 +3791,7 @@ function renderAdminPage() {
     }
     function vescSub(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
     function renderSubList() {
+      try {
       var filtered = subFilter === 'submitted'
         ? allSubs.filter(function(s) { return s.submitted_for_review && s.status !== 'approved'; })
         : (subFilter === 'all' ? allSubs : allSubs.filter(function(s) { return s.status === subFilter; }));
@@ -3895,6 +3896,10 @@ function renderAdminPage() {
           if (det) det.style.display = '';
         }
       });
+      } catch(renderErr) {
+        var listEl = document.getElementById('subList');
+        if (listEl) listEl.innerHTML = '<div class="notice" style="border-color:#5c1f1f;">Render error: ' + vescSub(String(renderErr.message || renderErr)) + '</div>';
+      }
     }
     function toggleSubDetail(id) {
       var el = document.getElementById('sd-' + id);
@@ -3965,7 +3970,7 @@ function renderAdminPage() {
           document.getElementById('communityPanel').style.display = btn.dataset.panel === 'communityPanel' ? '' : 'none';
           document.getElementById('visitorsPanel').style.display = btn.dataset.panel === 'visitorsPanel' ? '' : 'none';
           document.getElementById('consentPanel').style.display = btn.dataset.panel === 'consentPanel' ? '' : 'none';
-          if (btn.dataset.panel === 'communityPanel') { subsLoaded = false; loadSubList(); }
+          if (btn.dataset.panel === 'communityPanel') { if (allSubs.length > 0) { subFilter = 'all'; renderSubList(); } else { subsLoaded = false; loadSubList(); } }
           if (btn.dataset.panel === 'visitorsPanel' && !visitorsLoaded) { loadVisitors(); }
           if (btn.dataset.panel === 'consentPanel' && !consentLoaded) { loadConsent(); }
         });
@@ -5814,8 +5819,9 @@ const server = http.createServer(async (req, res) => {
     }
 
   if (pathname === '/admin' && adminSession) {
+    const preloadedSubs = await loadSubmissions().catch(() => []);
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-    res.end(renderAdminPage());
+    res.end(renderAdminPage(preloadedSubs));
     return;
   }
 
