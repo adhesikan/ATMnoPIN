@@ -3386,6 +3386,7 @@ function renderLayout(title, body) {
         <li><a href="/chronicles">Chronicles</a></li>
         <li><a href="/community-wall">Community</a></li>
         <li><a href="/inside-the-atm">Inside the ATM</a></li>
+        <li><a href="https://www.youtube.com/@ATMwithNoPIN" target="_blank" rel="noopener">Videos</a></li>
         <li><a href="/">Home</a></li>
       </ul>
     </nav>
