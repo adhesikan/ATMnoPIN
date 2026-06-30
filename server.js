@@ -4761,7 +4761,7 @@ function renderProfileSetupPage(profile) {
         container.style.display = '';
         container.innerHTML = '<p style="font-size:.75rem;color:#888;margin-bottom:.75rem;">Choose your favorite rewrite and submit it for review:</p>'
           + rewrites.map(function(rw, i) {
-            return '<div class="ai-rewrite-option" data-idx="' + i + '" onclick="psSelectRewrite(\'' + chronicleId + '\', this, ' + JSON.stringify(rewrites) + ', ' + i + ')">'
+            return '<div class="ai-rewrite-option" data-idx="' + i + '" data-chronicle-id="' + chronicleId + '" onclick="psSelectRewrite(this)">'
               + '<div class="ai-rewrite-label">' + vesc(rw.style_label || rw.style) + '</div>'
               + '<div class="ai-rewrite-text">' + vesc(rw.text || '') + '</div>'
               + '</div>';
@@ -4777,7 +4777,9 @@ function renderProfileSetupPage(profile) {
         if (container) { container.style.display = ''; showRewrites(c.id, c.rewrites, null); }
       };
 
-      window.psSelectRewrite = async function(chronicleId, el, rewrites, idx) {
+      window.psSelectRewrite = async function(el) {
+        var chronicleId = el.dataset.chronicleId;
+        var idx = parseInt(el.dataset.idx, 10);
         document.querySelectorAll('.ai-rewrite-option').forEach(function(o) { o.classList.remove('selected'); });
         el.classList.add('selected');
         try {
