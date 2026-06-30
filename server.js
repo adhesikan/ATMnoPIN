@@ -3979,6 +3979,8 @@ function renderAdminPage() {
     var visitData = [];
     var visitorsLoaded = false;
     var consentLoaded = false;
+    var visitPage = 1;
+    var VISIT_PAGE_SIZE = 50;
     function vesc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
     function showVisitorLog(html) {
       var el = document.getElementById('visitor-log');
@@ -3988,10 +3990,47 @@ function renderAdminPage() {
       var el = document.getElementById('consent-log');
       if (el) el.innerHTML = html;
     }
+    function renderVisitorPage() {
+      if (!visitData.length) {
+        showVisitorLog('<div class="notice">No page visits logged yet. Visits are recorded server-side after each page load.</div>');
+        return;
+      }
+      var totalPages = Math.ceil(visitData.length / VISIT_PAGE_SIZE);
+      if (visitPage < 1) visitPage = 1;
+      if (visitPage > totalPages) visitPage = totalPages;
+      var start = (visitPage - 1) * VISIT_PAGE_SIZE;
+      var slice = visitData.slice(start, start + VISIT_PAGE_SIZE);
+      var hdr = '<div style="display:grid;grid-template-columns:148px 110px 160px 90px 80px 70px 70px 1fr;gap:.5rem;padding:.4rem 0;border-bottom:1px solid #1a1a1a;font-size:.57rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green);">'
+        + '<span>Timestamp</span><span>IP</span><span>City, Region</span><span>Country</span><span>Browser</span><span>OS</span><span>Device</span><span>Page / Referrer</span></div>';
+      var rowsHtml = slice.map(function(v) {
+        var city   = (v.city   && v.city   !== 'unknown') ? v.city   : '';
+        var region = (v.region && v.region !== 'unknown') ? v.region : '';
+        var location = city && region ? city + ', ' + region : city || region || '\u2014';
+        var ip = v.ip || 'unknown';
+        var ipShort = ip.length > 20 ? ip.substring(0, 18) + '\u2026' : ip;
+        var ts = v.timestamp ? new Date(v.timestamp).toLocaleString() : '\u2014';
+        return '<div style="display:grid;grid-template-columns:148px 110px 160px 90px 80px 70px 70px 1fr;gap:.5rem;padding:.35rem 0;border-bottom:1px solid #111;font-size:.67rem;">'
+          + '<span style="color:#888;font-size:.6rem;">' + vesc(ts) + '</span>'
+          + '<span style="color:var(--gold);font-size:.6rem;word-break:break-all;" title="' + vesc(ip) + '">' + vesc(ipShort) + '</span>'
+          + '<span style="color:var(--offwhite);font-size:.65rem;">' + vesc(location) + '</span>'
+          + '<span style="color:var(--offwhite);font-size:.65rem;">' + vesc(v.country || '\u2014') + '</span>'
+          + '<span style="color:#888;">' + vesc(v.browser || '\u2014') + '</span>'
+          + '<span style="color:#888;">' + vesc(v.os || '\u2014') + '</span>'
+          + '<span style="color:#888;">' + vesc(v.device || '\u2014') + '</span>'
+          + '<span style="font-size:.6rem;color:#555;">' + vesc(v.page || '/') + ' \xb7 ' + vesc(v.referrer || 'direct') + '</span>'
+          + '</div>';
+      }).join('');
+      var pagination = '<div style="display:flex;align-items:center;gap:.75rem;margin-top:.75rem;font-size:.7rem;color:#888;">'
+        + '<button class="secondary" style="padding:.3rem .7rem;font-size:.7rem;" onclick="visitPage--;renderVisitorPage();" ' + (visitPage <= 1 ? 'disabled' : '') + '>\u2190 Prev</button>'
+        + '<span>Page <strong style="color:var(--offwhite);">' + visitPage + '</strong> of <strong style="color:var(--offwhite);">' + totalPages + '</strong> &nbsp;(\u2009' + visitData.length + ' total\u2009)</span>'
+        + '<button class="secondary" style="padding:.3rem .7rem;font-size:.7rem;" onclick="visitPage++;renderVisitorPage();" ' + (visitPage >= totalPages ? 'disabled' : '') + '>Next \u2192</button>'
+        + '</div>';
+      showVisitorLog('<div style="overflow-x:auto;">' + hdr + rowsHtml + '</div>' + pagination);
+    }
     async function loadVisitors() {
       visitorsLoaded = true;
+      visitPage = 1;
       showVisitorLog('<div class="notice">Loading visitor log...</div>');
-      showConsentLog('<div class="notice">Loading consent log...</div>');
       try {
         var r = await fetch('/api/admin/visitor-log');
         if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -4001,31 +4040,7 @@ function renderAdminPage() {
         document.getElementById('v-total').textContent = visitData.length;
         document.getElementById('v-countries').textContent = countries.size;
         document.getElementById('v-unique-ips').textContent = ips.size;
-        if (!visitData.length) {
-          showVisitorLog('<div class="notice">No page visits logged yet. Visits are recorded server-side after each page load.</div>');
-        } else {
-          var hdr = '<div style="display:grid;grid-template-columns:148px 110px 160px 90px 80px 70px 70px 1fr;gap:.5rem;padding:.4rem 0;border-bottom:1px solid #1a1a1a;font-size:.57rem;letter-spacing:.15em;text-transform:uppercase;color:var(--green);">'
-            + '<span>Timestamp</span><span>IP</span><span>City, Region</span><span>Country</span><span>Browser</span><span>OS</span><span>Device</span><span>Page / Referrer</span></div>';
-          var rowsHtml = visitData.map(function(v) {
-            var city   = (v.city   && v.city   !== 'unknown') ? v.city   : '';
-            var region = (v.region && v.region !== 'unknown') ? v.region : '';
-            var location = city && region ? city + ', ' + region : city || region || '\u2014';
-            var ip = v.ip || 'unknown';
-            var ipShort = ip.length > 20 ? ip.substring(0, 18) + '\u2026' : ip;
-            var ts = v.timestamp ? new Date(v.timestamp).toLocaleString() : '\u2014';
-            return '<div style="display:grid;grid-template-columns:148px 110px 160px 90px 80px 70px 70px 1fr;gap:.5rem;padding:.35rem 0;border-bottom:1px solid #111;font-size:.67rem;">'
-              + '<span style="color:#888;font-size:.6rem;">' + vesc(ts) + '</span>'
-              + '<span style="color:var(--gold);font-size:.6rem;word-break:break-all;" title="' + vesc(ip) + '">' + vesc(ipShort) + '</span>'
-              + '<span style="color:var(--offwhite);font-size:.65rem;">' + vesc(location) + '</span>'
-              + '<span style="color:var(--offwhite);font-size:.65rem;">' + vesc(v.country || '\u2014') + '</span>'
-              + '<span style="color:#888;">' + vesc(v.browser || '\u2014') + '</span>'
-              + '<span style="color:#888;">' + vesc(v.os || '\u2014') + '</span>'
-              + '<span style="color:#888;">' + vesc(v.device || '\u2014') + '</span>'
-              + '<span style="font-size:.6rem;color:#555;">' + vesc(v.page || '/') + ' \xb7 ' + vesc(v.referrer || 'direct') + '</span>'
-              + '</div>';
-          }).join('');
-          showVisitorLog('<div style="overflow-x:auto;">' + hdr + rowsHtml + '</div>');
-        }
+        renderVisitorPage();
       } catch(e) {
         showVisitorLog('<div class="notice" style="border-color:#5c1f1f;">Error loading visitor log: ' + vesc(e.message || String(e)) + '</div>');
       }
