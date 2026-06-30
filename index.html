@@ -545,6 +545,75 @@
     }
     .footer-logo { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 0.2em; color: var(--text-muted); }
 
+    /* ─── AI BADGE ─── */
+    .ai-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(0,200,83,.1);
+      border: 1px solid rgba(0,200,83,.35);
+      color: var(--green);
+      font-size: 0.57rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      padding: 0.28rem 0.75rem;
+      border-radius: 999px;
+      margin-bottom: 1rem;
+      width: fit-content;
+      opacity: 0;
+      animation: fadeUp 0.6s ease forwards 0.08s;
+    }
+
+    .hero-warning {
+      margin-top: 0.9rem;
+      font-size: 0.7rem;
+      color: var(--gold);
+      font-style: italic;
+      opacity: 0;
+      animation: fadeUp 0.7s ease forwards 0.62s;
+    }
+
+    /* ─── AI FEATURES SECTION ─── */
+    .ai-section {
+      padding: 5rem 2.5rem;
+      max-width: var(--max-w);
+      margin: 0 auto;
+    }
+    .ai-section-header { max-width: 52ch; margin-bottom: 2.5rem; }
+    .ai-feat-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 2.5rem;
+    }
+    .ai-feat-card {
+      background: #0c0c0c;
+      border: 1px solid #1c1c1c;
+      border-radius: 12px;
+      padding: 1.25rem 1rem;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .ai-feat-card:hover { border-color: rgba(0,200,83,.3); background: #0f0f0f; }
+    .ai-feat-icon { font-size: 1.3rem; margin-bottom: 0.6rem; }
+    .ai-feat-name { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--offwhite); margin-bottom: 0.35rem; font-weight: 500; }
+    .ai-feat-desc { font-size: 0.64rem; color: var(--gray); line-height: 1.6; }
+
+    .ai-engine-strip {
+      background: linear-gradient(135deg, #0a1a0f 0%, #061209 100%);
+      border: 1px solid rgba(0,200,83,.12);
+      border-radius: 14px;
+      padding: 1.5rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+    .ai-engine-label { font-size: 0.58rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--green); margin-bottom: 0.25rem; }
+    .ai-engine-copy { font-family: 'DM Serif Display', serif; font-size: clamp(1rem, 2vw, 1.3rem); color: var(--offwhite); line-height: 1.35; max-width: 48ch; }
+    .ai-engine-copy em { color: var(--gold); font-style: italic; }
+
     /* ─── RESPONSIVE ─── */
     @media (max-width: 980px) {
       nav { padding: 1rem 1.5rem; }
@@ -580,6 +649,9 @@
       .follow-section { grid-template-columns: 1fr; gap: 2rem; padding: 3rem 1.5rem; }
       footer { flex-direction: column; gap: 0.5rem; text-align: center; padding: 1.5rem; }
       .ticker-wrap { font-size: 0.62rem; }
+      .ai-feat-grid { grid-template-columns: repeat(2, 1fr); }
+      .ai-section { padding: 3rem 1.5rem; }
+      .ai-engine-strip { padding: 1.25rem 1.25rem; }
     }
   </style>
 </head>
@@ -589,18 +661,24 @@
   <div class="ticker-wrap">
     <div class="ticker-track">
       <span>🏧 ATM ONLINE — NO PIN REQUIRED</span>
+      <span>✨ NEW — AI POKER IDENTITY ENGINE</span>
       <span>♠ DHEZZ IS IN THE BUILDING</span>
       <span>💸 $2/$5 NLH — FOXWOODS &amp; BEYOND</span>
+      <span>🎭 GET YOUR AI-GENERATED POKER NICKNAME</span>
       <span>♦ EASY MONEY. JUST SIT DOWN.</span>
       <span>🃏 MAKING BAD DECISIONS SINCE FOREVER</span>
-      <span>♣ NEXT SESSION: FOLLOW ON SOCIAL</span>
+      <span>✦ AI MAY REVEAL YOU ARE ACTUALLY THE FISH</span>
+      <span>♣ SUBMIT YOUR STORY — GET FEATURED</span>
       <span>♥ PLEASE. TAKE MY CHIPS. I INSIST.</span>
       <span>🏧 ATM ONLINE — NO PIN REQUIRED</span>
+      <span>✨ NEW — AI POKER IDENTITY ENGINE</span>
       <span>♠ DHEZZ IS IN THE BUILDING</span>
       <span>💸 $2/$5 NLH — FOXWOODS &amp; BEYOND</span>
+      <span>🎭 GET YOUR AI-GENERATED POKER NICKNAME</span>
       <span>♦ EASY MONEY. JUST SIT DOWN.</span>
       <span>🃏 MAKING BAD DECISIONS SINCE FOREVER</span>
-      <span>♣ NEXT SESSION: FOLLOW ON SOCIAL</span>
+      <span>✦ AI MAY REVEAL YOU ARE ACTUALLY THE FISH</span>
+      <span>♣ SUBMIT YOUR STORY — GET FEATURED</span>
       <span>♥ PLEASE. TAKE MY CHIPS. I INSIST.</span>
     </div>
   </div>
@@ -620,7 +698,7 @@
         <li><a href="/shop.html">Shop</a></li>
         <li><a href="/inside-the-atm">Inside the ATM</a></li>
         <li><a href="https://www.youtube.com/@ATMNOPIN" target="_blank" rel="noopener">Videos</a></li>
-        <li><a href="#follow" class="nav-cta">Follow</a></li>
+        <li><a href="/ai-profile-generator" class="nav-cta">Get Featured</a></li>
       </ul>
     </nav>
   </div>
@@ -628,19 +706,21 @@
   <!-- HERO -->
   <section class="hero" id="home">
     <div class="hero-left">
+      <div class="ai-badge">✦ AI-Powered Player Profiles</div>
       <p class="eyebrow">Official poker entertainment brand of Dhezz</p>
       <div class="brand-mark">ATMwith<span>No</span>PIN™</div>
       <h1>
-        POKER IS<br>
-        <span class="italic">expensive.</span><br>
-        <span class="accent">Entertainment</span><br>
-        is free.
+        EVERY POKER<br>
+        PLAYER HAS<br>
+        <span class="italic">A Story.</span><br>
+        <span class="accent">AI</span> Helps Tell Yours.
       </h1>
-      <p class="hero-sub">Table stories, tournament results, and the occasional suspicious river call — live from the felt.</p>
+      <p class="hero-sub">Share a few details about your game, your habits, and your biggest poker moments. ATMwithNoPIN AI creates your unique poker profile, funny nickname, player Chronicle, table reputation, and Community Wall feature.</p>
+      <p class="hero-warning">⚠ Warning: AI may reveal that you are actually the fish.</p>
       <div class="hero-cta">
-        <a href="/blog" class="btn btn-primary">Read Latest Story</a>
-        <a href="https://www.youtube.com/@ATMNOPIN" target="_blank" rel="noopener" class="btn btn-ghost">Watch Videos</a>
-        <a href="#follow" class="btn btn-ghost">Follow the Journey</a>
+        <a href="/ai-profile-generator" class="btn btn-primary">Generate My Poker Profile</a>
+        <a href="/community-wall" class="btn btn-ghost">See Community Wall</a>
+        <a href="/blog" class="btn btn-ghost">Read Stories</a>
       </div>
     </div>
     <div class="hero-right" id="heroCommunityPanel">
@@ -665,6 +745,79 @@
     <div class="stat">
       <div class="stat-num">100%</div>
       <div class="stat-label">Good Vibes Guaranteed</div>
+    </div>
+  </div>
+
+  <!-- AI FEATURES SECTION -->
+  <div class="section-divider">
+    <div class="ai-section">
+      <div class="ai-section-header">
+        <p class="section-label">// AI Poker Identity Engine</p>
+        <h2>What ATMwithNoPIN <em>AI</em> Creates</h2>
+        <p class="body-text">Turn your poker habits, bad beats, table stories, and suspicious river calls into a shareable poker identity.</p>
+      </div>
+      <div class="ai-feat-grid">
+        <div class="ai-feat-card">
+          <div class="ai-feat-icon">🎭</div>
+          <div class="ai-feat-name">Funny Nickname</div>
+          <div class="ai-feat-desc">Table-earned. AI-certified. Finally official.</div>
+        </div>
+        <div class="ai-feat-card">
+          <div class="ai-feat-icon">📖</div>
+          <div class="ai-feat-name">Personalized Chronicle</div>
+          <div class="ai-feat-desc">Your poker story, rewritten in 5 dramatic styles. Pick your favorite.</div>
+        </div>
+        <div class="ai-feat-card">
+          <div class="ai-feat-icon">🧠</div>
+          <div class="ai-feat-name">Poker Personality</div>
+          <div class="ai-feat-desc">A full psychological workup powered by your bad beats and table habits.</div>
+        </div>
+        <div class="ai-feat-card">
+          <div class="ai-feat-icon">🎯</div>
+          <div class="ai-feat-name">Playing Style Analysis</div>
+          <div class="ai-feat-desc">Tight-aggressive or just scared money? AI will be honest.</div>
+        </div>
+        <div class="ai-feat-card">
+          <div class="ai-feat-icon">🗣️</div>
+          <div class="ai-feat-name">Table Reputation</div>
+          <div class="ai-feat-desc">What the table whispers when you sit down and order a water.</div>
+        </div>
+        <div class="ai-feat-card">
+          <div class="ai-feat-icon">🏛️</div>
+          <div class="ai-feat-name">Community Wall Profile</div>
+          <div class="ai-feat-desc">Your permanent seat in the ATMNOPIN™ universe. Welcome.</div>
+        </div>
+        <div class="ai-feat-card">
+          <div class="ai-feat-icon">👁️</div>
+          <div class="ai-feat-name">Signature Tell</div>
+          <div class="ai-feat-desc">AI spots what you're giving away. So does everyone else at the table.</div>
+        </div>
+        <div class="ai-feat-card">
+          <div class="ai-feat-icon">⚠️</div>
+          <div class="ai-feat-name">Threat Level</div>
+          <div class="ai-feat-desc">How dangerous you actually are. Rated 1-10. Spoiler: probably a 4.</div>
+        </div>
+        <div class="ai-feat-card">
+          <div class="ai-feat-icon">🏆</div>
+          <div class="ai-feat-name">Hall of Fame Potential</div>
+          <div class="ai-feat-desc">Bracelet contender or permanent fish? Only one way to find out.</div>
+        </div>
+        <div class="ai-feat-card">
+          <div class="ai-feat-icon">💬</div>
+          <div class="ai-feat-name">Best Table Quote</div>
+          <div class="ai-feat-desc">The one thing you always say at exactly the wrong moment.</div>
+        </div>
+      </div>
+      <div class="ai-engine-strip">
+        <div>
+          <div class="ai-engine-label">✦ AI Poker Identity Engine</div>
+          <p class="ai-engine-copy">Turn your poker habits, bad beats, and suspicious river calls into a <em>shareable poker identity.</em> Free. Funny. Probably accurate.</p>
+        </div>
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;flex-shrink:0;">
+          <a href="/ai-profile-generator" class="btn btn-primary" style="white-space:nowrap;">Generate My Poker Profile →</a>
+          <a href="/community-wall" class="btn btn-ghost" style="white-space:nowrap;">See Community Wall</a>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -725,7 +878,13 @@
     <footer>
       <div class="footer-logo">ATMNOPIN™</div>
       <div>ATMNOPIN™ is a poker entertainment brand operated by Sunfish Technologies LLC. All rights reserved.</div>
-      <div>atmwithnopin.com &mdash; Dhezz &mdash; $2/$5 NLH</div>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap;justify-content:center;">
+        <a href="/ai-profile-generator" style="color:var(--green);text-decoration:none;font-size:.62rem;letter-spacing:.1em;">✨ AI Poker Profile Generator</a>
+        <span style="color:#333;">·</span>
+        <a href="/community-wall" style="color:var(--gray);text-decoration:none;font-size:.62rem;letter-spacing:.1em;">Community Wall</a>
+        <span style="color:#333;">·</span>
+        <span>atmwithnopin.com &mdash; Dhezz &mdash; $2/$5 NLH</span>
+      </div>
     </footer>
   </div>
 

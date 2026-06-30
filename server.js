@@ -2730,8 +2730,8 @@ function computeCompletionScore(s) {
     [!!(s.city), 5],
     [!!(s.favorite_casino), 5],
     [!!(s.favorite_game), 5],
-    [!!(s.biggest_accomplishment), 10],
-    [!!(s.biggest_goal), 5],
+    [!!(s.biggest_accomplishment || s.playing_style || s.biggest_strength), 10],
+    [!!(s.biggest_goal || s.funniest_habit), 5],
     [!!(s.funny_story), 10],
     [!!(s.bad_beat_story), 10],
     [!!(s.social_link), 5],
@@ -4491,8 +4491,12 @@ function renderProfileSetupPage(profile) {
         <div class="ps-section-body open">
           <form class="ps-form" id="sectionBasic">
             <label>City / Hometown<input name="city" value="${escapeHtml(profile.city || '')}" maxlength="100" placeholder="Las Vegas, NV" /></label>
-            <label>Favorite Casino<input name="favorite_casino" value="${escapeHtml(profile.favorite_casino || '')}" maxlength="100" placeholder="Foxwoods, Horseshoe, Venetian..." /></label>
-            <label>Favorite Poker Game<input name="favorite_game" value="${escapeHtml(profile.favorite_game || '')}" maxlength="100" placeholder="$2/$5 NLH, PLO, Tournaments..." /></label>
+            <label>Home Poker Room<input name="favorite_casino" value="${escapeHtml(profile.favorite_casino || '')}" maxlength="100" placeholder="Foxwoods, Horseshoe, home game..." /></label>
+            <label>Favorite Game<input name="favorite_game" value="${escapeHtml(profile.favorite_game || '')}" maxlength="100" placeholder="$2/$5 NLH, PLO, Tournaments..." /></label>
+            <label>Playing Style<input name="playing_style" value="${escapeHtml(profile.playing_style || '')}" maxlength="100" placeholder="Tight-aggressive, calling station, maniac..." /></label>
+            <label>Biggest Strength<input name="biggest_strength" value="${escapeHtml(profile.biggest_strength || '')}" maxlength="200" placeholder="Reading players, patience, bluffing..." /></label>
+            <label>Biggest Weakness<input name="biggest_weakness" value="${escapeHtml(profile.biggest_weakness || '')}" maxlength="200" placeholder="Tilt, calling too much, can't fold..." /></label>
+            <label>Funniest Table Habit<input name="funniest_habit" value="${escapeHtml(profile.funniest_habit || '')}" maxlength="300" placeholder="Always says 'nice hand' when losing..." /></label>
             <label>Social Media Link<input name="social_link" type="url" value="${escapeHtml(profile.social_link || '')}" maxlength="300" placeholder="https://twitter.com/yourhandle" /></label>
             <div style="display:flex;align-items:center;margin-top:.4rem;">
               <button type="button" class="ps-save-btn" onclick="psAutoSave('sectionBasic',this)">Save</button>
@@ -4558,7 +4562,11 @@ function renderProfileSetupPage(profile) {
             <div class="ai-box-text">${escapeHtml(aiP.text)}</div>
             ${aiP.tagline ? `<div style="margin-top:.6rem;font-size:.72rem;color:var(--gold);font-style:italic;">"${escapeHtml(aiP.tagline)}"</div>` : ''}
             ${aiP.style ? `<div style="margin-top:.4rem;font-size:.65rem;color:#888;">Playing Style: ${escapeHtml(aiP.style)}</div>` : ''}
-            <div class="ai-disclaimer">✦ AI-generated content for entertainment purposes only. Appears publicly only after admin review.</div>
+            ${aiP.signature_tell ? `<div style="margin-top:.35rem;font-size:.65rem;color:#888;">Signature Tell: ${escapeHtml(aiP.signature_tell)}</div>` : ''}
+            ${aiP.threat_level ? `<div style="margin-top:.35rem;font-size:.65rem;color:var(--gold);">Threat Level: ${escapeHtml(aiP.threat_level)}</div>` : ''}
+            ${aiP.table_quote ? `<div style="margin-top:.35rem;font-size:.68rem;color:var(--offwhite);font-style:italic;">"${escapeHtml(aiP.table_quote)}"</div>` : ''}
+            ${aiP.hall_of_fame_potential ? `<div style="margin-top:.35rem;font-size:.65rem;color:#888;">Hall of Fame Potential: ${escapeHtml(aiP.hall_of_fame_potential)}</div>` : ''}
+            <div class="ai-disclaimer">✦ AI-generated for entertainment only. Appears publicly after admin review.</div>
           </div>` : ''}
           <div style="margin-top:.85rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;">
             <button class="ps-save-btn" id="aiGenBtn" onclick="psGenerateAI(this)">${aiP ? 'Regenerate Personality' : 'Generate My AI Poker Personality ✨'}</button>
@@ -4737,7 +4745,11 @@ function renderProfileSetupPage(profile) {
             + '<div class="ai-box-text">' + vesc(d.text || '') + '</div>'
             + (d.tagline ? '<div style="margin-top:.6rem;font-size:.72rem;color:var(--gold);font-style:italic;">"' + vesc(d.tagline) + '"</div>' : '')
             + (d.style ? '<div style="margin-top:.4rem;font-size:.65rem;color:#888;">Playing Style: ' + vesc(d.style) + '</div>' : '')
-            + '<div class="ai-disclaimer">✦ AI-generated content for entertainment purposes only. Appears publicly only after admin review.</div>';
+            + (d.signature_tell ? '<div style="margin-top:.35rem;font-size:.65rem;color:#888;">Signature Tell: ' + vesc(d.signature_tell) + '</div>' : '')
+            + (d.threat_level ? '<div style="margin-top:.35rem;font-size:.65rem;color:var(--gold);">Threat Level: ' + vesc(d.threat_level) + '</div>' : '')
+            + (d.table_quote ? '<div style="margin-top:.35rem;font-size:.68rem;color:var(--offwhite);font-style:italic;">"' + vesc(d.table_quote) + '"</div>' : '')
+            + (d.hall_of_fame_potential ? '<div style="margin-top:.35rem;font-size:.65rem;color:#888;">Hall of Fame Potential: ' + vesc(d.hall_of_fame_potential) + '</div>' : '')
+            + '<div class="ai-disclaimer">✦ AI-generated for entertainment only. Appears publicly after admin review.</div>';
           btn.textContent = 'Regenerate Personality';
         } catch(e) {
           btn.textContent = origText;
@@ -4901,7 +4913,12 @@ function renderTradingCardPage(player) {
             ${player.favorite_casino ? `<div class="tc-stat"><span class="tc-stat-label">Casino</span>${escapeHtml(player.favorite_casino)}</div>` : ''}
             ${player.points ? `<div class="tc-stat"><span class="tc-stat-label">Points</span><span class="tc-points">${player.points}</span></div>` : ''}
           </div>
+          ${(aiP && aiP.status === 'approved' && (aiP.threat_level || aiP.signature_tell)) ? `<div class="tc-stat-row">
+            ${aiP.threat_level ? `<div class="tc-stat"><span class="tc-stat-label">Threat Level</span><span style="color:var(--gold);">${escapeHtml(aiP.threat_level)}</span></div>` : ''}
+            ${aiP.signature_tell ? `<div class="tc-stat"><span class="tc-stat-label">Tell</span>${escapeHtml(aiP.signature_tell)}</div>` : ''}
+          </div>` : ''}
           ${tagline ? `<div class="tc-tagline">"${escapeHtml(tagline)}"</div>` : ''}
+          ${(aiP && aiP.status === 'approved' && aiP.hall_of_fame_potential) ? `<div style="font-size:.6rem;color:#888;margin-bottom:.4rem;padding:0 .1rem;">🏆 HoF Potential: ${escapeHtml(aiP.hall_of_fame_potential)}</div>` : ''}
           ${topBadges.length ? `<div class="tc-badges">${topBadges.map((b) => `<span class="tc-badge" style="${badgeStyle(b)}">${escapeHtml(b)}</span>`).join('')}</div>` : ''}
         </div>
         <div class="tc-bottom">
@@ -5118,8 +5135,14 @@ function renderPlayerProfilePage(player, allPlayers) {
         ${approvedAI ? `<div class="pp-section"><p class="pp-section-label">✨ AI Poker Personality</p><div class="pp-ai-box">
           ${approvedAI.tagline ? `<p class="pp-ai-tagline">"${escapeHtml(approvedAI.tagline)}"</p>` : ''}
           ${approvedAI.text ? `<p class="pp-ai-text">${escapeHtml(approvedAI.text)}</p>` : ''}
-          ${approvedAI.style ? `<p style="font-size:.65rem;color:#888;margin-top:.4rem;">Playing Style: ${escapeHtml(approvedAI.style)}</p>` : ''}
-          <p class="pp-ai-disclaimer">✦ AI-generated content for entertainment purposes only.</p>
+          ${(approvedAI.style || approvedAI.signature_tell || approvedAI.threat_level || approvedAI.table_quote || approvedAI.hall_of_fame_potential) ? `<table style="width:100%;border-collapse:collapse;margin-top:.75rem;font-size:.7rem;">
+            ${approvedAI.style ? `<tr><td style="color:#888;padding:.2rem .6rem .2rem 0;width:40%;">Playing Style</td><td style="color:var(--offwhite);">${escapeHtml(approvedAI.style)}</td></tr>` : ''}
+            ${approvedAI.signature_tell ? `<tr><td style="color:#888;padding:.2rem .6rem .2rem 0;">Signature Tell</td><td style="color:var(--offwhite);">${escapeHtml(approvedAI.signature_tell)}</td></tr>` : ''}
+            ${approvedAI.threat_level ? `<tr><td style="color:#888;padding:.2rem .6rem .2rem 0;">Threat Level</td><td style="color:var(--gold);">${escapeHtml(approvedAI.threat_level)}</td></tr>` : ''}
+            ${approvedAI.hall_of_fame_potential ? `<tr><td style="color:#888;padding:.2rem .6rem .2rem 0;">HoF Potential</td><td style="color:var(--offwhite);">${escapeHtml(approvedAI.hall_of_fame_potential)}</td></tr>` : ''}
+          </table>` : ''}
+          ${approvedAI.table_quote ? `<p style="font-size:.75rem;color:var(--gold);font-style:italic;margin-top:.6rem;border-left:2px solid var(--gold);padding-left:.75rem;">"${escapeHtml(approvedAI.table_quote)}"</p>` : ''}
+          <p class="pp-ai-disclaimer">✦ AI-generated for entertainment only.</p>
         </div></div>` : ''}
         ${player.bio ? `<div class="pp-section"><p class="pp-section-label">About</p><p class="body-text">${escapeHtml(player.bio)}</p></div>` : ''}
         ${(player.specialty || player.tell || player.threat_level) ? `<div class="pp-section"><p class="pp-section-label">Player Profile</p><table class="crew-stats-table"><tbody>
@@ -5155,6 +5178,138 @@ function renderPlayerProfilePage(player, allPlayers) {
         <div style="margin-top:1rem;"><a href="/community-wall" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View All Players →</a></div>
       </aside>` : ''}
     </section>`);
+}
+
+function renderAIProfileGeneratorPage(error) {
+  return renderLayout('AI Poker Profile Generator | ATMwithNoPIN', `
+    <meta name="description" content="Create a funny AI-generated poker profile, nickname, Chronicle, and Community Wall entry with ATMwithNoPIN." />
+    <style>
+      .aipg-hero{background:linear-gradient(160deg,#071a0d 0%,#0a0a0a 55%);border-bottom:1px solid rgba(0,200,83,.1);padding:4rem 2.5rem 3rem;text-align:center;}
+      .aipg-badge{display:inline-flex;align-items:center;gap:.4rem;background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.35);color:var(--green);font-size:.58rem;letter-spacing:.22em;text-transform:uppercase;padding:.28rem .8rem;border-radius:999px;margin-bottom:1.1rem;}
+      .aipg-h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.4rem,5vw,4rem);letter-spacing:.04em;color:var(--offwhite);line-height:1.05;margin-bottom:.75rem;}
+      .aipg-h1 span{color:var(--green);}
+      .aipg-sub{font-size:.82rem;line-height:1.85;color:#b0a898;max-width:58ch;margin:0 auto .75rem;}
+      .aipg-warning{font-size:.72rem;color:var(--gold);font-style:italic;margin-top:.25rem;}
+      .aipg-features{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin-top:1.25rem;}
+      .aipg-feat-pill{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;padding:.2rem .65rem;border:1px solid #222;border-radius:999px;color:#888;}
+      .aipg-form-wrap{max-width:720px;margin:2rem auto;padding:0 1.5rem;}
+      .aipg-section-hdr{font-size:.6rem;text-transform:uppercase;letter-spacing:.2em;color:var(--green);padding:.5rem 0 .3rem;border-bottom:1px solid #1a1a1a;margin:1.25rem 0 .5rem;}
+      .aipg-form label{display:grid;gap:.3rem;font-size:.72rem;color:var(--gray);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.6rem;}
+      .aipg-form input,.aipg-form textarea,.aipg-form select{width:100%;border:1px solid #242424;background:#121212;color:var(--offwhite);padding:.75rem .9rem;border-radius:10px;font:inherit;}
+      .aipg-form textarea{min-height:90px;resize:vertical;}
+      .aipg-opt{font-size:.6rem;text-transform:none;letter-spacing:0;color:#555;margin-left:.3rem;font-style:italic;}
+      .aipg-req{color:var(--green);margin-left:.15rem;}
+      .aipg-consent{display:flex;align-items:flex-start;gap:.6rem;padding:.75rem;border:1px solid #1e3a28;background:#0c1a10;border-radius:10px;margin-bottom:1rem;}
+      .aipg-consent input{width:auto;flex-shrink:0;margin-top:.2rem;}
+      .aipg-consent label{text-transform:none;letter-spacing:0;font-size:.8rem;color:var(--offwhite);cursor:pointer;}
+      .aipg-submit{width:100%;padding:1rem;font-size:.82rem;letter-spacing:.18em;background:var(--green);border:none;color:#000;border-radius:10px;cursor:pointer;font-weight:700;text-transform:uppercase;transition:opacity .2s;font-family:'DM Mono',monospace;}
+      .aipg-submit:hover{opacity:.9;}
+      .aipg-submit:disabled{opacity:.5;cursor:not-allowed;}
+      .hp-field{position:absolute;left:-9999px;opacity:0;pointer-events:none;}
+      .aipg-disclaimer{font-size:.65rem;color:#555;text-align:center;margin-top:.75rem;font-style:italic;}
+    </style>
+    <div class="aipg-hero">
+      <div class="aipg-badge">✦ AI Poker Identity Engine</div>
+      <h1 class="aipg-h1">Generate Your <span>Poker Profile</span></h1>
+      <p class="aipg-sub">Tell us about your poker style, favorite game, home poker room, biggest bad beat, funniest table habit, and one story your poker friends still bring up. ATMwithNoPIN AI will turn it into your personalized poker identity.</p>
+      <p class="aipg-warning">⚠ Warning: AI may reveal that you are actually the fish.</p>
+      <div class="aipg-features">
+        <span class="aipg-feat-pill">Funny Nickname</span>
+        <span class="aipg-feat-pill">Poker Personality</span>
+        <span class="aipg-feat-pill">Chronicle Draft</span>
+        <span class="aipg-feat-pill">Playing Style</span>
+        <span class="aipg-feat-pill">Signature Tell</span>
+        <span class="aipg-feat-pill">Threat Level</span>
+        <span class="aipg-feat-pill">Community Wall</span>
+        <span class="aipg-feat-pill">Trading Card</span>
+      </div>
+    </div>
+    <div class="aipg-form-wrap">
+      ${error ? `<div class="notice" style="border-color:#5c1f1f;margin-bottom:1rem;">${escapeHtml(error)}</div>` : ''}
+      <div class="card" style="padding:1.75rem;">
+        <p class="small" style="color:#555;margin-bottom:1.25rem;"><span style="color:var(--green);">*</span> Required &nbsp;·&nbsp; All other fields make your AI profile more accurate and more entertaining.</p>
+        <form id="aipgForm" class="aipg-form form-grid" enctype="multipart/form-data">
+          <input class="hp-field" type="text" name="hp_url" tabindex="-1" autocomplete="off" aria-hidden="true" />
+
+          <div class="aipg-section-hdr">About You</div>
+          <label>Full Name <span class="aipg-req">*</span><input name="name" type="text" required maxlength="100" placeholder="Your real name" /></label>
+          <label>Email <span class="aipg-req">*</span><input name="email" type="email" required maxlength="200" placeholder="you@example.com" /></label>
+          <label>Poker Nickname <span class="aipg-opt">(optional — or let AI invent one)</span><input name="nickname" type="text" maxlength="80" placeholder="What they call you at the table" /></label>
+          <label>City / Hometown <span class="aipg-opt">(optional)</span><input name="city" type="text" maxlength="100" placeholder="Las Vegas, NV" /></label>
+
+          <div class="aipg-section-hdr">Your Game</div>
+          <label>Home Poker Room <span class="aipg-opt">(optional)</span><input name="favorite_casino" type="text" maxlength="100" placeholder="Foxwoods, Horseshoe, home game..." /></label>
+          <label>Favorite Game <span class="aipg-opt">(optional)</span><input name="favorite_game" type="text" maxlength="100" placeholder="$2/$5 NLH, PLO, tournaments..." /></label>
+          <label>Playing Style <span class="aipg-opt">(optional)</span><input name="playing_style" type="text" maxlength="100" placeholder="Tight-aggressive, calling station, maniac..." /></label>
+          <label>Biggest Poker Strength <span class="aipg-opt">(optional — in your own words)</span><input name="biggest_strength" type="text" maxlength="200" placeholder="Reading players, patience, bluffing..." /></label>
+          <label>Biggest Poker Weakness <span class="aipg-opt">(optional — be honest, AI will find out anyway)</span><input name="biggest_weakness" type="text" maxlength="200" placeholder="Tilt, calling too much, can't fold..." /></label>
+          <label>Funniest Table Habit <span class="aipg-opt">(optional)</span><input name="funniest_habit" type="text" maxlength="300" placeholder="Always says 'nice hand' when I lose..." /></label>
+          <label>How Do Your Friends Describe You? <span class="aipg-opt">(optional)</span>
+            <select name="friends_opinion">
+              <option value="">— Select one —</option>
+              <option value="Tight and disciplined">Tight and disciplined</option>
+              <option value="Loose and aggressive">Loose and aggressive</option>
+              <option value="Calling station">Calling station</option>
+              <option value="The fish (lovingly)">The fish (lovingly)</option>
+              <option value="A maniac">A maniac</option>
+              <option value="Solid but predictable">Solid but predictable</option>
+              <option value="Unpredictable">Unpredictable — nobody knows</option>
+            </select>
+          </label>
+
+          <div class="aipg-section-hdr">Your Stories</div>
+          <label>Biggest Poker Accomplishment <span class="aipg-opt">(optional)</span><textarea name="biggest_accomplishment" maxlength="800" placeholder="Final tabled the WSOP Main, won a home game once..."></textarea></label>
+          <label>Biggest Poker Goal <span class="aipg-opt">(optional)</span><input name="biggest_goal" type="text" maxlength="400" placeholder="Win a bracelet, grind to a million..." /></label>
+          <label>Funniest Poker Story <span class="aipg-opt">(optional — becomes your AI Chronicle)</span><textarea name="funny_story" maxlength="2000" placeholder="The story your poker friends still bring up..."></textarea></label>
+          <label>Worst Bad Beat <span class="aipg-opt">(optional)</span><textarea name="bad_beat_story" maxlength="2000" placeholder="Aces cracked. Again."></textarea></label>
+
+          <div class="aipg-section-hdr">Social &amp; Photo</div>
+          <label>Social Handle <span class="aipg-opt">(optional — X, TikTok, Instagram)</span><input name="social_link" type="url" maxlength="300" placeholder="https://twitter.com/yourhandle" /></label>
+          <label>Profile Photo <span class="aipg-opt">(optional — JPG/PNG/WEBP, max 5MB. Unlocks Poker Trading Card.)</span><input name="photo" type="file" accept="image/jpeg,image/png,image/webp" /></label>
+
+          <div class="aipg-consent">
+            <input name="permission" type="checkbox" id="aipgPerm" required />
+            <label for="aipgPerm">I understand this information may be used to generate a funny poker profile, Chronicle draft, and Community Wall entry. I will review and approve before anything is published. I give ATMNOPIN™ permission to feature my name and stories on their website. <span style="color:var(--green);">*</span></label>
+          </div>
+
+          <button class="aipg-submit" type="submit" id="aipgSubmitBtn">Generate My Poker Profile ✨</button>
+          <div class="notice" id="aipgStatus" style="display:none;margin-top:.75rem;"></div>
+          <p class="aipg-disclaimer">Profiles are generated for entertainment and may be exaggerated for comedic effect. Content requires admin review before appearing publicly.</p>
+        </form>
+      </div>
+    </div>
+    <script>
+    (function() {
+      var form = document.getElementById('aipgForm');
+      var statusEl = document.getElementById('aipgStatus');
+      var submitBtn = document.getElementById('aipgSubmitBtn');
+      if (!form) return;
+      form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting...'; }
+        statusEl.style.display = '';
+        statusEl.style.borderColor = '#1e1e1e';
+        statusEl.textContent = 'Submitting your info...';
+        try {
+          var fd = new FormData(form);
+          var res = await fetch('/request-feature', { method: 'POST', body: fd });
+          var data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Submission failed.');
+          statusEl.textContent = data.message || 'Submitted! Generating your poker profile...';
+          statusEl.style.borderColor = '#1f5c31';
+          form.style.opacity = '.5';
+          form.style.pointerEvents = 'none';
+          if (data.profile_url) {
+            setTimeout(function() { window.location.href = data.profile_url; }, 1000);
+          }
+        } catch(err) {
+          statusEl.textContent = err.message;
+          statusEl.style.borderColor = '#5c1f1f';
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Generate My Poker Profile ✨'; }
+        }
+      });
+    })();
+    </script>`);
 }
 
 function renderRequestFeaturePage(error) {
@@ -6015,6 +6170,13 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (pathname === '/ai-profile-generator' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderAIProfileGeneratorPage());
+    logPageVisit(req, pathname);
+    return;
+  }
+
   if (pathname === '/request-feature' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderRequestFeaturePage());
@@ -6071,7 +6233,7 @@ const server = http.createServer(async (req, res) => {
     if (idx === -1) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found.' })); return; }
     try {
       const body = await parseJsonBody(req);
-      const allowed = ['city', 'favorite_casino', 'favorite_game', 'social_link', 'biggest_accomplishment', 'biggest_goal', 'funny_story', 'bad_beat_story', 'nickname'];
+      const allowed = ['city', 'favorite_casino', 'favorite_game', 'social_link', 'biggest_accomplishment', 'biggest_goal', 'funny_story', 'bad_beat_story', 'nickname', 'playing_style', 'biggest_strength', 'biggest_weakness', 'funniest_habit', 'friends_opinion'];
       const updated = { ...all[idx] };
       for (const key of allowed) {
         if (body[key] !== undefined) updated[key] = String(body[key] || '').trim().slice(0, key.includes('story') ? 2000 : 400);
@@ -6139,13 +6301,18 @@ const server = http.createServer(async (req, res) => {
         p.city ? `Hometown: ${p.city}` : '',
         p.favorite_casino ? `Favorite Casino: ${p.favorite_casino}` : '',
         p.favorite_game ? `Favorite Game: ${p.favorite_game}` : '',
+        p.playing_style ? `Self-described Playing Style: ${p.playing_style}` : '',
+        p.biggest_strength ? `Self-described Strength: ${p.biggest_strength}` : '',
+        p.biggest_weakness ? `Self-described Weakness: ${p.biggest_weakness}` : '',
+        p.funniest_habit ? `Funniest Table Habit: ${p.funniest_habit}` : '',
+        p.friends_opinion ? `Friends describe them as: ${p.friends_opinion}` : '',
         p.biggest_accomplishment ? `Biggest Accomplishment: ${p.biggest_accomplishment.slice(0, 300)}` : '',
         p.biggest_goal ? `Biggest Goal: ${p.biggest_goal.slice(0, 200)}` : '',
         p.funny_story ? `Funny Story: ${p.funny_story.slice(0, 300)}` : '',
         p.bad_beat_story ? `Bad Beat: ${p.bad_beat_story.slice(0, 300)}` : '',
       ].filter(Boolean).join('\n');
-      const systemPrompt = `You are a poker entertainment writer for ATMNOPIN™, a poker content brand with a funny, irreverent, Foxwoods-table-banter style. Write a poker personality summary for this player. Be playful, clever, and a little roast-y but never mean. Output JSON with these fields: text (2-3 paragraph poker personality bio, 150-250 words), tagline (one punchy one-liner shareable quote, under 20 words), style (one phrase describing their poker playing style), strengths (array of 2-3 funny strengths), weaknesses (array of 2-3 funny weaknesses), suggested_nickname (funny poker nickname if they don't have one already, else null), suggested_badges (array of 1-3 badge names from this list: ${PLAYER_BADGES.join(', ')}).`;
-      const raw = await callOpenAI(systemPrompt, context, 700, true);
+      const systemPrompt = `You are a poker entertainment writer for ATMNOPIN™, a funny, irreverent poker content brand in the style of Foxwoods table banter. Write a poker identity profile for this player. Be playful, clever, and roast-y but never mean. Profiles are for entertainment only. Output JSON with EXACTLY these fields: text (2-3 paragraph poker personality bio, 150-250 words), tagline (one punchy shareable one-liner, under 20 words), style (one concise phrase for their playing style), strengths (array of 2-3 funny strengths), weaknesses (array of 2-3 funny weaknesses), suggested_nickname (a funny poker nickname if they don't have one already, else null), suggested_badges (array of 1-3 badge names from: ${PLAYER_BADGES.join(', ')}), signature_tell (their most obvious poker tell in under 15 words, funny), threat_level (a string like "6/10 — Will fold to any three-barrel"), table_quote (the one thing they probably say too much at the table, in quotes, under 15 words), hall_of_fame_potential (a short funny phrase, e.g. "Likely — if the Hall counts bad-beat storytellers").`;
+      const raw = await callOpenAI(systemPrompt, context, 900, true);
       const parsed = JSON.parse(raw);
       const aiP = {
         text: String(parsed.text || '').slice(0, 1500),
@@ -6155,6 +6322,10 @@ const server = http.createServer(async (req, res) => {
         weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses.slice(0, 3).map((s) => String(s).slice(0, 80)) : [],
         suggested_nickname: parsed.suggested_nickname ? String(parsed.suggested_nickname).slice(0, 60) : null,
         suggested_badges: Array.isArray(parsed.suggested_badges) ? parsed.suggested_badges.filter((b) => PLAYER_BADGES.includes(b)).slice(0, 3) : [],
+        signature_tell: parsed.signature_tell ? String(parsed.signature_tell).slice(0, 120) : null,
+        threat_level: parsed.threat_level ? String(parsed.threat_level).slice(0, 80) : null,
+        table_quote: parsed.table_quote ? String(parsed.table_quote).slice(0, 120) : null,
+        hall_of_fame_potential: parsed.hall_of_fame_potential ? String(parsed.hall_of_fame_potential).slice(0, 120) : null,
         status: 'pending_review',
         generated_at: new Date().toISOString(),
       };
@@ -6327,6 +6498,11 @@ const server = http.createServer(async (req, res) => {
         city: String(f.city || '').trim(),
         favorite_casino: String(f.favorite_casino || '').trim(),
         favorite_game: String(f.favorite_game || '').trim(),
+        playing_style: String(f.playing_style || '').trim().slice(0, 100),
+        biggest_strength: String(f.biggest_strength || '').trim().slice(0, 200),
+        biggest_weakness: String(f.biggest_weakness || '').trim().slice(0, 200),
+        funniest_habit: String(f.funniest_habit || '').trim().slice(0, 300),
+        friends_opinion: String(f.friends_opinion || '').trim().slice(0, 100),
         biggest_accomplishment: String(f.biggest_accomplishment || '').trim().slice(0, 800),
         biggest_goal: String(f.biggest_goal || '').trim().slice(0, 400),
         funny_story: String(f.funny_story || '').trim().slice(0, 2000),
