@@ -54,7 +54,11 @@ const sessions = new Map();
 const pgPool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
   ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
+  max: 10,
 }) : null;
+if (pgPool) pgPool.on('error', (err) => console.error('pg pool error:', err.message));
 const sqliteDb = !DATABASE_URL ? new Database(SQLITE_DB_FILE) : null;
 
 async function initializeDatabase() {
