@@ -3732,7 +3732,7 @@ function renderAdminPage() {
           <button class="secondary" data-subfilter="approved" id="sfApproved">Approved</button>
           <button class="secondary" data-subfilter="rejected" id="sfRejected">Rejected</button>
         </div>
-        <div id="subList" class="form-grid"><div class="notice">Loading...</div></div>
+        <div id="subList" class="form-grid"></div>
       </article>
     </section>
     <style>
@@ -3760,9 +3760,12 @@ function renderAdminPage() {
     var ALL_BADGES = ${JSON.stringify(PLAYER_BADGES)};
     async function loadSubList() {
       subsLoaded = true;
-      document.getElementById('subList').innerHTML = '<div class="notice">Loading...</div>';
+      var el = document.getElementById('subList');
+      el.innerHTML = '<div class="notice">Loading submissions…</div>';
       try {
-        var r = await fetch('/api/admin/submissions', { signal: AbortSignal.timeout(12000) });
+        var fetchPromise = fetch('/api/admin/submissions');
+        var timeoutPromise = new Promise(function(_, reject) { setTimeout(function() { reject(new Error('Request timed out — server took longer than 15s')); }, 15000); });
+        var r = await Promise.race([fetchPromise, timeoutPromise]);
         if (!r.ok) {
           var errBody = await r.json().catch(function() { return {}; });
           throw new Error(errBody.error || ('HTTP ' + r.status + ' — ' + r.statusText));
@@ -3777,7 +3780,7 @@ function renderAdminPage() {
         var tabBtn = document.querySelector('[data-panel="communityPanel"]');
         if (tabBtn) tabBtn.textContent = needsAction ? 'Community (' + needsAction + ')' : 'Community';
       } catch(e) {
-        document.getElementById('subList').innerHTML = '<div class="notice" style="border-color:#5c1f1f;">Error loading submissions: ' + vescSub(e.message || String(e)) + '</div>';
+        try { document.getElementById('subList').innerHTML = '<div class="notice" style="border-color:#5c1f1f;">Error: ' + vescSub(String(e.message || e)) + '</div>'; } catch(_) {}
       }
     }
     function vescSub(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -3944,7 +3947,6 @@ function renderAdminPage() {
       if (el) el.addEventListener('click', function() { subFilter = btnId.replace('sf','').toLowerCase(); renderSubList(); });
     });
     document.getElementById('sfRefresh').addEventListener('click', function() { subsLoaded = false; loadSubList(); });
-    loadSubList();
     </script>
     </div><!-- end communityPanel -->
     <script>
@@ -3957,7 +3959,7 @@ function renderAdminPage() {
           document.getElementById('communityPanel').style.display = btn.dataset.panel === 'communityPanel' ? '' : 'none';
           document.getElementById('visitorsPanel').style.display = btn.dataset.panel === 'visitorsPanel' ? '' : 'none';
           document.getElementById('consentPanel').style.display = btn.dataset.panel === 'consentPanel' ? '' : 'none';
-          if (btn.dataset.panel === 'communityPanel' && !subsLoaded) { loadSubList(); }
+          if (btn.dataset.panel === 'communityPanel') { subsLoaded = false; loadSubList(); }
           if (btn.dataset.panel === 'visitorsPanel' && !visitorsLoaded) { loadVisitors(); }
           if (btn.dataset.panel === 'consentPanel' && !consentLoaded) { loadConsent(); }
         });
@@ -5806,7 +5808,7 @@ const server = http.createServer(async (req, res) => {
     }
 
   if (pathname === '/admin' && adminSession) {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
     res.end(renderAdminPage());
     return;
   }
@@ -6564,13 +6566,16 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname === '/api/admin/submissions' && req.method === 'GET') {
     try {
-      const all = await loadSubmissions();
+      console.log('[submissions] loading from DB...');
+      const timeoutP = new Promise((_, reject) => setTimeout(() => reject(new Error('DB query timed out after 8s')), 8000));
+      const all = await Promise.race([loadSubmissions(), timeoutP]);
+      console.log('[submissions] loaded', all.length, 'records');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(all));
     } catch (err) {
-      console.error('loadSubmissions error:', err);
+      console.error('[submissions] error:', err.message);
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Failed to load submissions: ' + (err.message || String(err)) }));
+      res.end(JSON.stringify({ error: err.message || String(err) }));
     }
     return;
   }
