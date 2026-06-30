@@ -4666,16 +4666,17 @@ function renderProfileSetupPage(profile) {
       };
 
       window.psGenerateAI = async function(btn) {
+        var origText = btn.textContent;
         btn.disabled = true; btn.textContent = 'Generating...';
         var msgEl = document.getElementById('aiGenMsg');
-        msgEl.textContent = ''; msgEl.classList.remove('show');
+        var errBox = document.getElementById('aiErrBox');
+        if (msgEl) { msgEl.textContent = ''; msgEl.classList.remove('show'); }
+        if (errBox) errBox.style.display = 'none';
         try {
           var r = await fetch('/api/profile/' + TOKEN + '/ai-personality', { method: 'POST' });
           var d = await r.json();
           if (!r.ok) throw new Error(d.error || 'Generation failed');
-          msgEl.textContent = 'Generated! Pending admin review.';
-          msgEl.style.color = 'var(--green)';
-          msgEl.classList.add('show');
+          if (msgEl) { msgEl.textContent = 'Generated! Pending admin review.'; msgEl.style.color = 'var(--green)'; msgEl.classList.add('show'); }
           var box = document.querySelector('.ai-box');
           if (!box) {
             box = document.createElement('div');
@@ -4689,9 +4690,16 @@ function renderProfileSetupPage(profile) {
             + '<div class="ai-disclaimer">✦ AI-generated content for entertainment purposes only. Appears publicly only after admin review.</div>';
           btn.textContent = 'Regenerate Personality';
         } catch(e) {
-          msgEl.textContent = e.message;
-          msgEl.style.color = '#ff6666';
-          msgEl.classList.add('show');
+          btn.textContent = origText;
+          var msg = e.message || 'Generation failed. Please try again.';
+          if (!errBox) {
+            errBox = document.createElement('div');
+            errBox.id = 'aiErrBox';
+            errBox.style.cssText = 'margin-top:.6rem;padding:.6rem .9rem;border:1px solid #5c1f1f;border-radius:8px;background:#1a0808;color:#ff8080;font-size:.75rem;line-height:1.5;';
+            btn.parentNode.appendChild(errBox);
+          }
+          errBox.style.display = '';
+          errBox.textContent = msg;
         }
         btn.disabled = false;
       };
