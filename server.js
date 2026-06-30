@@ -4031,7 +4031,7 @@ function renderAdminPage() {
         return [v.timestamp||'', v.ip||'', v.city||'', v.region||'', v.country||'', v.org||'',
                 v.browser||'', v.os||'', v.device||'', v.page||'', v.referrer||'', v.latitude||'', v.longitude||''];
       }));
-      var csv = rows.map(function(r) { return r.map(function(c) { return '"' + String(c || '').replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+      var csv = rows.map(function(r) { return r.map(function(c) { return '"' + String(c || '').replace(/"/g, '""') + '"'; }).join(','); }).join('\\n');
       var a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
       a.download = 'atm-visitors-' + new Date().toISOString().split('T')[0] + '.csv';
