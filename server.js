@@ -3758,7 +3758,7 @@ function renderAdminPage() {
       subsLoaded = true;
       document.getElementById('subList').innerHTML = '<div class="notice">Loading...</div>';
       try {
-        var r = await fetch('/api/admin/submissions');
+        var r = await fetch('/api/admin/submissions', { signal: AbortSignal.timeout(12000) });
         if (!r.ok) {
           var errBody = await r.json().catch(function() { return {}; });
           throw new Error(errBody.error || ('HTTP ' + r.status + ' — ' + r.statusText));
@@ -6532,6 +6532,28 @@ const server = http.createServer(async (req, res) => {
       console.error('loadVisitorLog error:', err);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Failed to load visitor log: ' + (err.message || String(err)) }));
+    }
+    return;
+  }
+
+  if (pathname === '/api/admin/db-ping' && req.method === 'GET') {
+    const result = { sqlite: !!sqliteDb, pg: !!pgPool, tables: {} };
+    try {
+      if (pgPool) {
+        const t1 = await pgPool.query("SELECT to_regclass('public.player_submissions') AS exists");
+        result.tables.player_submissions = t1.rows[0]?.exists ?? null;
+        const t2 = await pgPool.query("SELECT to_regclass('public.blog_posts') AS exists");
+        result.tables.blog_posts = t2.rows[0]?.exists ?? null;
+      }
+      if (sqliteDb) {
+        const r = sqliteDb.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
+        result.tables = Object.fromEntries(r.map(row => [row.name, row.name]));
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
     }
     return;
   }
