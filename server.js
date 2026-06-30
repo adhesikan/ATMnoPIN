@@ -3753,6 +3753,13 @@ function renderAdminPage() {
       var res = await fetch('/api/admin/submissions');
       allSubs = await res.json();
       renderSubList();
+      var needsAction = allSubs.filter(function(s) {
+        return (s.submitted_for_review && s.status !== 'approved')
+          || (s.ai_personality && s.ai_personality.status === 'pending_review')
+          || (Array.isArray(s.ai_chronicles) && s.ai_chronicles.some(function(c) { return c.status === 'pending_review'; }));
+      }).length;
+      var tabBtn = document.querySelector('[data-panel="communityPanel"]');
+      if (tabBtn && needsAction) tabBtn.textContent = 'Community (' + needsAction + ')';
     }
     function vescSub(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
     function renderSubList() {
@@ -3850,6 +3857,16 @@ function renderAdminPage() {
           + '</div>'
           + '</div>';
       }).join('') : '<div class="notice">No submissions in this category.</div>';
+      // Auto-expand any card that has something pending review
+      filtered.forEach(function(s) {
+        var hasPending = (s.submitted_for_review && s.status !== 'approved')
+          || (s.ai_personality && s.ai_personality.status === 'pending_review')
+          || (Array.isArray(s.ai_chronicles) && s.ai_chronicles.some(function(c) { return c.status === 'pending_review'; }));
+        if (hasPending) {
+          var det = document.getElementById('sd-' + s.id);
+          if (det) det.style.display = '';
+        }
+      });
     }
     function toggleSubDetail(id) {
       var el = document.getElementById('sd-' + id);
