@@ -3737,6 +3737,7 @@ function renderAdminPage(submissions = []) {
           <button class="secondary" data-subfilter="approved" id="sfApproved">Approved</button>
           <button class="secondary" data-subfilter="rejected" id="sfRejected">Rejected</button>
         </div>
+        <div id="subPreload" style="font-size:.6rem;color:#555;padding:.15rem 0 .5rem;">${submissions.length} records pre-loaded</div>
         <div id="subList" class="form-grid"></div>
       </article>
     </section>
@@ -3958,6 +3959,7 @@ function renderAdminPage(submissions = []) {
       if (el) el.addEventListener('click', function() { subFilter = btnId.replace('sf','').toLowerCase(); renderSubList(); });
     });
     document.getElementById('sfRefresh').addEventListener('click', function() { subsLoaded = false; loadSubList(); });
+    if (allSubs.length > 0) { try { renderSubList(); } catch(e) { document.getElementById('subList').innerHTML = '<div class="notice" style="border-color:#5c1f1f;">Init render error: ' + vescSub(String(e.message||e)) + '</div>'; } }
     </script>
     </div><!-- end communityPanel -->
     <script>
