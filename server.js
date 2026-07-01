@@ -3450,6 +3450,7 @@ function renderSubmissionCardHtml(s) {
   const id = esc(s.id || '');
   const name = esc(s.name || 'Unnamed');
   const status = s.status || 'pending';
+  const isReady = !!(s.submitted_for_review && s.status !== 'approved');
   const city = esc(s.city || '');
   const createdAt = s.created_at ? new Date(s.created_at).toLocaleDateString() : '—';
   const nickname = s.nickname ? `<em>&quot;${esc(s.nickname)}&quot;</em>` : '';
@@ -3458,18 +3459,19 @@ function renderSubmissionCardHtml(s) {
   const thumb = s.photo_url
     ? `<img class="sub-thumb" src="${esc(s.photo_url)}" alt="" />`
     : `<div class="sub-thumb-ph">${esc(((s.nickname||s.name||'?')[0]||'?').toUpperCase())}</div>`;
-  const readyBadge = (s.submitted_for_review && s.status !== 'approved')
-    ? '<span class="sub-pill" style="background:rgba(0,200,83,.12);border-color:rgba(0,200,83,.3);color:var(--green);font-size:.55rem;margin-left:.3rem;">Ready</span>' : '';
-  return `<div class="sub-card" id="sc-${id}">
+  const readyBadge = isReady ? '<span class="sub-pill" style="background:rgba(0,200,83,.12);border-color:rgba(0,200,83,.3);color:var(--green);font-size:.55rem;margin-left:.3rem;">Ready</span>' : '';
+  const curBadges = Array.isArray(s.badges) && s.badges.length ? s.badges : (s.badge ? [s.badge] : []);
+  const badgeBoxes = PLAYER_BADGES.map((b) => `<label style="display:flex;align-items:center;gap:.35rem;font-size:.7rem;cursor:pointer;"><input type="checkbox" value="${esc(b)}"${curBadges.includes(b) ? ' checked' : ''} />${esc(b)}</label>`).join('');
+  return `<div class="sub-card" id="sc-${id}" data-status="${esc(status)}" data-ready="${isReady}" data-featured="${!!s.featured_on_home}" data-monthly="${!!s.is_monthly_winner}">
     <div class="sub-header" onclick="toggleSubDetail('${id}')">
       ${thumb}
       <div class="sub-info"><strong>${name}</strong>${nickname}
         <p class="small">${city} &middot; ${createdAt}</p>
         <p class="small" style="color:${scoreColor}">Profile: ${score}%${s.points ? ' &middot; ' + s.points + ' pts' : ''}</p>
       </div>
-      <span class="sub-pill sub-${esc(status)}">${esc(status)}</span>${readyBadge}
+      <span class="sub-pill sub-${esc(status)}" id="spill-${id}">${esc(status)}</span>${readyBadge}
     </div>
-    <div class="sub-detail" id="sd-${id}" style="display:none;">
+    <div class="sub-detail" id="sd-${id}" style="${isReady ? '' : 'display:none;'}">
       ${s.email ? `<div class="sub-field"><div class="sub-field-lbl">Email</div><div class="sub-field-val">${esc(s.email)}</div></div>` : ''}
       ${s.favorite_game ? `<div class="sub-field"><div class="sub-field-lbl">Favorite Game</div><div class="sub-field-val">${esc(s.favorite_game)}</div></div>` : ''}
       ${s.favorite_casino ? `<div class="sub-field"><div class="sub-field-lbl">Favorite Casino</div><div class="sub-field-val">${esc(s.favorite_casino)}</div></div>` : ''}
@@ -3478,16 +3480,27 @@ function renderSubmissionCardHtml(s) {
       ${s.funny_story ? `<div class="sub-field"><div class="sub-field-lbl">Funny Story</div><div class="sub-field-val">${esc(s.funny_story)}</div></div>` : ''}
       ${s.bad_beat_story ? `<div class="sub-field"><div class="sub-field-lbl">Bad Beat Story</div><div class="sub-field-val">${esc(s.bad_beat_story)}</div></div>` : ''}
       ${s.social_link ? `<div class="sub-field"><div class="sub-field-lbl">Social</div><div class="sub-field-val"><a href="${esc(s.social_link)}" target="_blank" rel="noopener">${esc(s.social_link)}</a></div></div>` : ''}
-      ${s.admin_notes ? `<div class="sub-field"><div class="sub-field-lbl">Admin Note</div><div class="sub-field-val">${esc(s.admin_notes)}</div></div>` : ''}
-      <div class="sub-actions">
-        <button class="secondary" onclick="subApprove('${id}')">${status === 'approved' ? '✓ Approved' : 'Approve'}</button>
-        ${status !== 'rejected' ? `<button class="secondary" onclick="subReject('${id}')">Reject</button>` : ''}
-        <button class="secondary" onclick="subToggleHome('${id}')">${s.featured_on_home ? 'Unfeature Home' : 'Feature Home'}</button>
+      ${s.consent_at ? `<div class="sub-field"><div class="sub-field-lbl" style="color:var(--green);">Consent</div><div class="sub-field-val" style="font-size:.65rem;color:#888;">${esc(new Date(s.consent_at).toLocaleString())} | IP: ${esc(s.consent_ip||'—')}</div></div>` : ''}
+      <div class="sub-actions" style="flex-wrap:wrap;">
+        <button class="secondary" id="sapprove-${id}" onclick="subApprove('${id}')">${status === 'approved' ? 'Approved' : 'Approve'}</button>
+        ${status !== 'rejected' ? `<button class="secondary" id="sreject-${id}" onclick="subReject('${id}')">Reject</button>` : ''}
+        <button class="secondary" id="shome-${id}" onclick="subToggleHome('${id}')">${s.featured_on_home ? 'Unfeature Home' : 'Feature Home'}</button>
+        <button class="secondary" id="smonthly-${id}" onclick="subToggleMonthly('${id}')">${s.is_monthly_winner ? 'Monthly Winner' : 'Set Monthly'}</button>
         <button class="secondary" onclick="subDelete('${id}')">Delete</button>
       </div>
-      <div class="sub-actions">
+      <div class="sub-field" style="margin-top:.5rem;"><div class="sub-field-lbl">Badges</div>
+        <div id="badges-${id}" style="display:flex;flex-wrap:wrap;gap:.4rem;margin:.4rem 0;">${badgeBoxes}</div>
+        <button class="secondary" style="font-size:.68rem;" onclick="subSaveBadges('${id}')">Save Badges</button>
+      </div>
+      <div class="sub-actions" style="flex-wrap:wrap;align-items:center;">
+        <span style="font-size:.7rem;color:#888;">Points: <strong style="color:var(--gold);" id="spts-${id}">${s.points||0}</strong></span>
+        <input id="pts-${id}" type="number" style="width:70px;padding:.4rem .5rem;font-size:.72rem;" placeholder="+/-" />
+        <input id="pts-reason-${id}" type="text" style="width:140px;padding:.4rem .5rem;font-size:.72rem;" placeholder="Reason..." />
+        <button class="secondary" style="font-size:.68rem;" onclick="subAddPoints('${id}')">Add Points</button>
+      </div>
+      <div class="sub-actions" style="flex-wrap:wrap;">
         <input id="notes-${id}" type="text" style="flex:1;min-width:120px;padding:.4rem .6rem;font-size:.72rem;" placeholder="Admin note..." value="${esc(s.admin_notes||'')}" />
-        <button class="secondary" onclick="subSaveNotes('${id}')">Save Note</button>
+        <button class="secondary" id="snotes-${id}" onclick="subSaveNotes('${id}')">Save Note</button>
       </div>
     </div>
   </div>`;
@@ -3802,228 +3815,107 @@ function renderAdminPage(submissions = []) {
       .sub-pending{background:rgba(201,168,76,.1);color:var(--gold);border:1px solid rgba(201,168,76,.3);}
       .sub-approved{background:rgba(0,200,83,.1);color:var(--green);border:1px solid rgba(0,200,83,.3);}
       .sub-rejected{background:rgba(200,50,50,.1);color:#e06060;border:1px solid rgba(200,50,50,.3);}
-      .sub-detail{padding:.75rem 1rem;border-top:1px solid #1a1a1a;display:none;}
+      .sub-detail{padding:.75rem 1rem;border-top:1px solid #1a1a1a;}
       .sub-field{margin-bottom:.5rem;}
       .sub-field-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.15em;color:var(--gray);margin-bottom:.15rem;}
       .sub-field-val{font-size:.82rem;color:var(--offwhite);}
       .sub-actions{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.75rem;padding-top:.75rem;border-top:1px solid #1a1a1a;}
     </style>
+    </div><!-- end communityPanel -->
     <script>
-    var subFilter = 'all';
-    var allSubs = (function(){ try { return JSON.parse(atob('${Buffer.from(JSON.stringify(submissions)).toString('base64')}')); } catch(e) { return []; } })();
-    var subsLoaded = allSubs.length > 0;
-    var ALL_BADGES = ${JSON.stringify(PLAYER_BADGES)};
-    async function loadSubList() {
-      subsLoaded = true;
-      subFilter = 'all';
-      var el = document.getElementById('subList');
-      el.innerHTML = '<div class="notice">Loading submissions…</div>';
-      try {
-        var fetchPromise = fetch('/api/admin/submissions');
-        var timeoutPromise = new Promise(function(_, reject) { setTimeout(function() { reject(new Error('Request timed out — server took longer than 15s')); }, 15000); });
-        var r = await Promise.race([fetchPromise, timeoutPromise]);
-        if (!r.ok) {
-          var errBody = await r.json().catch(function() { return {}; });
-          throw new Error(errBody.error || ('HTTP ' + r.status + ' — ' + r.statusText));
-        }
-        allSubs = await r.json();
-        renderSubList();
-        var needsAction = allSubs.filter(function(s) {
-          return (s.submitted_for_review && s.status !== 'approved')
-            || (s.ai_personality && s.ai_personality.status === 'pending_review')
-            || (Array.isArray(s.ai_chronicles) && s.ai_chronicles.some(function(c) { return c.status === 'pending_review'; }));
-        }).length;
-        var tabBtn = document.querySelector('[data-panel="communityPanel"]');
-        if (tabBtn) tabBtn.textContent = needsAction ? 'Community (' + needsAction + ')' : 'Community';
-      } catch(e) {
-        try { document.getElementById('subList').innerHTML = '<div class="notice" style="border-color:#5c1f1f;">Error: ' + vescSub(String(e.message || e)) + '</div>'; } catch(_) {}
-      }
-    }
-    function vescSub(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-    function renderSubList() {
-      try {
-      var filtered = subFilter === 'submitted'
-        ? allSubs.filter(function(s) { return s.submitted_for_review && s.status !== 'approved'; })
-        : (subFilter === 'all' ? allSubs : allSubs.filter(function(s) { return s.status === subFilter; }));
-      var pending = allSubs.filter(function(s) { return s.status === 'pending'; }).length;
-      var submitted = allSubs.filter(function(s) { return s.submitted_for_review && s.status !== 'approved'; }).length;
-      var pendingAI = allSubs.filter(function(s) { return s.ai_personality && s.ai_personality.status === 'pending_review'; }).length;
-      var pendingChron = allSubs.filter(function(s) { return Array.isArray(s.ai_chronicles) && s.ai_chronicles.some(function(c) { return c.status === 'pending_review'; }); }).length;
-      var approved = allSubs.filter(function(s) { return s.status === 'approved'; }).length;
-      document.getElementById('subStats').innerHTML =
-        '<span class="sub-pill sub-pending">Pending: ' + pending + '</span>' +
-        '<span class="sub-pill sub-approved">Approved: ' + approved + '</span>' +
-        '<span class="sub-pill sub-rejected">Rejected: ' + (allSubs.length - pending - approved) + '</span>' +
-        (submitted ? '<span class="sub-pill" style="background:rgba(0,200,83,.15);border-color:rgba(0,200,83,.4);color:var(--green);">📬 Ready: ' + submitted + '</span>' : '') +
-        (pendingAI ? '<span class="sub-pill" style="background:rgba(160,60,220,.12);border-color:rgba(160,60,220,.3);color:#cc77ff;">AI Review: ' + pendingAI + '</span>' : '') +
-        (pendingChron ? '<span class="sub-pill" style="background:rgba(201,168,76,.1);border-color:rgba(201,168,76,.3);color:var(--gold);">Stories: ' + pendingChron + '</span>' : '');
-      var badgeCheckboxes = function(curBadges) {
-        return ALL_BADGES.map(function(b) {
-          var checked = curBadges.indexOf(b) > -1 ? ' checked' : '';
-          return '<label style="display:flex;align-items:center;gap:.35rem;font-size:.7rem;cursor:pointer;"><input type="checkbox" value="' + vescSub(b) + '"' + checked + ' />' + vescSub(b) + '</label>';
-        }).join('');
-      };
-      document.getElementById('subList').innerHTML = filtered.length ? filtered.map(function(s) {
-        var thumb = s.photo_url
-          ? '<img class="sub-thumb" src="' + s.photo_url + '" alt="" />'
-          : '<div class="sub-thumb-ph">' + ((s.nickname||s.name||'?')[0]||'?').toUpperCase() + '</div>';
-        var pill = '<span class="sub-pill sub-' + s.status + '">' + s.status + '</span>';
-        var readyBadge = (s.submitted_for_review && s.status !== 'approved') ? '<span class="sub-pill" style="background:rgba(0,200,83,.12);border-color:rgba(0,200,83,.3);color:var(--green);font-size:.55rem;margin-left:.3rem;">📬 Ready</span>' : '';
-        var curBadges = Array.isArray(s.badges) && s.badges.length ? s.badges : (s.badge ? [s.badge] : []);
-        var aiP = s.ai_personality;
-        var chronicles = Array.isArray(s.ai_chronicles) ? s.ai_chronicles : [];
-        var pendingChr = chronicles.filter(function(c) { return c.status === 'pending_review'; });
-        var score = s.completion_score || 0;
-        var scoreColor = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--gold)' : '#888';
-        return '<div class="sub-card" id="sc-' + s.id + '">'
-          + '<div class="sub-header" data-subid="' + s.id + '" onclick="toggleSubDetail(\'' + s.id + '\')">'
-          + thumb
-          + '<div class="sub-info"><strong>' + vescSub(s.name||'Unnamed') + '</strong>' + (s.nickname ? '<em>&quot;' + vescSub(s.nickname) + '&quot;</em>' : '') + '<p class="small">' + vescSub(s.city||'') + ' · ' + new Date(s.created_at).toLocaleDateString() + '</p>'
-          + '<p class="small" style="color:' + scoreColor + '">Profile: ' + score + '%' + (s.points ? ' · 🏆 ' + s.points + ' pts' : '') + (aiP ? ' · ✨AI ' + (aiP.status === 'approved' ? '✓' : aiP.status === 'pending_review' ? '⏳' : '✗') : '') + (pendingChr.length ? ' · 📖' + pendingChr.length + ' story' : '') + '</p>'
-          + '</div>' + pill + readyBadge
-          + '</div>'
-          + '<div class="sub-detail" id="sd-' + s.id + '">'
-          + (s.email ? '<div class="sub-field"><div class="sub-field-lbl">Email</div><div class="sub-field-val">' + vescSub(s.email) + '</div></div>' : '')
-          + (s.favorite_game ? '<div class="sub-field"><div class="sub-field-lbl">Favorite Game</div><div class="sub-field-val">' + vescSub(s.favorite_game) + '</div></div>' : '')
-          + (s.favorite_casino ? '<div class="sub-field"><div class="sub-field-lbl">Favorite Casino</div><div class="sub-field-val">' + vescSub(s.favorite_casino) + '</div></div>' : '')
-          + (s.biggest_accomplishment ? '<div class="sub-field"><div class="sub-field-lbl">Biggest Accomplishment</div><div class="sub-field-val">' + vescSub(s.biggest_accomplishment) + '</div></div>' : '')
-          + (s.biggest_goal ? '<div class="sub-field"><div class="sub-field-lbl">Biggest Goal</div><div class="sub-field-val">' + vescSub(s.biggest_goal) + '</div></div>' : '')
-          + (s.funny_story ? '<div class="sub-field"><div class="sub-field-lbl">Funny Story</div><div class="sub-field-val">' + vescSub(s.funny_story) + '</div></div>' : '')
-          + (s.bad_beat_story ? '<div class="sub-field"><div class="sub-field-lbl">Bad Beat Story</div><div class="sub-field-val">' + vescSub(s.bad_beat_story) + '</div></div>' : '')
-          + (s.social_link ? '<div class="sub-field"><div class="sub-field-lbl">Social Link</div><div class="sub-field-val"><a href="' + vescSub(s.social_link) + '" target="_blank" rel="noopener">' + vescSub(s.social_link) + '</a></div></div>' : '')
-          + (s.edit_token ? '<div class="sub-field"><div class="sub-field-lbl">Profile Setup Link</div><div class="sub-field-val" style="font-size:.68rem;word-break:break-all;">/profile/setup/' + vescSub(s.edit_token) + '</div></div>' : '')
-          + (s.consent_at ? '<div class="sub-field" style="border-top:1px solid #1a1a1a;margin-top:.5rem;padding-top:.5rem;"><div class="sub-field-lbl" style="color:var(--green);">Consent Recorded</div><div class="sub-field-val" style="font-size:.65rem;color:#888;">' + new Date(s.consent_at).toLocaleString() + ' &nbsp;|&nbsp; IP: ' + (s.consent_ip||'—') + '</div></div>' : '')
-          // AI Personality section
-          + (aiP ? '<div class="sub-field" style="border-top:1px solid #1a1a1a;margin-top:.5rem;padding-top:.5rem;"><div class="sub-field-lbl" style="color:#cc77ff;">✨ AI Poker Personality (' + (aiP.status||'unknown') + ')</div>'
-            + '<div class="sub-field-val" style="font-size:.75rem;color:#b0a898;line-height:1.6;white-space:pre-wrap;max-height:200px;overflow-y:auto;">' + vescSub(aiP.text||'') + '</div>'
-            + (aiP.tagline ? '<div style="font-size:.7rem;color:var(--gold);margin-top:.3rem;font-style:italic;">"' + vescSub(aiP.tagline) + '"</div>' : '')
-            + (aiP.status === 'pending_review' ? '<div class="sub-actions" style="flex-wrap:wrap;"><button class="secondary" onclick="subAIApprove(\'' + s.id + '\')">Approve AI</button><button class="secondary" onclick="subAIReject(\'' + s.id + '\')">Reject AI</button></div>' : '')
-            + (aiP.status === 'approved' ? '<div class="sub-actions"><button class="secondary" onclick="subAIReject(\'' + s.id + '\')">Remove AI</button></div>' : '')
-            + '</div>' : '')
-          // Pending chronicles
-          + (pendingChr.length ? '<div class="sub-field" style="border-top:1px solid #1a1a1a;margin-top:.5rem;padding-top:.5rem;"><div class="sub-field-lbl" style="color:var(--gold);">📖 Pending Stories (' + pendingChr.length + ')</div>'
-            + pendingChr.map(function(c) {
-              return '<div style="border:1px solid #1e1e1e;border-radius:8px;padding:.6rem;margin-top:.4rem;">'
-                + '<div style="font-size:.6rem;color:var(--green);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem;">' + vescSub(c.story_type||'Story') + ' · ' + vescSub(c.selected_style||'') + '</div>'
-                + '<div style="font-size:.75rem;color:#b0a898;line-height:1.55;white-space:pre-wrap;max-height:160px;overflow-y:auto;">' + vescSub(c.selected_text||'') + '</div>'
-                + '<div class="sub-actions"><button class="secondary" onclick="subChronicleApprove(\'' + s.id + '\',\'' + c.id + '\')">Approve Story</button><button class="secondary" onclick="subChronicleReject(\'' + s.id + '\',\'' + c.id + '\')">Reject Story</button></div>'
-                + '</div>';
-            }).join('')
-            + '</div>' : '')
-          // Actions
-          + '<div class="sub-actions" style="flex-wrap:wrap;">'
-          + '<button class="secondary" onclick="subApprove(\'' + s.id + '\')">' + (s.status === 'approved' ? '✓ Approved' : 'Approve') + '</button>'
-          + (s.status !== 'rejected' ? '<button class="secondary" onclick="subReject(\'' + s.id + '\')">Reject</button>' : '')
-          + '<button class="secondary" onclick="subToggleHome(\'' + s.id + '\')">' + (s.featured_on_home ? 'Unfeature Home' : 'Feature Home') + '</button>'
-          + '<button class="secondary" onclick="subToggleMonthly(\'' + s.id + '\')">' + (s.is_monthly_winner ? '🏅 Monthly ✓' : 'Monthly Winner') + '</button>'
-          + '</div>'
-          // Badges (multi)
-          + '<div class="sub-field" style="margin-top:.5rem;"><div class="sub-field-lbl">Badges</div><div id="badges-' + s.id + '" style="display:flex;flex-wrap:wrap;gap:.4rem;margin:.4rem 0;">' + badgeCheckboxes(curBadges) + '</div>'
-          + '<button class="secondary" style="font-size:.68rem;" onclick="subSaveBadges(\'' + s.id + '\')">Save Badges</button></div>'
-          // Points
-          + '<div class="sub-actions" style="flex-wrap:wrap;align-items:center;">'
-          + '<span style="font-size:.7rem;color:#888;">Points: <strong style="color:var(--gold);">' + (s.points||0) + '</strong></span>'
-          + '<input id="pts-' + s.id + '" type="number" style="width:70px;padding:.4rem .5rem;font-size:.72rem;" placeholder="+/-" />'
-          + '<input id="pts-reason-' + s.id + '" type="text" style="width:140px;padding:.4rem .5rem;font-size:.72rem;" placeholder="Reason..." />'
-          + '<button class="secondary" style="font-size:.68rem;" onclick="subAddPoints(\'' + s.id + '\')">Add Points</button>'
-          + '</div>'
-          // Notes + Delete
-          + '<div class="sub-actions" style="flex-wrap:wrap;">'
-          + '<input id="notes-' + s.id + '" type="text" style="width:auto;flex:1;min-width:120px;padding:.4rem .6rem;font-size:.72rem;" placeholder="Admin note..." value="' + vescSub(s.admin_notes||'') + '" />'
-          + '<button class="secondary" onclick="subSaveNotes(\'' + s.id + '\')">Save Note</button>'
-          + '<button class="secondary" onclick="subDelete(\'' + s.id + '\')">Delete</button>'
-          + '</div>'
-          + '</div>'
-          + '</div>';
-      }).join('') : '<div class="notice">No submissions in this category.</div>';
-      // Auto-expand any card that has something pending review
-      filtered.forEach(function(s) {
-        var hasPending = (s.submitted_for_review && s.status !== 'approved')
-          || (s.ai_personality && s.ai_personality.status === 'pending_review')
-          || (Array.isArray(s.ai_chronicles) && s.ai_chronicles.some(function(c) { return c.status === 'pending_review'; }));
-        if (hasPending) {
-          var det = document.getElementById('sd-' + s.id);
-          if (det) det.style.display = '';
-        }
-      });
-      } catch(renderErr) {
-        var listEl = document.getElementById('subList');
-        if (listEl) listEl.innerHTML = '<div class="notice" style="border-color:#5c1f1f;">Render error: ' + vescSub(String(renderErr.message || renderErr)) + '</div>';
-      }
-    }
     function toggleSubDetail(id) {
       var el = document.getElementById('sd-' + id);
-      if (el) el.style.display = el.style.display === 'none' || !el.style.display ? '' : 'none';
+      if (!el) return;
+      el.style.display = el.style.display === 'none' ? '' : 'none';
     }
-    async function subApprove(id) { await subUpdate(id, { status: 'approved' }); }
-    async function subReject(id) { await subUpdate(id, { status: 'rejected' }); }
-    async function subToggleHome(id) {
-      var s = allSubs.find(function(x) { return x.id === id; });
-      if (s) await subUpdate(id, { featured_on_home: !s.featured_on_home });
+    async function subCRUD(id, method, body) {
+      try {
+        var res = await fetch('/api/admin/submissions/' + id, { method: method, headers: body ? {'Content-Type':'application/json'} : {}, body: body ? JSON.stringify(body) : undefined });
+        if (!res.ok) { var e = await res.json().catch(function(){return{};}); alert(e.error || 'Request failed (' + res.status + ')'); return null; }
+        return method === 'DELETE' ? true : await res.json();
+      } catch(e) { alert('Network error: ' + String(e.message||e)); return null; }
     }
-    async function subToggleMonthly(id) {
-      var s = allSubs.find(function(x) { return x.id === id; });
-      if (s) await subUpdate(id, { is_monthly_winner: !s.is_monthly_winner });
+    function subSetPill(id, status) {
+      var pill = document.getElementById('spill-' + id);
+      if (!pill) return;
+      pill.className = 'sub-pill sub-' + status;
+      pill.textContent = status;
+      var card = document.getElementById('sc-' + id);
+      if (card) card.setAttribute('data-status', status);
     }
-    async function subSaveBadges(id) {
-      var container = document.getElementById('badges-' + id);
-      if (!container) return;
-      var checked = Array.from(container.querySelectorAll('input[type=checkbox]:checked')).map(function(c) { return c.value; });
-      await subUpdate(id, { badges: checked });
+    function subFlash(btnId, msg) {
+      var btn = document.getElementById(btnId);
+      if (!btn) return;
+      var orig = btn.textContent;
+      btn.textContent = msg;
+      setTimeout(function() { btn.textContent = orig; }, 1500);
     }
-    async function subAddPoints(id) {
-      var ptEl = document.getElementById('pts-' + id);
-      var reaEl = document.getElementById('pts-reason-' + id);
-      var delta = parseInt(ptEl ? ptEl.value : 0) || 0;
-      if (!delta) { alert('Enter a points value (positive to add, negative to subtract).'); return; }
-      var reason = reaEl ? reaEl.value.trim() : '';
-      await subUpdate(id, { points_delta: delta, points_reason: reason });
-      if (ptEl) ptEl.value = '';
-      if (reaEl) reaEl.value = '';
+    async function subApprove(id) {
+      var data = await subCRUD(id, 'PUT', {status:'approved'});
+      if (data) { subSetPill(id, 'approved'); var b = document.getElementById('sapprove-'+id); if(b) b.textContent='Approved'; var r=document.getElementById('sreject-'+id); if(r) r.style.display='none'; }
     }
-    async function subAIApprove(id) { await subUpdate(id, { ai_personality_status: 'approved' }); }
-    async function subAIReject(id) { await subUpdate(id, { ai_personality_status: 'rejected' }); }
-    async function subChronicleApprove(subId, chronId) { await subUpdate(subId, { chronicle_id: chronId, chronicle_status: 'approved' }); }
-    async function subChronicleReject(subId, chronId) { await subUpdate(subId, { chronicle_id: chronId, chronicle_status: 'rejected' }); }
-    async function subSaveNotes(id) {
-      var el = document.getElementById('notes-' + id);
-      if (el) await subUpdate(id, { admin_notes: el.value });
+    async function subReject(id) {
+      var data = await subCRUD(id, 'PUT', {status:'rejected'});
+      if (data) subSetPill(id, 'rejected');
     }
     async function subDelete(id) {
       if (!confirm('Delete this submission?')) return;
-      var res = await fetch('/api/admin/submissions/' + id, { method: 'DELETE' });
-      if (res.ok) { allSubs = allSubs.filter(function(s) { return s.id !== id; }); renderSubList(); }
+      var ok = await subCRUD(id, 'DELETE');
+      if (ok) { var card = document.getElementById('sc-'+id); if (card) card.remove(); }
     }
-    async function subUpdate(id, patch) {
-      var res = await fetch('/api/admin/submissions/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(patch) });
-      var data = await res.json();
-      if (res.ok) {
-        var idx = allSubs.findIndex(function(s) { return s.id === id; });
-        if (idx !== -1) allSubs[idx] = data;
-        renderSubList();
-      } else { alert(data.error || 'Update failed'); }
+    async function subToggleHome(id) {
+      var card = document.getElementById('sc-'+id);
+      var cur = card && card.getAttribute('data-featured') === 'true';
+      var data = await subCRUD(id, 'PUT', {featured_on_home: !cur});
+      if (data && card) { card.setAttribute('data-featured', data.featured_on_home?'true':'false'); var b=document.getElementById('shome-'+id); if(b) b.textContent=data.featured_on_home?'Unfeature Home':'Feature Home'; }
     }
-    ['sfAll','sfSubmitted','sfPending','sfApproved','sfRejected'].forEach(function(btnId) {
-      var el = document.getElementById(btnId);
-      if (el) el.addEventListener('click', function() { subFilter = btnId.replace('sf','').toLowerCase(); renderSubList(); });
+    async function subToggleMonthly(id) {
+      var card = document.getElementById('sc-'+id);
+      var cur = card && card.getAttribute('data-monthly') === 'true';
+      var data = await subCRUD(id, 'PUT', {is_monthly_winner: !cur});
+      if (data && card) { card.setAttribute('data-monthly', data.is_monthly_winner?'true':'false'); var b=document.getElementById('smonthly-'+id); if(b) b.textContent=data.is_monthly_winner?'Monthly Winner':'Set Monthly'; }
+    }
+    async function subSaveBadges(id) {
+      var container = document.getElementById('badges-'+id);
+      if (!container) return;
+      var checked = Array.from(container.querySelectorAll('input[type=checkbox]:checked')).map(function(c){return c.value;});
+      var data = await subCRUD(id, 'PUT', {badges: checked});
+      if (data) subFlash('sbadges-'+id, 'Saved!');
+    }
+    async function subAddPoints(id) {
+      var ptEl = document.getElementById('pts-'+id), reaEl = document.getElementById('pts-reason-'+id);
+      var delta = parseInt(ptEl?ptEl.value:0)||0;
+      if (!delta) { alert('Enter a points value.'); return; }
+      var data = await subCRUD(id, 'PUT', {points_delta:delta, points_reason:reaEl?reaEl.value.trim():''});
+      if (data) { var sp=document.getElementById('spts-'+id); if(sp) sp.textContent=data.points||0; if(ptEl)ptEl.value=''; if(reaEl)reaEl.value=''; }
+    }
+    async function subSaveNotes(id) {
+      var el = document.getElementById('notes-'+id);
+      if (!el) return;
+      var data = await subCRUD(id, 'PUT', {admin_notes: el.value});
+      if (data) subFlash('snotes-'+id, 'Saved!');
+    }
+    async function subAIApprove(id) { if (await subCRUD(id,'PUT',{ai_personality_status:'approved'})) location.reload(); }
+    async function subAIReject(id) { if (await subCRUD(id,'PUT',{ai_personality_status:'rejected'})) location.reload(); }
+    async function subChronicleApprove(s,c) { if (await subCRUD(s,'PUT',{chronicle_id:c,chronicle_status:'approved'})) location.reload(); }
+    async function subChronicleReject(s,c) { if (await subCRUD(s,'PUT',{chronicle_id:c,chronicle_status:'rejected'})) location.reload(); }
+    document.addEventListener('DOMContentLoaded', function() {
+      ['sfAll','sfSubmitted','sfPending','sfApproved','sfRejected'].forEach(function(btnId) {
+        var btn = document.getElementById(btnId);
+        if (!btn) return;
+        btn.addEventListener('click', function() {
+          var filter = btn.getAttribute('data-subfilter') || 'all';
+          document.querySelectorAll('#subList .sub-card').forEach(function(card) {
+            if (filter === 'all') { card.style.display = ''; return; }
+            if (filter === 'submitted') { card.style.display = card.getAttribute('data-ready') === 'true' ? '' : 'none'; return; }
+            card.style.display = card.getAttribute('data-status') === filter ? '' : 'none';
+          });
+        });
+      });
+      var sfr = document.getElementById('sfRefresh');
+      if (sfr) sfr.addEventListener('click', function() { location.reload(); });
     });
-    document.getElementById('sfRefresh').addEventListener('click', function() { subsLoaded = false; loadSubList(); });
-    (function() {
-      var dbg = document.getElementById('subPreload');
-      if (dbg) dbg.textContent = allSubs.length + ' loaded';
-      if (allSubs.length > 0) {
-        try { renderSubList(); if (dbg) dbg.textContent = allSubs.length + ' loaded · OK'; }
-        catch(e) {
-          if (dbg) dbg.textContent = allSubs.length + ' loaded · ERROR: ' + String(e);
-          var listEl = document.getElementById('subList');
-          if (listEl) listEl.textContent = 'Render error: ' + String(e);
-        }
-      } else {
-        if (dbg) dbg.textContent = '0 loaded — click Refresh';
-      }
-    })();
     </script>
-    </div><!-- end communityPanel -->
     <script>
       document.querySelectorAll('.admin-tab').forEach(function(btn) {
         btn.addEventListener('click', function() {
