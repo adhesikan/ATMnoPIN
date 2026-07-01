@@ -3142,15 +3142,19 @@ async function insertVisitLog(entry) {
 async function loadVisitorLog(limit = 500) {
   try {
     if (pgPool) {
-      const { rows } = await pgPool.query('SELECT data FROM visitor_log ORDER BY created_at DESC LIMIT $1', [limit]);
-      return rows.map((r) => r.data);
+      const [{ rows }, { rows: countRows }] = await Promise.all([
+        pgPool.query('SELECT data FROM visitor_log ORDER BY created_at DESC LIMIT $1', [limit]),
+        pgPool.query('SELECT COUNT(*) AS n FROM visitor_log'),
+      ]);
+      return { rows: rows.map((r) => r.data), total: parseInt(countRows[0].n, 10) || 0 };
     }
     if (sqliteDb) {
       const rows = sqliteDb.prepare('SELECT data FROM visitor_log ORDER BY created_at DESC LIMIT ?').all(limit);
-      return rows.map((r) => JSON.parse(r.data));
+      const { n } = sqliteDb.prepare('SELECT COUNT(*) AS n FROM visitor_log').get();
+      return { rows: rows.map((r) => JSON.parse(r.data)), total: n || 0 };
     }
   } catch { }
-  return [];
+  return { rows: [], total: 0 };
 }
 
 function logPageVisit(req, pathname) {
@@ -4023,10 +4027,12 @@ function renderAdminPage(submissions = []) {
       try {
         var r = await fetch('/api/admin/visitor-log');
         if (!r.ok) throw new Error('HTTP ' + r.status);
-        visitData = await r.json();
+        var data = await r.json();
+        visitData = Array.isArray(data) ? data : (data.rows || []);
+        var total = Array.isArray(data) ? data.length : (data.total || data.length || visitData.length);
         var countries = new Set(visitData.map(function(v) { return v.country; }).filter(function(c) { return c && c !== 'unknown'; }));
         var ips = new Set(visitData.map(function(v) { return v.ip; }).filter(function(ip) { return ip && ip !== 'unknown'; }));
-        document.getElementById('v-total').textContent = visitData.length;
+        document.getElementById('v-total').textContent = total;
         document.getElementById('v-countries').textContent = countries.size;
         document.getElementById('v-unique-ips').textContent = ips.size;
         renderVisitorPage();
@@ -6504,7 +6510,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const logs = await loadVisitorLog(1000);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(logs));
+      res.end(JSON.stringify(logs)); // { rows: [...], total: N }
     } catch (err) {
       console.error('loadVisitorLog error:', err);
       res.writeHead(500, { 'Content-Type': 'application/json' });
