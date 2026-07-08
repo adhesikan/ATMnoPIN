@@ -3512,6 +3512,7 @@ function renderLayout(title, body) {
       <ul class="nav-links">
         <li><a href="/blog">Stories</a></li>
         <li><a href="/chronicles">Chronicles</a></li>
+        <li><a href="/player-cards">Cards</a></li>
         <li><a href="/community-wall">Community</a></li>
         <li><a href="/inside-the-atm">Inside the ATM</a></li>
         <li><a href="https://www.youtube.com/@ATMwithNoPIN" target="_blank" rel="noopener">Videos</a></li>
@@ -4731,6 +4732,365 @@ function renderChroniclePage(chronicle, allChronicles) {
         ${relatedHtml ? `<div class="rel-section"><h2>More ${escapeHtml(chronicle.category || 'Stories')}</h2><div style="margin-top:.75rem;">${relatedHtml}</div></div>` : ''}
       </aside>` : ''}
     </section>`);
+}
+
+// ─── PLAYER CARD ENGINE ──────────────────────────────────────────────────────
+
+const PC_FLAVOR_QUOTES = {
+  'The Railbird':                             "Still cheering from the rail. Even when the cards aren't.",
+  'Poker Jesus':                              "Every tournament starts with a blessing. Results are in God's hands.",
+  'River Card Specialist':                    "The river is not my fault. I'm just the messenger.",
+  'The Man Who Keeps the Poker Room Running': "The room runs. Nobody needs to know why.",
+  'The Machine':                              "Confidence doesn't need good cards. Just chips.",
+  'The Tuna':                                 "I had them. I definitely had them. The river disagreed.",
+  'Ducky Jay':                                "The duck sees all. The duck judges nothing.",
+  'The Connector':                            "Every player seated. Every problem solved. Moving on.",
+  'Still Standing':                           "The chaos never stops. Neither do I.",
+  'Birthday Variance':                        "Same birthday as Dhezz. Results still under investigation.",
+  'The Setup Artist':                         "I don't cause the drama. I just deal it.",
+  'Master of Timing':                         "Watch the stack. The cards tell their own story.",
+  'Queen of the Rotation':                    "Best seat in the house is behind the deck.",
+  'The Sugar Stacker':                        "Zero sugar. Maximum variance.",
+  'Lucky Horseshoe Luke':                     "The horseshoe has more table hours than most regulars.",
+};
+
+const PC_PLAYER_STATS = ['Bluff Power', 'Patience', 'Tilt Resistance', 'Run Good', 'Hero Call', 'Entertainment'];
+const PC_DEALER_STATS = ['River Drama', 'Table Control', 'Dry Humor', 'Speed', 'Complaint Resistance'];
+const PC_FLOOR_STATS  = ['Seat Finding', 'Problem Solving', 'Chaos Control', 'Patience', 'Coffee Level'];
+
+function pcRand(id, field) {
+  let h = 0;
+  const s = String(id) + '\x00' + String(field);
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return ((Math.abs(h) % 55) + 35);
+}
+
+function pcCardNumber(id) {
+  let h = 0;
+  const s = 'pcn\x00' + String(id);
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return String(Math.abs(h) % 1000000).padStart(6, '0');
+}
+
+function pcRarity(c) {
+  const hasExtra = c.lucky_charm || c.known_for || c.table_reputation;
+  const hasCore  = c.specialty && c.tell && c.threat_level;
+  if (c.featured_on_home && hasCore && (c.person_type === 'dealer' || c.person_type === 'player')) return 'Legendary';
+  if (hasCore && hasExtra) return 'Epic';
+  if (hasCore && (c.person_type === 'player' || c.person_type === 'dealer')) return 'Rare';
+  if (hasCore) return 'Uncommon';
+  return 'Common';
+}
+
+function pcAbilities(type, c) {
+  const spec = (c.specialty || '').trim();
+  const tell = (c.tell || '').trim();
+  if (type === 'dealer') {
+    return {
+      special:  spec || 'Delivers cards with professional indifference.',
+      passive:  tell || 'Immune to all table commentary.',
+      weakness: c.threat_level || 'Players who question their shuffle.',
+    };
+  }
+  if (type === 'floor') {
+    return {
+      special:  spec || 'Can locate an open seat before the question is finished.',
+      passive:  tell || 'Unfazed by disputes, chip shortages, and all-in arguments.',
+      weakness: c.threat_level || 'Three simultaneous all-in calls at different tables.',
+    };
+  }
+  return {
+    special:  spec || 'Plays premium hands and waits for the perfect spot.',
+    passive:  tell || 'Always looks like they have it, whether they do or not.',
+    weakness: c.threat_level || 'The river.',
+  };
+}
+
+function pcFlavorQuote(c) {
+  if (c.crew_quote && c.crew_quote.trim()) return c.crew_quote.trim();
+  const nick = (c.crew_nickname || '').trim();
+  if (PC_FLAVOR_QUOTES[nick]) return PC_FLAVOR_QUOTES[nick];
+  const ex = (c.excerpt || '').split(/\.\s/)[0].trim();
+  return ex.length > 20 && ex.length < 160 ? ex + '.' : 'The table has stories. This is one of them.';
+}
+
+const PC_SPOTLIGHT_CATS = new Set(['Player Spotlight', 'Dealer Spotlight', 'Floor Spotlight']);
+const PC_TYPE_SUIT = { player: '♠', dealer: '♦', floor: '♣', community: '♥' };
+
+function buildPlayerCards(chronicles) {
+  const seen = new Set();
+  const cards = [];
+
+  for (const c of chronicles) {
+    if (c.status !== 'published') continue;
+    if (!c.crew_nickname || c.crew_nickname === 'TBD') continue;
+    if (!PC_SPOTLIGHT_CATS.has(c.category)) continue;
+    if (seen.has(c.slug)) continue;
+    seen.add(c.slug);
+
+    const type   = c.person_type || 'player';
+    const rarity = c.card_rarity || pcRarity(c);
+    const id     = c.id || c.slug;
+    const fields = type === 'dealer' ? PC_DEALER_STATS : type === 'floor' ? PC_FLOOR_STATS : PC_PLAYER_STATS;
+    const stats  = {};
+    for (const f of fields) stats[f] = pcRand(id, f);
+
+    const titleMain = (c.title || '').replace(/^[^:]+:\s*/, '').split(/\s*[—–\-]\s*/)[0].trim();
+
+    cards.push({
+      id,
+      slug:           c.slug,
+      cardNumber:     c.card_number || pcCardNumber(id),
+      fullName:       titleMain,
+      nickname:       c.crew_nickname,
+      pokerRoom:      c.poker_room || 'Foxwoods',
+      game:           (c.tags || []).find((t) => t.includes('$') || t.includes('NLH') || t.includes('PLO')) || '$2/$5 NLH',
+      cardType:       type,
+      cardTypeLabel:  type === 'dealer' ? 'Dealer' : type === 'floor' ? 'Floor Staff' : 'Player',
+      rarity,
+      suit:           PC_TYPE_SUIT[type] || '♠',
+      edition:        (c.poker_room || '').toLowerCase().includes('horseshoe') ? 'Horseshoe Ed.' : 'Foxwoods Ed.',
+      summary:        (c.excerpt || '').slice(0, 160),
+      flavorQuote:    pcFlavorQuote(c),
+      abilities:      pcAbilities(type, c),
+      stats,
+      profileUrl:     `/chronicles/${c.slug}`,
+      tags:           c.tags || [],
+      publishedAt:    c.published_at || c.created_at,
+    });
+  }
+
+  const RARITY_ORDER = { 'Legendary': 0, 'Epic': 1, 'Rare': 2, 'Uncommon': 3, 'Common': 4 };
+  return cards.sort((a, b) => {
+    const ro = (RARITY_ORDER[a.rarity] ?? 5) - (RARITY_ORDER[b.rarity] ?? 5);
+    if (ro !== 0) return ro;
+    return new Date(b.publishedAt) - new Date(a.publishedAt);
+  });
+}
+
+function renderPlayerCardsPage(cards) {
+  const total = cards.length;
+
+  function rcColor(r) {
+    if (r === 'Legendary') return '#c9a84c';
+    if (r === 'Epic')      return '#b060ff';
+    if (r === 'Rare')      return '#6699ee';
+    if (r === 'Uncommon')  return '#00c853';
+    return '#555';
+  }
+
+  function raritySlug(r) { return r.toLowerCase(); }
+
+  function renderOneCard(card) {
+    const rc = rcColor(card.rarity);
+    const rs = raritySlug(card.rarity);
+    const statsHtml = Object.entries(card.stats).map(([lbl, val]) =>
+      `<div class="pc-stat">
+        <span class="pc-sl">${escapeHtml(lbl)}</span>
+        <div class="pc-bw"><div class="pc-bv" style="width:${val}%"></div></div>
+        <span class="pc-sv">${val}</span>
+      </div>`
+    ).join('');
+
+    const searchStr = [
+      card.fullName, card.nickname, card.cardNumber,
+      card.pokerRoom, card.cardType, card.cardTypeLabel,
+      ...(card.tags || []),
+    ].join(' ').toLowerCase();
+
+    return `<div class="pc-wrap" data-type="${escapeHtml(card.cardType)}" data-rarity="${escapeHtml(rs)}" data-search="${escapeHtml(searchStr)}">
+  <div class="pc-card" onclick="pcToggle(this)" title="Click to flip">
+    <div class="pc-inner">
+
+      <div class="pc-front" style="--rc:${rc};border-color:${rc}30">
+        <div class="pc-top">
+          <span class="pc-series">ATMNOPIN&#x2122; S1</span>
+          <span class="pc-rbadge" style="color:${rc};border-color:${rc}50">${escapeHtml(card.rarity)}</span>
+        </div>
+        <div class="pc-art">
+          <div class="pc-suit" style="color:${rc};filter:drop-shadow(0 0 14px ${rc}80)">${escapeHtml(card.suit)}</div>
+          <div class="pc-typelabel" style="color:${rc}">${escapeHtml(card.cardTypeLabel)}</div>
+        </div>
+        <div class="pc-fb">
+          <div class="pc-fname">${escapeHtml(card.fullName)}</div>
+          <div class="pc-fnick">&ldquo;${escapeHtml(card.nickname)}&rdquo;</div>
+          <div class="pc-froom">&#x1F4CD; ${escapeHtml(card.pokerRoom)}</div>
+          <div class="pc-fgame">${escapeHtml(card.game)}</div>
+        </div>
+        <div class="pc-ftop">
+          <span class="pc-fedition">${escapeHtml(card.edition)}</span>
+          <span class="pc-fnum" style="color:${rc}">#${escapeHtml(card.cardNumber)}</span>
+        </div>
+      </div>
+
+      <div class="pc-back" style="--rc:${rc};border-color:${rc}30">
+        <div class="pc-bk-hdr">
+          <span class="pc-bk-brand" style="color:${rc}">ATMNOPIN&#x2122;</span>
+          <span class="pc-fnum" style="color:${rc}">#${escapeHtml(card.cardNumber)}</span>
+        </div>
+        <div class="pc-bk-quote">&ldquo;${escapeHtml(card.flavorQuote)}&rdquo;</div>
+        <div class="pc-bk-ab">
+          ${card.abilities.special ? `<div class="pc-ab"><span class="pc-ab-ic">&#x26A1;</span><span class="pc-ab-tx"><strong>Special:</strong> ${escapeHtml(card.abilities.special)}</span></div>` : ''}
+          ${card.abilities.passive ? `<div class="pc-ab"><span class="pc-ab-ic">&#x1F6E1;</span><span class="pc-ab-tx"><strong>Passive:</strong> ${escapeHtml(card.abilities.passive)}</span></div>` : ''}
+          ${card.abilities.weakness ? `<div class="pc-ab pc-ab-weak"><span class="pc-ab-ic">&#x26A0;</span><span class="pc-ab-tx"><strong>Weakness:</strong> ${escapeHtml(card.abilities.weakness)}</span></div>` : ''}
+        </div>
+        <div class="pc-bk-stats">
+          <div class="pc-stats-lbl" style="color:${rc}60">&#x2500; Stats</div>
+          ${statsHtml}
+        </div>
+        <div class="pc-bk-ftr">
+          <a href="${escapeHtml(card.profileUrl)}" class="pc-view-btn" style="color:${rc};border-color:${rc}40" onclick="event.stopPropagation()">View Chronicle &#x2192;</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>`;
+  }
+
+  const cardsHtml = cards.map(renderOneCard).join('\n');
+
+  const typeFilters = [['', 'All'], ['player', 'Players'], ['dealer', 'Dealers'], ['floor', 'Floor Staff']].map(([v, l], i) =>
+    `<button class="pc-fbtn${i === 0 ? ' pc-factive' : ''}" data-fk="type" data-fv="${escapeHtml(v)}">${escapeHtml(l)}</button>`
+  ).join('');
+
+  const rarityFilters = [['', 'All Rarities'], ['legendary', 'Legendary'], ['epic', 'Epic'], ['rare', 'Rare'], ['uncommon', 'Uncommon']].map(([v, l], i) =>
+    `<button class="pc-fbtn${i === 0 ? ' pc-factive' : ''}" data-fk="rarity" data-fv="${escapeHtml(v)}">${escapeHtml(l)}</button>`
+  ).join('');
+
+  return renderLayout('Player Card Gallery | ATMNOPIN™', `
+<style>
+.pc-hero{padding:2.5rem 0 1.5rem;border-bottom:1px solid #1e1e1e;}
+.pc-hero .eyebrow{font-size:.58rem;letter-spacing:.28em;text-transform:uppercase;color:var(--green);margin-bottom:.65rem;}
+.pc-h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3rem,8vw,5rem);line-height:1;color:var(--offwhite);margin-bottom:.5rem;}
+.pc-h1 em{color:var(--gold);}
+.pc-lead{font-size:.82rem;color:#b0a898;max-width:52ch;line-height:1.85;}
+.pc-meta{margin-top:.65rem;font-size:.62rem;color:#555;letter-spacing:.1em;text-transform:uppercase;}
+.pc-meta span{color:var(--green);}
+.pc-controls{display:flex;flex-direction:column;gap:.55rem;padding:1.1rem 0 .75rem;}
+.pc-search{width:100%;max-width:460px;border:1px solid #242424;background:#111;color:var(--offwhite);padding:.65rem 1rem;font:inherit;font-size:.8rem;outline:none;transition:border-color .2s;}
+.pc-search::placeholder{color:#444;}
+.pc-search:focus{border-color:rgba(0,200,83,.4);}
+.pc-frow{display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;}
+.pc-flbl{font-size:.54rem;letter-spacing:.18em;text-transform:uppercase;color:#444;margin-right:.15rem;}
+.pc-fbtn{border:1px solid #222;background:#0d0d0d;color:#666;padding:.25rem .6rem;font:.6rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:all .15s;}
+.pc-fbtn:hover,.pc-factive{border-color:rgba(0,200,83,.35);background:rgba(0,200,83,.07);color:var(--green);}
+.pc-count{font-size:.6rem;color:#555;letter-spacing:.08em;padding:.1rem 0;}
+.pc-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.9rem;padding:.5rem 0 3.5rem;}
+@media(max-width:1100px){.pc-grid{grid-template-columns:repeat(4,1fr);}}
+@media(max-width:800px){.pc-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:520px){.pc-grid{grid-template-columns:repeat(2,1fr);}}
+.pc-wrap{perspective:900px;transition:transform .18s;}
+.pc-wrap:hover{transform:translateY(-4px);}
+.pc-card{width:100%;aspect-ratio:5/7;cursor:pointer;position:relative;}
+.pc-inner{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .52s cubic-bezier(.4,0,.2,1);}
+.pc-card.pc-flipped .pc-inner{transform:rotateY(180deg);}
+.pc-front,.pc-back{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;flex-direction:column;border:1px solid #222;overflow:hidden;background:#080808;}
+.pc-back{transform:rotateY(180deg);}
+.pc-top{display:flex;justify-content:space-between;align-items:center;padding:.3rem .45rem;background:#060606;border-bottom:1px solid #111;}
+.pc-series{font-size:.38rem;letter-spacing:.12em;text-transform:uppercase;color:#444;}
+.pc-rbadge{font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;border:1px solid;padding:.08rem .28rem;}
+.pc-art{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0d2e1a;position:relative;overflow:hidden;}
+.pc-art::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 40%,rgba(0,200,83,.07) 0%,transparent 70%);}
+.pc-suit{font-size:clamp(2.4rem,7vw,3.6rem);line-height:1;position:relative;z-index:1;}
+.pc-typelabel{font-size:.46rem;letter-spacing:.22em;text-transform:uppercase;margin-top:.35rem;position:relative;z-index:1;}
+.pc-fb{padding:.45rem .5rem .3rem;display:flex;flex-direction:column;gap:.1rem;border-top:1px solid #111;}
+.pc-fname{font-family:'Bebas Neue',sans-serif;font-size:clamp(.85rem,2.4vw,1.15rem);letter-spacing:.05em;line-height:1;color:var(--offwhite);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pc-fnick{font-family:'DM Serif Display',serif;font-style:italic;font-size:.58rem;color:var(--gold);line-height:1.2;}
+.pc-froom{font-size:.46rem;color:#777;letter-spacing:.03em;margin-top:.06rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pc-fgame{font-size:.42rem;color:#555;letter-spacing:.06em;text-transform:uppercase;}
+.pc-ftop{display:flex;justify-content:space-between;align-items:center;padding:.28rem .5rem;background:#060606;border-top:1px solid #111;margin-top:auto;}
+.pc-fedition{font-size:.38rem;letter-spacing:.08em;text-transform:uppercase;color:#3a3a3a;}
+.pc-fnum{font-size:.44rem;letter-spacing:.07em;font-family:'DM Mono',monospace;}
+.pc-bk-hdr{display:flex;justify-content:space-between;align-items:center;padding:.38rem .5rem;background:#060606;border-bottom:1px solid #111;}
+.pc-bk-brand{font-family:'Bebas Neue',sans-serif;font-size:.72rem;letter-spacing:.14em;}
+.pc-bk-quote{font-family:'DM Serif Display',serif;font-style:italic;font-size:.56rem;color:var(--offwhite);line-height:1.5;padding:.4rem .5rem;border-bottom:1px solid #0e0e0e;}
+.pc-bk-ab{display:flex;flex-direction:column;gap:.2rem;padding:.32rem .5rem;flex:1;min-height:0;overflow:hidden;}
+.pc-ab{display:flex;gap:.22rem;align-items:flex-start;font-size:.42rem;line-height:1.4;color:#a0988a;}
+.pc-ab strong{color:var(--offwhite);}
+.pc-ab-ic{flex-shrink:0;width:11px;font-size:.5rem;}
+.pc-ab-weak .pc-ab-tx{color:#c09090;}
+.pc-bk-stats{padding:.28rem .5rem;border-top:1px solid #0f0f0f;}
+.pc-stats-lbl{font-size:.38rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.22rem;}
+.pc-stat{display:flex;align-items:center;gap:.28rem;margin-bottom:.1rem;}
+.pc-sl{font-size:.38rem;color:#666;width:58px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pc-bw{flex:1;height:2px;background:#1a1a1a;overflow:hidden;}
+.pc-bv{height:100%;background:var(--green);}
+.pc-sv{font-size:.38rem;color:#555;width:18px;text-align:right;flex-shrink:0;}
+.pc-bk-ftr{padding:.28rem .5rem;border-top:1px solid #111;margin-top:auto;}
+.pc-view-btn{display:block;text-align:center;padding:.28rem;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;border:1px solid;background:transparent;transition:background .18s;font-family:'DM Mono',monospace;}
+.pc-view-btn:hover{background:rgba(255,255,255,.04);}
+.pc-empty{grid-column:1/-1;text-align:center;padding:3rem;color:#444;font-size:.76rem;border:1px dashed #1a1a1a;}
+</style>
+
+<div class="pc-hero">
+  <p class="eyebrow">&#x2756; ATMNOPIN&#x2122; Collectibles</p>
+  <h1 class="pc-h1">Player <em>Card</em> Gallery</h1>
+  <p class="pc-lead">Every personality at the table — dealers, floor staff, and regulars — immortalized as a premium collectible trading card. Click any card to flip it and reveal their stats and abilities.</p>
+  <p class="pc-meta">Series 1 &nbsp;&middot;&nbsp; <span>${total}</span> cards &nbsp;&middot;&nbsp; Foxwoods &amp; Horseshoe Editions</p>
+</div>
+
+<div class="pc-controls">
+  <input class="pc-search" type="search" placeholder="Search name, nickname, card number…" oninput="pcFilter()" id="pcSearch" autocomplete="off" />
+  <div class="pc-frow">
+    <span class="pc-flbl">Type:</span>
+    ${typeFilters}
+  </div>
+  <div class="pc-frow">
+    <span class="pc-flbl">Rarity:</span>
+    ${rarityFilters}
+  </div>
+  <p class="pc-count" id="pcCount">${total} cards shown</p>
+</div>
+
+<div class="pc-grid" id="pcGrid">
+${cardsHtml}
+</div>
+
+<script>
+var pcActiveType = '';
+var pcActiveRarity = '';
+
+function pcToggle(el) {
+  el.classList.toggle('pc-flipped');
+}
+
+function pcFilter() {
+  var q = (document.getElementById('pcSearch').value || '').toLowerCase().trim();
+  var wraps = document.querySelectorAll('#pcGrid .pc-wrap');
+  var visible = 0;
+  wraps.forEach(function(w) {
+    var mt = !pcActiveType   || w.dataset.type   === pcActiveType;
+    var mr = !pcActiveRarity || w.dataset.rarity === pcActiveRarity;
+    var ms = !q || (w.dataset.search || '').indexOf(q) !== -1;
+    var show = mt && mr && ms;
+    w.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  var lbl = document.getElementById('pcCount');
+  if (lbl) lbl.textContent = visible + ' card' + (visible !== 1 ? 's' : '') + ' shown';
+}
+
+(function() {
+  document.querySelectorAll('.pc-fbtn[data-fk="type"]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.pc-fbtn[data-fk="type"]').forEach(function(b) { b.classList.remove('pc-factive'); });
+      btn.classList.add('pc-factive');
+      pcActiveType = btn.dataset.fv;
+      pcFilter();
+    });
+  });
+  document.querySelectorAll('.pc-fbtn[data-fk="rarity"]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.pc-fbtn[data-fk="rarity"]').forEach(function(b) { b.classList.remove('pc-factive'); });
+      btn.classList.add('pc-factive');
+      pcActiveRarity = btn.dataset.fv;
+      pcFilter();
+    });
+  });
+})();
+</script>
+`);
 }
 
 function badgeSlug(badge) {
@@ -6365,6 +6725,15 @@ const server = http.createServer(async (req, res) => {
     }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderChroniclePage(chronicle, all));
+    logPageVisit(req, pathname);
+    return;
+  }
+
+  if (pathname === '/player-cards') {
+    const all = await loadChronicles();
+    const cards = buildPlayerCards(all);
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderPlayerCardsPage(cards));
     logPageVisit(req, pathname);
     return;
   }
