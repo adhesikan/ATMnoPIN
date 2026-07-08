@@ -616,6 +616,32 @@
     .ai-engine-copy { font-family: 'DM Serif Display', serif; font-size: clamp(1rem, 2vw, 1.3rem); color: var(--offwhite); line-height: 1.35; max-width: 48ch; }
     .ai-engine-copy em { color: var(--gold); font-style: italic; }
 
+    /* ─── JOIN THE CREW SECTION ─── */
+    .join-section { background: var(--felt); border-top: 1px solid #0f2a18; border-bottom: 1px solid #0f2a18; }
+    .join-inner { max-width: var(--max-w); margin: 0 auto; padding: 5.5rem 2.5rem; }
+    .join-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; }
+    .join-label { font-size: .62rem; letter-spacing: .25em; text-transform: uppercase; color: var(--green); margin-bottom: 1.25rem; }
+    .join-headline { font-family: 'DM Serif Display', serif; font-size: clamp(2.2rem, 4vw, 3.2rem); line-height: 1.1; color: var(--offwhite); margin-bottom: 1rem; }
+    .join-headline em { color: var(--gold); font-style: italic; }
+    .join-copy { font-size: .82rem; line-height: 1.9; color: var(--text-secondary); margin-bottom: 1.75rem; max-width: 50ch; }
+    .join-perks { list-style: none; display: grid; gap: .85rem; margin-bottom: 2.25rem; }
+    .join-perks li { font-size: .78rem; color: var(--text-secondary); display: flex; gap: .85rem; align-items: baseline; line-height: 1.6; }
+    .join-perk-suit { color: var(--green); flex-shrink: 0; }
+    .join-perk-label { color: var(--offwhite); font-weight: 500; }
+    .join-cta-row { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
+    .join-proof { padding: 1.75rem; background: rgba(0,0,0,.3); border: 1px solid rgba(0,200,83,.14); border-radius: 14px; }
+    .join-proof-eyebrow { font-size: .58rem; letter-spacing: .2em; text-transform: uppercase; color: var(--green); margin-bottom: .75rem; }
+    .join-proof-quote { font-family: 'DM Serif Display', serif; font-size: 1.15rem; color: var(--gold); font-style: italic; margin-bottom: 1.1rem; line-height: 1.35; }
+    .join-proof-tags { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.25rem; }
+    .join-proof-tag { font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; padding: .22rem .55rem; border: 1px solid rgba(0,200,83,.2); border-radius: 999px; color: var(--green); background: rgba(0,200,83,.06); text-decoration: none; transition: background .15s; }
+    .join-proof-tag:hover { background: rgba(0,200,83,.15); color: #00ff6a; }
+    .join-proof-tag.dealer { border-color: rgba(201,168,76,.25); color: var(--gold); background: rgba(201,168,76,.06); }
+    .join-proof-tag.dealer:hover { background: rgba(201,168,76,.14); }
+    .join-proof-tag.floor { border-color: rgba(200,200,200,.15); color: #b0a898; background: rgba(200,200,200,.04); }
+    .join-proof-tag.floor:hover { background: rgba(200,200,200,.1); color: var(--offwhite); }
+    .join-proof-note { font-size: .7rem; color: var(--gray); border-top: 1px solid #1a3a22; padding-top: .85rem; margin-top: .25rem; }
+    .join-proof-note strong { color: var(--green); }
+
     /* ─── RESPONSIVE ─── */
     @media (max-width: 980px) {
       nav { padding: 1rem 1.5rem; }
@@ -654,6 +680,8 @@
       .ai-feat-grid { grid-template-columns: repeat(2, 1fr); }
       .ai-section { padding: 3rem 1.5rem; }
       .ai-engine-strip { padding: 1.25rem 1.25rem; }
+      .join-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+      .join-inner { padding: 3.5rem 1.5rem; }
     }
   </style>
 </head>
@@ -751,7 +779,7 @@
       <p class="hero-warning">⚠ Warning: AI may reveal that you are actually the fish.</p>
       <div class="hero-cta">
         <a href="/ai-profile-generator" class="btn btn-primary">Generate My Poker Profile</a>
-        <a href="/community-wall" class="btn btn-ghost">See Community Wall</a>
+        <a href="/community-wall" class="btn btn-ghost">Meet the Crew →</a>
         <a href="/blog" class="btn btn-ghost">Read Stories</a>
       </div>
     </div>
@@ -860,6 +888,68 @@
   <!-- TOURNAMENT_JOURNEY -->
 
   <!-- COMMUNITY_PREVIEW -->
+
+  <!-- JOIN THE CREW -->
+  <div class="join-section">
+    <div class="join-inner">
+      <div class="join-grid">
+
+        <div>
+          <p class="join-label">// The Open Seat</p>
+          <h2 class="join-headline">Your Table.<br>Your Story.<br><em>Your Seat.</em></h2>
+          <p class="join-copy">This crew started with a few friends at Foxwoods $2/$5. Now they have their own profiles, chronicles, and a corner of the internet. There is one open seat and it has your name on it.</p>
+          <ul class="join-perks">
+            <li>
+              <span class="join-perk-suit">♠</span>
+              <span><span class="join-perk-label">Your own profile page</span> on the ATMNOPIN™ Community Wall — live and linkable</span>
+            </li>
+            <li>
+              <span class="join-perk-suit">♦</span>
+              <span><span class="join-perk-label">A funny AI nickname and chronicle</span> written in your voice, not a generic template</span>
+            </li>
+            <li>
+              <span class="join-perk-suit">♣</span>
+              <span><span class="join-perk-label">Featured alongside real players, dealers, and floor staff</span> who actually show up at the table</span>
+            </li>
+            <li>
+              <span class="join-perk-suit">♥</span>
+              <span><span class="join-perk-label">No spin. No LinkedIn energy.</span> Just your poker story, told the right way.</span>
+            </li>
+          </ul>
+          <div class="join-cta-row">
+            <a href="/ai-profile-generator" class="btn btn-primary">Claim Your Seat &rarr;</a>
+            <a href="/community-wall" class="btn btn-ghost">See Who&rsquo;s In &rarr;</a>
+          </div>
+        </div>
+
+        <div>
+          <div class="join-proof">
+            <p class="join-proof-eyebrow">// Already at the table</p>
+            <p class="join-proof-quote">&ldquo;Fifteen real people. Real games. Real stories.&rdquo;</p>
+            <div class="join-proof-tags">
+              <a href="/chronicles/player-spotlight-manny-the-machine" class="join-proof-tag">♠ Manny &ldquo;The Machine&rdquo;</a>
+              <a href="/chronicles/player-spotlight-jamie-the-tuna" class="join-proof-tag">♠ Jamie &ldquo;The Tuna&rdquo;</a>
+              <a href="/chronicles/player-spotlight-jay-ducky-jay" class="join-proof-tag">♠ Jay &ldquo;Ducky Jay&rdquo;</a>
+              <a href="/chronicles/player-spotlight-eric-the-sugar-stacker" class="join-proof-tag">♠ Eric &ldquo;The Sugar Stacker&rdquo;</a>
+              <a href="/chronicles/player-spotlight-lucky-horseshoe-luke" class="join-proof-tag">♠ Luke &ldquo;Lucky Horseshoe Luke&rdquo;</a>
+              <a href="/chronicles/dealer-spotlight-terrell-my-biggest-fan-at-the-wsop" class="join-proof-tag dealer">♦ Terrell &ldquo;The Railbird&rdquo;</a>
+              <a href="/chronicles/dealer-spotlight-poker-jesus-dominicks-tournament-blessings" class="join-proof-tag dealer">♦ Dominick &ldquo;Poker Jesus&rdquo;</a>
+              <a href="/chronicles/dealer-spotlight-crazy-mike-the-river-card-is-always-his-fault" class="join-proof-tag dealer">♦ Crazy Mike</a>
+              <a href="/chronicles/dealer-spotlight-felix-the-setup-artist" class="join-proof-tag dealer">♦ Felix &ldquo;The Setup Artist&rdquo;</a>
+              <a href="/chronicles/dealer-spotlight-ray-master-of-timing" class="join-proof-tag dealer">♦ Ray &ldquo;Master of Timing&rdquo;</a>
+              <a href="/chronicles/dealer-spotlight-jenny-queen-of-the-rotation" class="join-proof-tag dealer">♦ Jenny &ldquo;Queen of the Rotation&rdquo;</a>
+              <a href="/chronicles/floor-spotlight-frank-the-man-who-keeps-the-poker-room-running" class="join-proof-tag floor">♣ Frank</a>
+              <a href="/chronicles/floor-spotlight-bhavin-the-connector" class="join-proof-tag floor">♣ Bhavin &ldquo;The Connector&rdquo;</a>
+              <a href="/chronicles/floor-spotlight-charlie-still-standing" class="join-proof-tag floor">♣ Charlie &ldquo;Still Standing&rdquo;</a>
+              <a href="/chronicles/floor-spotlight-steve-birthday-variance" class="join-proof-tag floor">♣ Steve &ldquo;Birthday Variance&rdquo;</a>
+            </div>
+            <p class="join-proof-note"><strong>Your name goes next.</strong> Takes three minutes. No poker credentials required — just a story worth telling.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
 
   <!-- FOLLOW -->
   <div class="section-divider" id="follow">
