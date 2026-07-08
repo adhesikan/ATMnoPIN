@@ -1118,6 +1118,98 @@ But the laughs are always +EV.
     published_at: '2026-06-29T10:00:00.000Z',
   },
 
+  {
+    id: 'c042-luke-lucky-horseshoe-foxwoods-2026',
+    title: 'Player Spotlight: Luke — Lucky Horseshoe Luke',
+    slug: 'player-spotlight-lucky-horseshoe-luke',
+    excerpt: 'Luke is rarely seen without his lucky horseshoe tucked somewhere nearby. Whether it actually brings him luck or simply gives the poker gods something to smile about is still up for debate. He\'s always ready for another session, another story, and another chance to prove that faith, patience, and a little superstition can go a long way.',
+    category: 'Player Spotlight',
+    person_type: 'player',
+    poker_room: 'Foxwoods Resort Casino',
+    specialty: 'Keeping the horseshoe close and the chip stack growing while everyone else wonders if luck really is a strategy.',
+    tell: 'Quietly gives the lucky horseshoe a reassuring tap before the biggest hands.',
+    threat_level: 'Looks harmless... until the horseshoe starts running hot.',
+    lucky_charm: 'A horseshoe that\'s logged almost as many hours at the poker table as Luke.',
+    known_for: 'Never leaving home without his lucky horseshoe and always believing the next session could be the one.',
+    table_reputation: 'Friendly, patient, and impossible to convince that the horseshoe is "just a decoration."',
+    icon_type: '♠',
+    tags: ['Foxwoods', 'Player Spotlight', 'Fellow Fish', 'Poker Friends', '$2/$5 NLH', 'Poker Humor', 'Table Characters', 'Lucky Horseshoe', 'Lucky Charm', 'Superstition', 'Community Story', 'ATMNOPIN'],
+    content: `Every poker room has a player who brings something extra to the table.
+
+At Foxwoods, that player is Luke.
+
+Luke doesn't just sit down, stack chips, and play cards.
+
+Luke arrives with backup.
+
+Somewhere within reach — in a pocket, on the rail, near the chip stack — there is a horseshoe.
+
+Not decorative. Not ironic. Fully operational.
+
+Whether it belongs there is not a debate Luke is willing to have.
+
+The horseshoe stays.
+
+The theory behind it is straightforward enough: some players bring superstitions to the table and abandon them the moment things go sideways. Luke brings his and doubles down.
+
+If the horseshoe runs hot, Luke runs hot.
+
+If the horseshoe runs cold, Luke is already planning the next session.
+
+Between hands, Luke is patient.
+
+Not the kind of patient where someone is quietly frustrated and barely holding it together.
+
+The kind of patient where someone genuinely believes that things work out for people who stay ready.
+
+The horseshoe helps.
+
+Ask Luke if the horseshoe actually changes anything.
+
+He'll smile, give it a quiet tap, and let the next hand answer for him.
+
+The poker gods haven't delivered a definitive ruling yet.
+
+But they do seem to be enjoying the show.
+
+At the table, Luke is exactly who you think he is: friendly, unbothered, and completely at peace with the variance.
+
+Bad beats don't shake him.
+
+Cold runs don't shake him.
+
+The horseshoe is there. The next session is coming. That's enough.
+
+Whether the horseshoe is the reason things eventually go his way or simply a reminder to stay the course, nobody at the table has been able to convince Luke it doesn't matter.
+
+And at this point, nobody is really trying.
+
+**ATMNOPIN Rating:**
+
+- Lucky Charm Status: Fully operational
+- Horseshoe Placement: Within reach at all times
+- Pre-hand Ritual Consistency: Reliable
+- Session Readiness: Always
+- Patience Level: Genuine
+- Threat Level: Looks harmless... until the horseshoe starts running hot
+- Belief in the Next Session: Unwavering
+- Superstition Commitment: Total
+
+**Fun Fact:** Luke never leaves home without the horseshoe. At this point, it has logged almost as many table hours as he has.`,
+    status: 'published',
+    featured_on_home: false,
+    featured_image_url: '',
+    featured_image_alt: 'Luke, Lucky Horseshoe Luke, at Foxwoods',
+    gallery_images: [],
+    video_urls: [],
+    crew_nickname: 'Lucky Horseshoe Luke',
+    crew_role: 'Player',
+    crew_quote: '',
+    created_at: '2026-07-08T10:00:00.000Z',
+    updated_at: '2026-07-08T10:00:00.000Z',
+    published_at: '2026-07-08T10:00:00.000Z',
+  },
+
   // ─── TOURNAMENT REPORTS ───
   {
     id: 'c016-atm-45703-wsop-2025',
@@ -2906,6 +2998,35 @@ const SEED_SUBMISSIONS = [
     submitted_at: '2026-06-29T10:00:00.000Z',
   },
   {
+    id: 'crew-luke-lucky-horseshoe-001',
+    name: 'Luke',
+    nickname: 'Lucky Horseshoe Luke',
+    email: '',
+    city: '',
+    favorite_game: '$2/$5 NLH',
+    bio: 'Never seen without the lucky horseshoe. Always ready for another session, another story, and another chance to prove that faith, patience, and a little superstition go a long way.',
+    biggest_accomplishment: 'Keeping the horseshoe close and the chip stack growing while everyone else wonders if luck really is a strategy.',
+    funny_story: '',
+    bad_beat_story: '',
+    social_link: '/chronicles/player-spotlight-lucky-horseshoe-luke',
+    photo_url: '',
+    permission: true,
+    status: 'approved',
+    badge: 'Fellow Fish',
+    featured_on_home: false,
+    admin_notes: 'Foxwoods player personality.',
+    slug: 'luke-lucky-horseshoe',
+    player_type: 'crew',
+    suit: '♠',
+    tags: ['Players', 'Fellow Fish', 'Poker Friends', 'Foxwoods', '$2/$5 NLH', 'Table Characters', 'Player Spotlight', 'Lucky Horseshoe', 'Lucky Charm'],
+    specialty: 'Keeping the horseshoe close and the chip stack growing while everyone else wonders if luck really is a strategy.',
+    tell: 'Quietly gives the lucky horseshoe a reassuring tap before the biggest hands.',
+    threat_level: 'Looks harmless... until the horseshoe starts running hot.',
+    poker_room: 'Foxwoods Resort Casino',
+    created_at: '2026-07-08T10:00:00.000Z',
+    submitted_at: '2026-07-08T10:00:00.000Z',
+  },
+  {
     id: 'crew-seat-open-001',
     name: 'You?',
     nickname: 'TBD',
@@ -2949,6 +3070,9 @@ const HERO_PROFILES = [
   { id:'hp-eric', name:'Eric', nickname:'The Sugar Stacker', type:'player',
     summary:'Messy stacks. Tight poker. Zero-sugar logistics. Breakfast sponsor of Jamie. Dating investigator of Ducky Jay.',
     location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/chronicles/player-spotlight-eric-the-sugar-stacker', cta:'View Profile →' },
+  { id:'hp-luke', name:'Luke', nickname:'Lucky Horseshoe Luke', type:'player',
+    summary:'Never sits down without the horseshoe. Patient, friendly, and firmly convinced that luck is absolutely a strategy.',
+    location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/chronicles/player-spotlight-lucky-horseshoe-luke', cta:'View Profile →' },
   { id:'hp-bhavin', name:'Bhavin', nickname:'The Connector', type:'floor',
     summary:'Gets players seated, keeps the room moving, and somehow handles everything at once.',
     location:'Foxwoods', badge:'Floor Staff', badgeClass:'hc-badge-floor', icon:'♣', href:'/community-wall', cta:'View Community →' },
@@ -3491,6 +3615,7 @@ function renderSubmissionCardHtml(s) {
         <button class="secondary" id="shome-${id}" onclick="subToggleHome('${id}')">${s.featured_on_home ? 'Unfeature Home' : 'Feature Home'}</button>
         <button class="secondary" id="smonthly-${id}" onclick="subToggleMonthly('${id}')">${s.is_monthly_winner ? 'Monthly Winner' : 'Set Monthly'}</button>
         <button class="secondary" onclick="subDelete('${id}')">Delete</button>
+        <button class="gp-btn" onclick="generateProfile('${id}')">✦ Generate Profile</button>
       </div>
       <div class="sub-field" style="margin-top:.5rem;"><div class="sub-field-lbl">Badges</div>
         <div id="badges-${id}" style="display:flex;flex-wrap:wrap;gap:.4rem;margin:.4rem 0;">${badgeBoxes}</div>
@@ -3824,7 +3949,100 @@ function renderAdminPage(submissions = []) {
       .sub-field-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.15em;color:var(--gray);margin-bottom:.15rem;}
       .sub-field-val{font-size:.82rem;color:var(--offwhite);}
       .sub-actions{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.75rem;padding-top:.75rem;border-top:1px solid #1a1a1a;}
+      .gp-btn{border:1px solid rgba(0,200,83,.4);background:rgba(0,200,83,.08);color:var(--green);border-radius:8px;padding:.3rem .75rem;cursor:pointer;font:.68rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;transition:all .2s;}
+      .gp-btn:hover{background:rgba(0,200,83,.18);}
+      #gpModal{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;overflow-y:auto;padding:2rem 1rem;}
+      #gpModal .gp-card{max-width:720px;margin:0 auto;background:#0c0c0c;border:1px solid #1e3a28;border-radius:16px;padding:1.5rem;}
+      #gpModal h2{font-family:'DM Serif Display',serif;font-size:1.25rem;color:var(--green);margin:0;}
+      #gpModal .gp-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;}
+      #gpModal .gp-close{background:none;border:1px solid #333;color:#888;border-radius:8px;padding:.3rem .75rem;cursor:pointer;font:.85rem 'DM Mono',monospace;}
+      #gpStatus{display:none;padding:.55rem .9rem;border-radius:8px;font-size:.78rem;margin-bottom:.75rem;}
+      #gpModal .gp-row{display:grid;gap:.6rem;}
+      #gpModal .gp-2col{grid-template-columns:1fr 1fr;}
+      #gpModal .gp-3col{grid-template-columns:1fr 1fr 1fr;}
+      #gpModal .gp-row label{display:grid;gap:.25rem;font-size:.63rem;color:var(--gray);text-transform:uppercase;letter-spacing:.12em;}
+      #gpModal .gp-row input,#gpModal .gp-row textarea,#gpModal .gp-row select{width:100%;border:1px solid #242424;background:#121212;color:var(--offwhite);padding:.55rem .75rem;border-radius:8px;font:inherit;font-size:.82rem;}
+      #gpModal .gp-row textarea{resize:vertical;}
+      #gpModal .gp-foot{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end;margin-top:1.25rem;padding-top:1rem;border-top:1px solid #1e1e1e;}
+      #gpModal .gp-sec{border-top:1px solid #1e1e1e;margin-top:1rem;padding-top:1rem;}
+      #gpModal .gp-sec-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.15em;color:var(--gray);margin-bottom:.5rem;}
+      .gp-cancel{border:1px solid #333;background:#111;color:#888;border-radius:8px;padding:.55rem 1.1rem;cursor:pointer;font:.72rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;}
+      .gp-draft{border:1px solid #444;background:#181818;color:var(--offwhite);border-radius:8px;padding:.55rem 1.1rem;cursor:pointer;font:.72rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;}
+      .gp-publish{border:none;background:var(--green);color:#000;border-radius:8px;padding:.55rem 1.3rem;cursor:pointer;font:.72rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;font-weight:700;}
+      .gp-publish:hover{background:#00e060;}
+      .gp-regen{border:1px solid rgba(0,200,83,.35);background:rgba(0,200,83,.07);color:var(--green);border-radius:8px;padding:.45rem .9rem;cursor:pointer;font:.68rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;}
     </style>
+
+    <div id="gpModal" style="display:none;" role="dialog" aria-modal="true" aria-label="Generate Player Spotlight">
+      <div class="gp-card">
+        <div class="gp-hdr">
+          <h2>✦ Generate Player Spotlight</h2>
+          <button class="gp-close" onclick="cancelGP()">✕ Close</button>
+        </div>
+        <div id="gpStatus"></div>
+        <div style="display:flex;gap:.6rem;align-items:flex-end;margin-bottom:1rem;">
+          <label style="flex:1;display:grid;gap:.25rem;font-size:.63rem;color:var(--gray);text-transform:uppercase;letter-spacing:.12em;">Style hints (optional)
+            <input id="gpHints" type="text" placeholder="e.g. more poker humor, shorter narrative, emphasize the funny story" style="border:1px solid #242424;background:#121212;color:var(--offwhite);padding:.55rem .75rem;border-radius:8px;font:inherit;font-size:.82rem;" />
+          </label>
+          <button id="gpRegenBtn" class="gp-regen" onclick="gpRegen()">⟳ Regenerate</button>
+        </div>
+
+        <div class="gp-sec">
+          <div class="gp-sec-lbl">Profile Identity</div>
+          <div class="gp-row" style="gap:.6rem;">
+            <label>Profile Title *<input id="gpTitle" type="text" /></label>
+            <div class="gp-row gp-2col">
+              <label>Nickname *<input id="gpNick" type="text" /></label>
+              <label>Slug *<input id="gpSlug" type="text" /></label>
+            </div>
+            <div class="gp-row gp-3col">
+              <label>Badge *<input id="gpBadge" type="text" /></label>
+              <label>Game<input id="gpGame" type="text" /></label>
+              <label>Casino<input id="gpCasino" type="text" /></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="gp-sec">
+          <div class="gp-sec-lbl">About</div>
+          <div class="gp-row">
+            <label>About (excerpt shown on listing pages) *<textarea id="gpAbout" style="min-height:80px;"></textarea></label>
+          </div>
+        </div>
+
+        <div class="gp-sec">
+          <div class="gp-sec-lbl">Player Profile Table</div>
+          <div class="gp-row" style="gap:.6rem;">
+            <label>Specialty<textarea id="gpSpecialty" style="min-height:55px;"></textarea></label>
+            <div class="gp-row gp-2col">
+              <label>Tell<textarea id="gpTell" style="min-height:55px;"></textarea></label>
+              <label>Threat Level<textarea id="gpThreat" style="min-height:55px;"></textarea></label>
+            </div>
+            <div class="gp-row gp-3col">
+              <label>Lucky Charm<textarea id="gpLucky" style="min-height:55px;"></textarea></label>
+              <label>Known For<textarea id="gpKnown" style="min-height:55px;"></textarea></label>
+              <label>Table Reputation<textarea id="gpTableRep" style="min-height:55px;"></textarea></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="gp-sec">
+          <div class="gp-sec-lbl">Full Story (Markdown)</div>
+          <div class="gp-row">
+            <label>Story Content *<textarea id="gpContent" style="min-height:220px;font-family:monospace;font-size:.76rem;line-height:1.5;"></textarea></label>
+          </div>
+        </div>
+
+        <div id="gpSaveConfirm" style="display:none;margin-top:.75rem;padding:.6rem .9rem;border-radius:8px;font-size:.78rem;border:1px solid rgba(0,200,83,.3);background:rgba(0,200,83,.07);color:var(--green);"></div>
+
+        <div class="gp-foot">
+          <button class="gp-cancel" onclick="cancelGP()">Cancel</button>
+          <button id="gpDraftBtn" class="gp-draft" onclick="gpSave('draft')">Save Draft</button>
+          <button id="gpPublishBtn" class="gp-publish" onclick="gpSave('published')">Publish Profile →</button>
+        </div>
+      </div>
+    </div>
+
     </div><!-- end communityPanel -->
     <script>
     function toggleSubDetail(id) {
@@ -3903,6 +4121,160 @@ function renderAdminPage(submissions = []) {
     async function subAIReject(id) { if (await subCRUD(id,'PUT',{ai_personality_status:'rejected'})) location.reload(); }
     async function subChronicleApprove(s,c) { if (await subCRUD(s,'PUT',{chronicle_id:c,chronicle_status:'approved'})) location.reload(); }
     async function subChronicleReject(s,c) { if (await subCRUD(s,'PUT',{chronicle_id:c,chronicle_status:'rejected'})) location.reload(); }
+
+    // ── Profile Generator Modal ──────────────────────────────────────────────
+    var gpSubId = null;
+    var gpChronicleId = null;
+
+    function gpSetStatus(msg, type) {
+      var el = document.getElementById('gpStatus');
+      if (!el) return;
+      if (!msg) { el.style.display = 'none'; return; }
+      el.style.display = '';
+      el.textContent = msg;
+      var colors = {
+        ok:   { bg:'rgba(0,200,83,.08)',  border:'rgba(0,200,83,.3)',  color:'var(--green)' },
+        bad:  { bg:'rgba(200,50,50,.08)', border:'rgba(200,50,50,.3)', color:'#e06060' },
+        info: { bg:'rgba(201,168,76,.06)',border:'rgba(201,168,76,.25)',color:'var(--gold)' },
+      };
+      var c = colors[type] || colors.info;
+      el.style.background = c.bg; el.style.border = '1px solid ' + c.border; el.style.color = c.color;
+    }
+
+    function gpFill(p) {
+      var map = { gpTitle:'title', gpNick:'nickname', gpSlug:'slug', gpBadge:'badge',
+                  gpGame:'game', gpCasino:'casino', gpAbout:'about', gpSpecialty:'specialty',
+                  gpTell:'tell', gpThreat:'threatLevel', gpLucky:'luckyCharm',
+                  gpKnown:'knownFor', gpTableRep:'tableReputation', gpContent:'content' };
+      Object.keys(map).forEach(function(elId) {
+        var el = document.getElementById(elId);
+        if (el) el.value = p[map[elId]] || '';
+      });
+    }
+
+    function gpReadForm() {
+      function v(id) { var e = document.getElementById(id); return e ? e.value.trim() : ''; }
+      var title = v('gpTitle'), nick = v('gpNick'), slug = v('gpSlug'),
+          badge = v('gpBadge'), about = v('gpAbout'), content = v('gpContent');
+      if (!title) throw new Error('Profile title is required.');
+      if (!nick)  throw new Error('Nickname is required.');
+      if (!slug)  throw new Error('Slug is required.');
+      if (!badge) throw new Error('Badge is required.');
+      if (!about) throw new Error('About section is required.');
+      if (!content) throw new Error('Story content is required.');
+      var game = v('gpGame'), casino = v('gpCasino');
+      var tags = ['Player Spotlight', badge, 'Foxwoods', 'Poker Friends', 'Community Story', 'ATMNOPIN'];
+      if (game && tags.indexOf(game) === -1) tags.push(game);
+      return {
+        title: title, slug: slug, excerpt: about, content: content,
+        category: 'Player Spotlight', person_type: 'player',
+        poker_room: casino, specialty: v('gpSpecialty'), tell: v('gpTell'),
+        threat_level: v('gpThreat'), lucky_charm: v('gpLucky'),
+        known_for: v('gpKnown'), table_reputation: v('gpTableRep'),
+        crew_nickname: nick, crew_role: 'Player', crew_quote: '',
+        icon_type: '\\u2660', tags: tags,
+        featured_on_home: false, featured_image_url: '',
+        featured_image_alt: nick + (casino ? ' at ' + casino : ''),
+        gallery_images: [], video_urls: [],
+        source_submission_id: gpSubId || '',
+      };
+    }
+
+    async function gpCallGenerate(subId, hints) {
+      var r = await fetch('/api/admin/generate-player-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submissionId: subId, styleHints: hints || '' }),
+      });
+      var d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Generation failed.');
+      return d.profile;
+    }
+
+    async function generateProfile(subId) {
+      gpSubId = subId;
+      gpChronicleId = null;
+      document.getElementById('gpHints').value = '';
+      document.getElementById('gpSaveConfirm').style.display = 'none';
+      gpFill({});
+      document.getElementById('gpModal').style.display = '';
+      document.body.style.overflow = 'hidden';
+      gpSetStatus('Generating profile with AI...', 'info');
+      var btn = document.getElementById('gpRegenBtn');
+      if (btn) btn.disabled = true;
+      try {
+        var p = await gpCallGenerate(subId, '');
+        gpFill(p);
+        gpSetStatus('Profile generated — review and edit before publishing.', 'ok');
+      } catch (e) {
+        gpSetStatus('Error: ' + e.message, 'bad');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function gpRegen() {
+      if (!gpSubId) return;
+      var btn = document.getElementById('gpRegenBtn');
+      if (btn) btn.disabled = true;
+      gpSetStatus('Regenerating...', 'info');
+      document.getElementById('gpSaveConfirm').style.display = 'none';
+      try {
+        var hints = document.getElementById('gpHints').value.trim();
+        var p = await gpCallGenerate(gpSubId, hints);
+        gpFill(p);
+        gpSetStatus('Regenerated — review edits before publishing.', 'ok');
+      } catch (e) {
+        gpSetStatus('Error: ' + e.message, 'bad');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function gpSave(status) {
+      var draftBtn = document.getElementById('gpDraftBtn');
+      var pubBtn = document.getElementById('gpPublishBtn');
+      try {
+        var payload = gpReadForm();
+        payload.status = status;
+        if (draftBtn) draftBtn.disabled = true;
+        if (pubBtn) pubBtn.disabled = true;
+        gpSetStatus('Saving...', 'info');
+        var url = gpChronicleId ? '/api/admin/chronicles/' + gpChronicleId : '/api/admin/chronicles';
+        var method = gpChronicleId ? 'PUT' : 'POST';
+        var r = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        var d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Save failed.');
+        gpChronicleId = d.id;
+        gpSetStatus('');
+        var confirm = document.getElementById('gpSaveConfirm');
+        if (confirm) {
+          confirm.style.display = '';
+          confirm.innerHTML = status === 'published'
+            ? '\\u2713 Published! <a href="/chronicles/' + d.slug + '" target="_blank" style="color:var(--green);text-decoration:underline;">View profile →</a>'
+            : '\\u2713 Draft saved. Chronicle ID: ' + d.id;
+        }
+        if (status === 'published' && pubBtn) pubBtn.textContent = 'Published \\u2713';
+      } catch (e) {
+        gpSetStatus('Error: ' + e.message, 'bad');
+      } finally {
+        if (draftBtn) draftBtn.disabled = false;
+        if (pubBtn && status !== 'published') pubBtn.disabled = false;
+      }
+    }
+
+    function cancelGP() {
+      document.getElementById('gpModal').style.display = 'none';
+      document.body.style.overflow = '';
+      gpSubId = null;
+      gpChronicleId = null;
+    }
+    // ── End Profile Generator ────────────────────────────────────────────────
+
     document.addEventListener('DOMContentLoaded', function() {
       ['sfAll','sfSubmitted','sfPending','sfApproved','sfRejected'].forEach(function(btnId) {
         var btn = document.getElementById(btnId);
@@ -4277,7 +4649,7 @@ function renderChroniclePage(chronicle, allChronicles) {
   const gallery = (chronicle.gallery_images || []).map((img) =>
     `<figure class="card"><img src="${escapeHtml(img.url)}" alt="${escapeHtml(img.alt || chronicle.title)}" />${img.alt ? `<p class="small" style="margin-top:.5rem;">${escapeHtml(img.alt)}</p>` : ''}</figure>`
   ).join('');
-  const hasStats = chronicle.specialty || chronicle.tell || chronicle.threat_level;
+  const hasStats = chronicle.specialty || chronicle.tell || chronicle.threat_level || chronicle.lucky_charm || chronicle.known_for || chronicle.table_reputation;
   const crewBox = (chronicle.crew_nickname || chronicle.crew_role || chronicle.crew_quote || hasStats) ? `
     <div class="crew-profile-box">
       ${chronicle.crew_nickname ? `<div class="crew-nick">"${escapeHtml(chronicle.crew_nickname)}"</div>` : ''}
@@ -4287,6 +4659,9 @@ function renderChroniclePage(chronicle, allChronicles) {
         ${chronicle.specialty ? `<div class="crew-stat-row"><span class="crew-stat-lbl">Specialty</span><span class="crew-stat-val">${escapeHtml(chronicle.specialty)}</span></div>` : ''}
         ${chronicle.tell ? `<div class="crew-stat-row"><span class="crew-stat-lbl">Tell</span><span class="crew-stat-val">${escapeHtml(chronicle.tell)}</span></div>` : ''}
         ${chronicle.threat_level ? `<div class="crew-stat-row"><span class="crew-stat-lbl">Threat Level</span><span class="crew-stat-val">${escapeHtml(chronicle.threat_level)}</span></div>` : ''}
+        ${chronicle.lucky_charm ? `<div class="crew-stat-row"><span class="crew-stat-lbl">Lucky Charm</span><span class="crew-stat-val">${escapeHtml(chronicle.lucky_charm)}</span></div>` : ''}
+        ${chronicle.known_for ? `<div class="crew-stat-row"><span class="crew-stat-lbl">Known For</span><span class="crew-stat-val">${escapeHtml(chronicle.known_for)}</span></div>` : ''}
+        ${chronicle.table_reputation ? `<div class="crew-stat-row"><span class="crew-stat-lbl">Table Reputation</span><span class="crew-stat-val">${escapeHtml(chronicle.table_reputation)}</span></div>` : ''}
       </div>` : ''}
       ${chronicle.crew_quote ? `<blockquote class="crew-quote-box">"${escapeHtml(chronicle.crew_quote)}"</blockquote>` : ''}
     </div>` : '';
@@ -5994,6 +6369,102 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (pathname === '/api/admin/generate-player-profile' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody(req);
+      const submissionId = String(body.submissionId || '').trim();
+      const styleHints = String(body.styleHints || '').trim().slice(0, 500);
+      if (!submissionId) throw new Error('submissionId is required.');
+
+      const allSubs = await loadSubmissions();
+      const sub = allSubs.find((s) => s.id === submissionId);
+      if (!sub) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Submission not found.' })); return; }
+
+      // Build context — intentionally omits email, IP, consent, location/city, admin_notes
+      const ctx = [
+        `Name: ${sub.name || ''}${sub.nickname ? ` (self-described nickname: "${sub.nickname}")` : ''}`,
+        sub.favorite_game    ? `Favorite Game: ${sub.favorite_game}` : '',
+        sub.favorite_casino  ? `Favorite Casino: ${sub.favorite_casino}` : '',
+        sub.playing_style    ? `Playing Style (self-described): ${sub.playing_style.slice(0, 200)}` : '',
+        sub.biggest_strength ? `Biggest Strength: ${sub.biggest_strength.slice(0, 200)}` : '',
+        sub.biggest_weakness ? `Biggest Weakness: ${sub.biggest_weakness.slice(0, 200)}` : '',
+        sub.funniest_habit   ? `Funniest Table Habit: ${sub.funniest_habit.slice(0, 200)}` : '',
+        sub.friends_opinion  ? `Friends describe them as: ${sub.friends_opinion.slice(0, 200)}` : '',
+        sub.biggest_accomplishment ? `Biggest Accomplishment: ${sub.biggest_accomplishment.slice(0, 300)}` : '',
+        sub.biggest_goal     ? `Biggest Goal: ${sub.biggest_goal.slice(0, 200)}` : '',
+        sub.funny_story      ? `Funny Story: ${sub.funny_story.slice(0, 500)}` : '',
+        sub.bad_beat_story   ? `Bad Beat Story: ${sub.bad_beat_story.slice(0, 400)}` : '',
+        sub.social_link      ? `Social/Profile link (use as-is in knownFor if relevant): ${sub.social_link}` : '',
+        styleHints           ? `Admin style direction: ${styleHints}` : '',
+      ].filter(Boolean).join('\n');
+
+      const systemPrompt = `You are writing a player spotlight profile for ATMNOPIN™, a poker entertainment brand. Match the voice of existing profiles like "The Sugar Stacker" and "Lucky Horseshoe Luke": witty, poker-themed, community-friendly, never mean-spirited — think ESPN feature meets Foxwoods table banter.
+
+RULES:
+- Do NOT include hometown, city, state, or geographic location.
+- Do NOT include email, IP, consent timestamp, or admin notes.
+- Never be cruel. Friendly roasting only.
+- The "content" field is the full narrative (300-500 words): short punchy paragraphs, lots of white space, ends with **ATMNOPIN Rating:** block (bold header + 6-8 bullet points) followed by a **Fun Fact:** line.
+- Available badges: ${PLAYER_BADGES.join(', ')}.
+- Default badge for community friends is "Fellow Fish".
+
+Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
+{
+  "title": "Player Spotlight: [FirstName] — [Nickname]",
+  "nickname": "[Poker Nickname]",
+  "slug": "player-spotlight-[lowercase-kebab-of-nickname]",
+  "badge": "Fellow Fish",
+  "game": "$2/$5 NLH",
+  "casino": "[Casino from submission or Foxwoods Resort Casino]",
+  "about": "[2-3 sentence compelling teaser shown on listing pages, max 200 words]",
+  "specialty": "[one-liner describing their poker specialty — funny]",
+  "tell": "[their most obvious table tell — specific and funny]",
+  "threatLevel": "[funny threat-level phrase matching existing style]",
+  "luckyCharm": "[lucky charm or superstition if applicable, else empty string]",
+  "knownFor": "[what they are known for at the table]",
+  "tableReputation": "[how other players see them — one sentence]",
+  "content": "[full narrative in ATMwithNoPIN voice with ATMNOPIN Rating and Fun Fact]"
+}`;
+
+      const raw = await callOpenAI(systemPrompt, ctx, 1600, true);
+      let parsed;
+      try { parsed = JSON.parse(raw); } catch { throw new Error('AI returned malformed JSON. Try regenerating.'); }
+
+      const profile = {
+        title:           String(parsed.title || '').slice(0, 200),
+        nickname:        String(parsed.nickname || sub.nickname || sub.name || '').slice(0, 100),
+        slug:            '',
+        badge:           String(parsed.badge || 'Fellow Fish').slice(0, 80),
+        game:            String(parsed.game || sub.favorite_game || '').slice(0, 80),
+        casino:          String(parsed.casino || sub.favorite_casino || '').slice(0, 100),
+        about:           String(parsed.about || '').slice(0, 1000),
+        specialty:       String(parsed.specialty || '').slice(0, 300),
+        tell:            String(parsed.tell || '').slice(0, 200),
+        threatLevel:     String(parsed.threatLevel || '').slice(0, 200),
+        luckyCharm:      String(parsed.luckyCharm || '').slice(0, 200),
+        knownFor:        String(parsed.knownFor || '').slice(0, 200),
+        tableReputation: String(parsed.tableReputation || '').slice(0, 200),
+        content:         String(parsed.content || '').slice(0, 8000),
+      };
+
+      // Build & deduplicate slug
+      const existingChronicles = await loadChronicles();
+      const slugSet = new Set(existingChronicles.map((c) => c.slug));
+      let base = slugify(String(parsed.slug || profile.nickname || 'player-spotlight'));
+      if (!base.startsWith('player-spotlight')) base = 'player-spotlight-' + base;
+      let final = base; let n = 2;
+      while (slugSet.has(final)) { final = base + '-' + n++; }
+      profile.slug = final;
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, profile }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   if (pathname === '/api/admin/chronicles' && req.method === 'GET') {
     const all = await loadChronicles();
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -6021,6 +6492,16 @@ const server = http.createServer(async (req, res) => {
         crew_nickname: String(body.crew_nickname || '').trim(),
         crew_role: String(body.crew_role || '').trim(),
         crew_quote: String(body.crew_quote || '').trim(),
+        person_type: String(body.person_type || 'player').trim(),
+        poker_room: String(body.poker_room || '').trim(),
+        specialty: String(body.specialty || '').trim(),
+        tell: String(body.tell || '').trim(),
+        threat_level: String(body.threat_level || '').trim(),
+        lucky_charm: String(body.lucky_charm || '').trim(),
+        known_for: String(body.known_for || '').trim(),
+        table_reputation: String(body.table_reputation || '').trim(),
+        icon_type: String(body.icon_type || '♠').trim(),
+        source_submission_id: String(body.source_submission_id || '').trim(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         published_at: body.status === 'published' ? new Date().toISOString() : null,
@@ -6075,6 +6556,16 @@ const server = http.createServer(async (req, res) => {
         crew_nickname: String(body.crew_nickname !== undefined ? body.crew_nickname : old.crew_nickname || '').trim(),
         crew_role: String(body.crew_role !== undefined ? body.crew_role : old.crew_role || '').trim(),
         crew_quote: String(body.crew_quote !== undefined ? body.crew_quote : old.crew_quote || '').trim(),
+        person_type: String(body.person_type !== undefined ? body.person_type : old.person_type || 'player').trim(),
+        poker_room: String(body.poker_room !== undefined ? body.poker_room : old.poker_room || '').trim(),
+        specialty: String(body.specialty !== undefined ? body.specialty : old.specialty || '').trim(),
+        tell: String(body.tell !== undefined ? body.tell : old.tell || '').trim(),
+        threat_level: String(body.threat_level !== undefined ? body.threat_level : old.threat_level || '').trim(),
+        lucky_charm: String(body.lucky_charm !== undefined ? body.lucky_charm : old.lucky_charm || '').trim(),
+        known_for: String(body.known_for !== undefined ? body.known_for : old.known_for || '').trim(),
+        table_reputation: String(body.table_reputation !== undefined ? body.table_reputation : old.table_reputation || '').trim(),
+        icon_type: String(body.icon_type !== undefined ? body.icon_type : old.icon_type || '♠').trim(),
+        source_submission_id: String(body.source_submission_id !== undefined ? body.source_submission_id : old.source_submission_id || '').trim(),
         updated_at: new Date().toISOString(),
         published_at: body.status === 'published' ? (old.published_at || new Date().toISOString()) : (body.status === 'draft' ? null : old.published_at || null),
       };
