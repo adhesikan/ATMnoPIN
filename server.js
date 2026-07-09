@@ -5049,7 +5049,11 @@ function renderDmcaPage() {
 
 function renderAdminRailPage(pendingPosts, flaggedPosts, reports, consentRecords) {
   function escP(s) { return escapeHtml(String(s||'')); }
-  function fmtDate(s) { return s ? new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'; }
+  function fmtTs(s) {
+    if (!s) return '—';
+    const iso = new Date(s).toISOString();
+    return `<time data-ts="${iso}">${escP(new Date(s).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}))}</time>`;
+  }
 
   const pendingHtml = pendingPosts.length
     ? pendingPosts.map((p) => {
@@ -5057,7 +5061,7 @@ function renderAdminRailPage(pendingPosts, flaggedPosts, reports, consentRecords
         return `<div style="border:1px solid #1e1e1e;background:#0c0c0c;padding:1rem;margin-bottom:.75rem;">
           <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
             <span style="font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:${escP(typeConf.color)};border:1px solid ${escP(typeConf.color)}40;padding:.1rem .4rem;">${escP(typeConf.label)}</span>
-            <span style="font-size:.56rem;color:#555;">${escP(fmtDate(p.createdAt))} &middot; ${escP(p.authorName||'Anon')} &middot; ${escP(p.pokerRoom||'')}</span>
+            <span style="font-size:.56rem;color:#555;">${fmtTs(p.createdAt)} &middot; ${escP(p.authorName||'Anon')} &middot; ${escP(p.pokerRoom||'')}</span>
           </div>
           ${p.title ? `<p style="font-family:'DM Serif Display',serif;font-size:.92rem;color:var(--offwhite);margin-bottom:.35rem;">${escP(p.title)}</p>` : ''}
           <p style="font-size:.75rem;color:#888;line-height:1.65;margin-bottom:.65rem;">${escP((p.content||'').slice(0,400))}${(p.content||'').length>400?'…':''}</p>
@@ -5075,7 +5079,7 @@ function renderAdminRailPage(pendingPosts, flaggedPosts, reports, consentRecords
     ? reports.map((r) => `<div style="border:1px solid #1a1a1a;background:#0a0a0a;padding:.75rem;margin-bottom:.5rem;font-size:.7rem;color:#888;">
         <span style="color:var(--gold);font-size:.6rem;text-transform:uppercase;">${escP(RAIL_REPORT_TYPES[r.reportType]||r.reportType)}</span>
         &nbsp;&middot;&nbsp; Post: <code style="color:var(--offwhite);font-size:.65rem;">${escP(r.postId)}</code>
-        &nbsp;&middot;&nbsp; ${escP(fmtDate(r.createdAt))}
+        &nbsp;&middot;&nbsp; ${fmtTs(r.createdAt)}
         ${r.description ? `<p style="margin-top:.3rem;color:#777;">${escP(r.description)}</p>` : ''}
       </div>`).join('')
     : '<div class="notice">No pending reports.</div>';
@@ -5091,7 +5095,7 @@ function renderAdminRailPage(pendingPosts, flaggedPosts, reports, consentRecords
           <th style="padding:.35rem .5rem;text-align:left;">Feature</th>
         </tr></thead>
         <tbody>${consentRecords.slice(0,50).map((c) => `<tr style="border-bottom:1px solid #0f0f0f;">
-          <td style="padding:.3rem .5rem;color:#666;white-space:nowrap;">${escP(fmtDate(c.accepted_at||c.acceptedAt))}</td>
+          <td style="padding:.3rem .5rem;color:#666;white-space:nowrap;">${fmtTs(c.accepted_at||c.acceptedAt)}</td>
           <td style="padding:.3rem .5rem;color:var(--offwhite);">${escP(c.email_address||c.emailAddress||'')}</td>
           <td style="padding:.3rem .5rem;color:var(--green);">${escP(c.consent_type||c.consentType||'')}</td>
           <td style="padding:.3rem .5rem;color:#555;font-size:.58rem;white-space:nowrap;">${escP((c.ip_address||c.ipAddress||'').slice(0,20))}</td>
@@ -5151,6 +5155,11 @@ async function railAdmin(action, postId) {
     msg.style.display = 'block';
   }
 }
+document.querySelectorAll('time[data-ts]').forEach(function(el) {
+  var d = new Date(el.dataset.ts);
+  el.textContent = d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  el.title = d.toLocaleString();
+});
 </script>
 `);
 }
