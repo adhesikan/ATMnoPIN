@@ -84,6 +84,40 @@ async function initializeDatabase() {
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         data TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS consent_log (
+        id TEXT PRIMARY KEY,
+        email_address TEXT NOT NULL DEFAULT '',
+        consent_type TEXT NOT NULL,
+        consent_version TEXT NOT NULL DEFAULT '1.0',
+        accepted INTEGER NOT NULL DEFAULT 1,
+        accepted_at TEXT NOT NULL,
+        source_feature TEXT DEFAULT '',
+        ip_address TEXT DEFAULT '',
+        user_agent TEXT DEFAULT '',
+        page_url TEXT DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS rail_posts (
+        id TEXT PRIMARY KEY,
+        status TEXT NOT NULL DEFAULT 'pending',
+        like_count INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        data TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS rail_likes (
+        id TEXT PRIMARY KEY,
+        post_id TEXT NOT NULL,
+        liker_ip TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(post_id, liker_ip)
+      );
+      CREATE TABLE IF NOT EXISTS rail_reports (
+        id TEXT PRIMARY KEY,
+        post_id TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        data TEXT NOT NULL
+      );
     `);
     return;
   }
@@ -107,6 +141,40 @@ async function initializeDatabase() {
       );
       CREATE TABLE IF NOT EXISTS visitor_log (
         id TEXT PRIMARY KEY,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        data JSONB NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS consent_log (
+        id TEXT PRIMARY KEY,
+        email_address TEXT NOT NULL DEFAULT '',
+        consent_type TEXT NOT NULL,
+        consent_version TEXT NOT NULL DEFAULT '1.0',
+        accepted BOOLEAN NOT NULL DEFAULT TRUE,
+        accepted_at TIMESTAMPTZ NOT NULL,
+        source_feature TEXT DEFAULT '',
+        ip_address TEXT DEFAULT '',
+        user_agent TEXT DEFAULT '',
+        page_url TEXT DEFAULT '',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS rail_posts (
+        id TEXT PRIMARY KEY,
+        status TEXT NOT NULL DEFAULT 'pending',
+        like_count INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        data JSONB NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS rail_likes (
+        id TEXT PRIMARY KEY,
+        post_id TEXT NOT NULL,
+        liker_ip TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(post_id, liker_ip)
+      );
+      CREATE TABLE IF NOT EXISTS rail_reports (
+        id TEXT PRIMARY KEY,
+        post_id TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         data JSONB NOT NULL
       );
@@ -3513,6 +3581,7 @@ function renderLayout(title, body) {
         <li><a href="/blog">Stories</a></li>
         <li><a href="/chronicles">Chronicles</a></li>
         <li><a href="/player-cards">Cards</a></li>
+        <li><a href="/rail">The Rail</a></li>
         <li><a href="/community-wall">Community</a></li>
         <li><a href="/inside-the-atm">Inside the ATM</a></li>
         <li><a href="https://www.youtube.com/@ATMwithNoPIN" target="_blank" rel="noopener">Videos</a></li>
@@ -3655,6 +3724,7 @@ function renderAdminPage(submissions = []) {
       <button class="admin-tab" data-panel="communityPanel">Community</button>
       <button class="admin-tab" data-panel="visitorsPanel">Visitors</button>
       <button class="admin-tab" data-panel="consentPanel">Consent Log</button>
+      <button class="admin-tab" onclick="window.location='/admin/rail'">The Rail ↗</button>
     </div>
     <div id="blogPanel">
     <section class="grid">
@@ -4468,6 +4538,595 @@ function renderAdminPage(submissions = []) {
 
 const CHRON_CATEGORIES = ['Player Spotlight', 'Dealer Spotlight', 'Floor Spotlight', 'Community Story', 'Meet the Crew', 'Tournament Reports', 'Bad Beats', 'WSOP Life', 'Vegas Adventures', 'Poker Humor', 'Cash Games', 'Behind the Scenes'];
 
+// ─── THE RAIL RENDER FUNCTIONS ───────────────────────────────────────────────
+
+function renderRailPostCard(post) {
+  const typeConf = RAIL_POST_TYPES[post.postType] || { label: post.postType || 'Post', color: '#888' };
+  const when = new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const preview = escapeHtml((post.content || '').slice(0, 260)) + ((post.content || '').length > 260 ? '…' : '');
+  const tagsHtml = (post.tags || []).slice(0, 4).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+  const metaParts = [post.pokerRoom, post.gameStakes].filter(Boolean);
+  return `<article class="rail-card" data-id="${escapeHtml(post.id)}" data-type="${escapeHtml(post.postType||'')}">
+  <div class="rail-card-top">
+    <span class="rail-type" style="color:${typeConf.color};border-color:${typeConf.color}40">${escapeHtml(typeConf.label)}</span>
+    <span class="rail-meta-right">${metaParts.map(escapeHtml).join(' &middot; ')}${metaParts.length ? ' &middot; ' : ''}${when}</span>
+  </div>
+  ${post.title ? `<h3 class="rail-title">${escapeHtml(post.title)}</h3>` : ''}
+  <p class="rail-content">${preview}</p>
+  ${tagsHtml ? `<div class="rail-tags">${tagsHtml}</div>` : ''}
+  <div class="rail-card-footer">
+    <span class="rail-author">&#x2666; ${escapeHtml(post.authorName || 'Anonymous')}</span>
+    <div class="rail-actions">
+      <button class="rail-like-btn" onclick="railLike(this,'${escapeHtml(post.id)}')" title="Like this post">&#x2665; <span class="rail-lc">${post.likeCount || 0}</span></button>
+      <button class="rail-report-btn" onclick="railReport('${escapeHtml(post.id)}')" title="Report this post">&#x2691; Report</button>
+    </div>
+  </div>
+</article>`;
+}
+
+function renderRailPage(posts, total, page, filters) {
+  const limit = 20;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const cardsHtml = posts.length
+    ? posts.map(renderRailPostCard).join('\n')
+    : '<div class="rail-empty"><p>No posts yet. Be the first to post on The Rail.</p></div>';
+
+  const typeOpts = Object.entries(RAIL_POST_TYPES).map(([k, v]) =>
+    `<button class="rail-filter${filters.type === k ? ' rf-active' : ''}" onclick="railFilter('type','${k}')">${escapeHtml(v.label)}</button>`
+  ).join('');
+
+  const prevUrl = page > 1 ? `/rail?page=${page - 1}${filters.type ? '&type=' + filters.type : ''}` : null;
+  const nextUrl = page < totalPages ? `/rail?page=${page + 1}${filters.type ? '&type=' + filters.type : ''}` : null;
+
+  const typeSelectOpts = [['', 'Select type…'], ...Object.entries(RAIL_POST_TYPES).map(([k, v]) => [k, v.label])]
+    .map(([v, l]) => `<option value="${escapeHtml(v)}">${escapeHtml(l)}</option>`).join('');
+
+  return renderLayout('The Rail | ATMNOPIN™', `
+<style>
+.rail-hero{padding:2.5rem 0 1.5rem;border-bottom:1px solid #1e1e1e;}
+.rail-hero .eyebrow{font-size:.58rem;letter-spacing:.28em;text-transform:uppercase;color:var(--green);margin-bottom:.65rem;}
+.rail-h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3rem,8vw,5rem);line-height:1;color:var(--offwhite);margin-bottom:.5rem;}
+.rail-h1 em{color:var(--green);}
+.rail-tagline{font-size:.82rem;color:#b0a898;max-width:50ch;line-height:1.85;}
+.rail-hero-cta{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.1rem;}
+.rail-cta-btn{display:inline-block;padding:.65rem 1.2rem;font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;cursor:pointer;font-family:inherit;border:none;}
+.rail-cta-primary{background:var(--green);color:#000;}
+.rail-cta-primary:hover{background:#00ff6a;color:#000;}
+.rail-cta-ghost{background:transparent;border:1px solid #2a2a2a;color:var(--offwhite);}
+.rail-cta-ghost:hover{border-color:var(--green);color:var(--green);}
+.rail-layout{display:grid;grid-template-columns:220px 1fr;gap:1.5rem;padding:1.25rem 0 3rem;align-items:start;}
+@media(max-width:860px){.rail-layout{grid-template-columns:1fr;}}
+.rail-sidebar{}
+.rail-sidebar-label{font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:#555;margin-bottom:.5rem;}
+.rail-filter{display:block;width:100%;text-align:left;border:1px solid #1a1a1a;background:transparent;color:#888;padding:.32rem .65rem;font:.64rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;transition:all .15s;margin-bottom:.22rem;}
+.rail-filter:hover,.rf-active{border-color:rgba(0,200,83,.35);background:rgba(0,200,83,.06);color:var(--green);}
+.rail-filter-all{margin-bottom:.6rem;}
+.rail-feed{display:flex;flex-direction:column;gap:.75rem;}
+.rail-card{border:1px solid #1e1e1e;background:#0c0c0c;padding:1rem;transition:border-color .2s;}
+.rail-card:hover{border-color:#2a2a2a;}
+.rail-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;flex-wrap:wrap;gap:.35rem;}
+.rail-type{font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;border:1px solid;padding:.12rem .45rem;}
+.rail-meta-right{font-size:.56rem;color:#555;letter-spacing:.06em;}
+.rail-title{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--offwhite);margin-bottom:.45rem;line-height:1.3;}
+.rail-content{font-size:.78rem;color:#a0988a;line-height:1.75;margin-bottom:.5rem;}
+.rail-tags{margin-bottom:.5rem;}
+.rail-card-footer{display:flex;justify-content:space-between;align-items:center;margin-top:.25rem;padding-top:.5rem;border-top:1px solid #141414;}
+.rail-author{font-size:.62rem;color:#666;letter-spacing:.06em;}
+.rail-actions{display:flex;gap:.5rem;}
+.rail-like-btn,.rail-report-btn{background:transparent;border:1px solid #1a1a1a;color:#666;padding:.22rem .55rem;font:.6rem 'DM Mono',monospace;cursor:pointer;transition:all .15s;letter-spacing:.06em;}
+.rail-like-btn:hover{border-color:rgba(0,200,83,.35);color:var(--green);}
+.rail-report-btn:hover{border-color:rgba(200,80,80,.35);color:#e06060;}
+.rail-empty{padding:3rem;text-align:center;border:1px dashed #1a1a1a;color:#555;font-size:.78rem;}
+.rail-pagination{display:flex;gap:.75rem;align-items:center;justify-content:center;margin-top:1.5rem;font-size:.72rem;color:#666;}
+.rail-page-btn{border:1px solid #2a2a2a;background:#111;color:#888;padding:.3rem .7rem;font:.68rem 'DM Mono',monospace;cursor:pointer;}
+.rail-page-btn:hover{border-color:var(--green);color:var(--green);}
+.rail-count{font-size:.62rem;color:#555;padding:.3rem 0;}
+/* ── Composer Modal ── */
+.rail-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1rem;}
+.rail-modal-box{background:#0d0d0d;border:1px solid #242424;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;padding:1.75rem;}
+.rail-modal-h{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--offwhite);margin-bottom:.25rem;letter-spacing:.08em;}
+.rail-modal-sub{font-size:.72rem;color:#888;margin-bottom:1.25rem;}
+.rail-age-notice{border:1px solid rgba(201,168,76,.3);background:rgba(201,168,76,.05);padding:.85rem 1rem;margin-bottom:1rem;}
+.rail-age-notice p{font-size:.76rem;color:#b0a898;line-height:1.65;}
+.rail-age-notice strong{color:var(--gold);}
+.rail-consent-row{display:flex;align-items:flex-start;gap:.6rem;margin-bottom:.6rem;font-size:.72rem;color:#b0a898;line-height:1.5;}
+.rail-consent-row input[type=checkbox]{margin-top:.22rem;flex-shrink:0;accent-color:var(--green);}
+.rail-consent-row a{color:var(--green);}
+.rail-form-grid{display:grid;gap:.65rem;}
+.rail-form-row{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;}
+@media(max-width:540px){.rail-form-row{grid-template-columns:1fr;}}
+.rail-form-section{font-size:.54rem;letter-spacing:.18em;text-transform:uppercase;color:var(--green);padding:.5rem 0 .25rem;border-top:1px solid #1a1a1a;margin-top:.25rem;}
+.rail-form-actions{display:flex;gap:.65rem;flex-wrap:wrap;margin-top:.75rem;}
+.rail-ai-btn{background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.3);color:var(--green);padding:.55rem 1rem;font:.7rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:all .2s;}
+.rail-ai-btn:hover{background:rgba(0,200,83,.15);}
+.rail-ai-btn:disabled{opacity:.5;cursor:not-allowed;}
+.rail-submit-btn{background:var(--green);border:none;color:#000;padding:.55rem 1.4rem;font:.72rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.12em;cursor:pointer;font-weight:700;}
+.rail-submit-btn:hover{background:#00ff6a;}
+.rail-submit-btn:disabled{opacity:.5;cursor:not-allowed;}
+.rail-cancel-btn{background:transparent;border:1px solid #2a2a2a;color:#888;padding:.55rem .9rem;font:.7rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;}
+.rail-cancel-btn:hover{border-color:#444;color:var(--offwhite);}
+.rail-success-msg{border:1px solid rgba(0,200,83,.3);background:rgba(0,200,83,.06);padding:1rem;font-size:.78rem;color:var(--green);margin-bottom:1rem;display:none;}
+.rail-error-msg{border:1px solid rgba(200,80,80,.3);background:rgba(200,80,80,.06);padding:.7rem;font-size:.72rem;color:#e06060;margin-top:.5rem;display:none;}
+</style>
+
+<div class="rail-hero">
+  <p class="eyebrow">&#x2756; ATMNOPIN&#x2122; Community</p>
+  <h1 class="rail-h1">The <em>Rail</em></h1>
+  <p class="rail-tagline">Poker updates from the people actually punting chips.</p>
+  <div class="rail-hero-cta">
+    <button class="rail-cta-btn rail-cta-primary" onclick="railOpenComposer()">Post to The Rail</button>
+    <a href="/community-wall" class="rail-cta-btn rail-cta-ghost">View Community Wall</a>
+  </div>
+</div>
+
+<div id="railSuccessMsg" class="rail-success-msg">
+  &#x2713; Your post has been submitted and is pending review. We&rsquo;ll publish it once it&rsquo;s been checked. Thanks for posting!
+</div>
+
+<div class="rail-layout">
+  <aside class="rail-sidebar">
+    <p class="rail-sidebar-label">// Filter by Type</p>
+    <button class="rail-filter rail-filter-all${!filters.type ? ' rf-active' : ''}" onclick="railFilter('type','')">All Posts (${total})</button>
+    ${typeOpts}
+  </aside>
+  <div>
+    <p class="rail-count">${total} post${total !== 1 ? 's' : ''}</p>
+    <div class="rail-feed" id="railFeed">
+      ${cardsHtml}
+    </div>
+    ${totalPages > 1 ? `<div class="rail-pagination">
+      ${prevUrl ? `<a href="${prevUrl}" class="rail-page-btn">&larr; Prev</a>` : ''}
+      <span>Page ${page} of ${totalPages}</span>
+      ${nextUrl ? `<a href="${nextUrl}" class="rail-page-btn">Next &rarr;</a>` : ''}
+    </div>` : ''}
+  </div>
+</div>
+
+<!-- COMPOSER MODAL -->
+<div id="railModal" class="rail-modal-overlay" style="display:none" onclick="if(event.target===this)railCloseComposer()">
+  <div class="rail-modal-box">
+
+    <!-- STEP 1: Age Gate -->
+    <div id="railStep1">
+      <p class="rail-modal-h">Age Verification</p>
+      <p class="rail-modal-sub">The Rail is intended for adults 21 years of age and older.</p>
+      <div class="rail-age-notice">
+        <p>Poker involves gambling. By posting on The Rail, you confirm that you are a legal adult and that gambling is lawful in your jurisdiction. You are responsible for complying with all applicable laws.</p>
+      </div>
+      <label class="rail-consent-row">
+        <input type="checkbox" id="ageCheck">
+        <span>I certify that I am at least <strong>21 years old</strong> and that online poker community participation is lawful in my jurisdiction.</span>
+      </label>
+      <div class="rail-form-actions" style="margin-top:1rem;">
+        <button class="rail-submit-btn" onclick="railAgeConfirm()">Continue &rarr;</button>
+        <button class="rail-cancel-btn" onclick="railCloseComposer()">Cancel</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: Post Form -->
+    <div id="railStep2" style="display:none">
+      <p class="rail-modal-h">Post to The Rail</p>
+      <p class="rail-modal-sub">Share your poker story. All posts are reviewed before publishing.</p>
+      <form id="railPostForm" onsubmit="railSubmit(event)" class="rail-form-grid">
+        <p class="rail-form-section">Your Info</p>
+        <div class="rail-form-row">
+          <label>Your Name *<input name="authorName" required placeholder="Manny &ldquo;The Machine&rdquo;" /></label>
+          <label>Email * <span style="font-size:.55rem;color:#555;">(not published)</span><input name="authorEmail" type="email" required placeholder="you@example.com" /></label>
+        </div>
+        <p class="rail-form-section">Your Post</p>
+        <div class="rail-form-row">
+          <label>Post Type *<select name="postType" required>${typeSelectOpts}</select></label>
+          <label>Title <span style="font-size:.55rem;color:#555;">(optional)</span><input name="title" placeholder="Lost with Aces Again" /></label>
+        </div>
+        <label>Your Story *<textarea name="content" required rows="5" placeholder="Tell us what happened. Be specific — good stories have details. What were the stakes? What was the read? What went wrong (or right)?"></textarea></label>
+        <div class="rail-form-row">
+          <label>Poker Room<input name="pokerRoom" placeholder="Foxwoods, Commerce, Bellagio…" /></label>
+          <label>Game / Stakes<input name="gameStakes" placeholder="$2/$5 NLH, $1/$3 PLO…" /></label>
+        </div>
+        <label>Tags <span style="font-size:.55rem;color:#555;">(comma separated)</span><input name="tags" placeholder="bad-beat, aces, cooler" /></label>
+        <p class="rail-form-section">Required Confirmations</p>
+        <label class="rail-consent-row">
+          <input type="checkbox" name="c_ownership" required>
+          <span>I confirm this content is my own or I have permission to post it.</span>
+        </label>
+        <label class="rail-consent-row">
+          <input type="checkbox" name="c_guidelines" required>
+          <span>I agree to the <a href="/community-guidelines" target="_blank">Community Guidelines</a>.</span>
+        </label>
+        <label class="rail-consent-row">
+          <input type="checkbox" name="c_moderation" required>
+          <span>I understand ATMNOPIN&#x2122; may edit, reject, or remove my content.</span>
+        </label>
+        <div id="railFormError" class="rail-error-msg"></div>
+        <div class="rail-form-actions">
+          <button type="button" class="rail-ai-btn" id="railAIBtn" onclick="railAIRewrite()">&#x2736; Rewrite with ATM AI</button>
+          <button type="submit" class="rail-submit-btn" id="railSubmitBtn">Post to The Rail</button>
+          <button type="button" class="rail-cancel-btn" onclick="railCloseComposer()">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function railOpenComposer() {
+  document.getElementById('railModal').style.display = 'flex';
+  document.getElementById('railStep1').style.display = 'block';
+  document.getElementById('railStep2').style.display = 'none';
+  document.getElementById('ageCheck').checked = false;
+  document.body.style.overflow = 'hidden';
+}
+function railCloseComposer() {
+  document.getElementById('railModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+function railAgeConfirm() {
+  if (!document.getElementById('ageCheck').checked) {
+    alert('You must confirm you are at least 21 years old to post on The Rail.');
+    return;
+  }
+  document.getElementById('railStep1').style.display = 'none';
+  document.getElementById('railStep2').style.display = 'block';
+}
+async function railAIRewrite() {
+  var content = document.querySelector('#railPostForm [name="content"]').value.trim();
+  if (!content) { alert('Write your story first, then let ATM AI improve it.'); return; }
+  var btn = document.getElementById('railAIBtn');
+  btn.disabled = true; btn.textContent = '\\u2736 Rewriting…';
+  try {
+    var r = await fetch('/api/rail/ai-rewrite', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: content })
+    });
+    var d = await r.json();
+    if (d.rewritten) {
+      document.querySelector('#railPostForm [name="content"]').value = d.rewritten;
+    } else {
+      alert('AI rewrite unavailable: ' + (d.error || 'try again shortly'));
+    }
+  } catch(e) { alert('AI rewrite failed. Please try again.'); }
+  finally { btn.disabled = false; btn.textContent = '\\u2736 Rewrite with ATM AI'; }
+}
+async function railSubmit(e) {
+  e.preventDefault();
+  var form = e.target;
+  var errEl = document.getElementById('railFormError');
+  errEl.style.display = 'none';
+  var payload = {
+    authorName:  form.authorName.value.trim(),
+    authorEmail: form.authorEmail.value.trim(),
+    postType:    form.postType.value,
+    title:       form.title.value.trim(),
+    content:     form.content.value.trim(),
+    pokerRoom:   form.pokerRoom.value.trim(),
+    gameStakes:  form.gameStakes.value.trim(),
+    tags:        form.tags.value.split(',').map(function(t){return t.trim();}).filter(Boolean),
+    consents: [
+      { consentType:'age_verification',     consentVersion:'1.0', accepted:true },
+      { consentType:'content_ownership',    consentVersion:'1.0', accepted:form.c_ownership.checked },
+      { consentType:'community_guidelines', consentVersion:'1.0', accepted:form.c_guidelines.checked },
+      { consentType:'moderation_policy',    consentVersion:'1.0', accepted:form.c_moderation.checked }
+    ]
+  };
+  var btn = document.getElementById('railSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Posting…';
+  try {
+    var r = await fetch('/api/rail/posts', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    var d = await r.json();
+    if (d.ok) {
+      railCloseComposer();
+      var msg = document.getElementById('railSuccessMsg');
+      msg.style.display = 'block';
+      form.reset();
+      setTimeout(function(){ msg.style.display='none'; }, 8000);
+    } else {
+      errEl.textContent = d.error || 'Something went wrong. Please try again.';
+      errEl.style.display = 'block';
+    }
+  } catch(e) {
+    errEl.textContent = 'Network error. Please try again.';
+    errEl.style.display = 'block';
+  }
+  finally { btn.disabled = false; btn.textContent = 'Post to The Rail'; }
+}
+function railFilter(key, val) {
+  var params = new URLSearchParams(window.location.search);
+  if (val) params.set(key, val); else params.delete(key);
+  params.delete('page');
+  window.location.href = '/rail' + (params.toString() ? '?' + params.toString() : '');
+}
+async function railLike(btn, postId) {
+  btn.disabled = true;
+  try {
+    var r = await fetch('/api/rail/posts/' + postId + '/like', { method: 'POST' });
+    var d = await r.json();
+    btn.querySelector('.rail-lc').textContent = d.likeCount || 0;
+    if (d.liked) { btn.style.color = 'var(--green)'; btn.style.borderColor = 'rgba(0,200,83,.4)'; }
+    else if (d.alreadyLiked) { btn.style.opacity = '.55'; }
+  } catch(e) {}
+  finally { btn.disabled = false; }
+}
+async function railReport(postId) {
+  var types = ['Harassment','Spam','Private Information','Copyright','Cheating Accusation','Offensive Content','Other'];
+  var choice = prompt('Report reason (enter 1\\u20137):\\n\\n' + types.map(function(t,i){return (i+1)+'. '+t;}).join('\\n'));
+  if (!choice) return;
+  var idx = parseInt(choice) - 1;
+  var keys = ['harassment','spam','private_info','copyright','cheating_accusation','offensive','other'];
+  var reportType = keys[idx] || 'other';
+  try {
+    await fetch('/api/rail/posts/' + postId + '/report', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ reportType: reportType })
+    });
+    alert('Report submitted. Thank you for keeping The Rail safe.');
+  } catch(e) {}
+}
+</script>
+`);
+}
+
+function renderCommunityGuidelinesPage() {
+  return renderLayout('Community Guidelines | ATMNOPIN™', `
+<style>
+.cg-hero{padding:2.5rem 0 1.5rem;border-bottom:1px solid #1e1e1e;}
+.cg-h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.5rem,6vw,4rem);line-height:1;color:var(--offwhite);margin:.5rem 0;}
+.cg-lead{font-size:.82rem;color:#b0a898;max-width:50ch;line-height:1.85;margin-top:.5rem;}
+.cg-body{max-width:65ch;padding:2rem 0 3rem;}
+.cg-section{margin-bottom:2rem;}
+.cg-section h2{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:.1em;color:var(--green);margin-bottom:.65rem;}
+.cg-rule{display:flex;gap:.75rem;align-items:flex-start;margin-bottom:.6rem;font-size:.8rem;color:#b0a898;line-height:1.65;}
+.cg-rule-num{font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold);width:1.4rem;flex-shrink:0;}
+.cg-footer-note{border:1px solid #1a1a1a;background:#0c0c0c;padding:1rem;font-size:.72rem;color:#888;line-height:1.75;}
+</style>
+<div class="cg-hero">
+  <p class="eyebrow">&#x2756; ATMNOPIN&#x2122; Community</p>
+  <h1 class="cg-h1">Community Guidelines</h1>
+  <p class="cg-lead">The Rail is a poker community space. These rules keep it worth reading.</p>
+</div>
+<div class="cg-body">
+  <div class="cg-section">
+    <h2>The Rules</h2>
+    <div class="cg-rule"><span class="cg-rule-num">01</span><span><strong style="color:var(--offwhite)">Be respectful.</strong> Disagree about poker strategy all you want. Don&rsquo;t disrespect the person across the felt.</span></div>
+    <div class="cg-rule"><span class="cg-rule-num">02</span><span><strong style="color:var(--offwhite)">Keep it poker-related.</strong> Stories, hands, bad beats, humor, shoutouts, questions. If it has nothing to do with poker, it doesn&rsquo;t belong here.</span></div>
+    <div class="cg-rule"><span class="cg-rule-num">03</span><span><strong style="color:var(--offwhite)">No harassment or personal attacks.</strong> Zero tolerance. A single incident results in permanent removal.</span></div>
+    <div class="cg-rule"><span class="cg-rule-num">04</span><span><strong style="color:var(--offwhite)">No private information.</strong> Never post anyone&rsquo;s phone number, email, home address, or any identifying information without explicit permission.</span></div>
+    <div class="cg-rule"><span class="cg-rule-num">05</span><span><strong style="color:var(--offwhite)">No unsubstantiated cheating accusations.</strong> If you believe someone cheated, report it to casino management. Posting accusations without evidence causes real harm.</span></div>
+    <div class="cg-rule"><span class="cg-rule-num">06</span><span><strong style="color:var(--offwhite)">No copyrighted uploads without permission.</strong> Hand histories and personal stories are yours to share. Screenshots from other sites, media articles, or others&rsquo; videos need permission.</span></div>
+    <div class="cg-rule"><span class="cg-rule-num">07</span><span><strong style="color:var(--offwhite)">No spam.</strong> No promotional posts, affiliate links, or unsolicited offers.</span></div>
+    <div class="cg-rule"><span class="cg-rule-num">08</span><span><strong style="color:var(--offwhite)">No illegal content.</strong> This includes discussing soft-play arrangements, casino fraud, or anything that violates applicable law.</span></div>
+    <div class="cg-rule"><span class="cg-rule-num">09</span><span><strong style="color:var(--offwhite)">21+ only.</strong> This is an adult community. You must be at least 21 years old to post, comment, or participate.</span></div>
+    <div class="cg-rule"><span class="cg-rule-num">10</span><span><strong style="color:var(--offwhite)">Moderation is final.</strong> Posts may be edited, rejected, or removed at any time. Accounts may be suspended without notice for violations.</span></div>
+  </div>
+  <div class="cg-footer-note">
+    <strong style="color:var(--offwhite);">Reporting:</strong> Use the Report button on any post to flag a concern. All reports are reviewed. By posting, you agree that ATMNOPIN™ (Sunfish Technologies LLC) may edit, remove, or republish your content.
+    Questions? Email us at <a href="mailto:hello@atmwithnopin.com" style="color:var(--green);">hello@atmwithnopin.com</a>
+  </div>
+  <p style="margin-top:1.5rem;"><a href="/rail" style="color:var(--green);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;">&larr; Back to The Rail</a></p>
+</div>
+`);
+}
+
+function renderTermsPage() {
+  return renderLayout('Terms of Service | ATMNOPIN™', `
+<style>
+.legal-hero{padding:2rem 0 1.25rem;border-bottom:1px solid #1e1e1e;}
+.legal-h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,5vw,3.5rem);line-height:1;color:var(--offwhite);margin:.4rem 0;}
+.legal-body{max-width:68ch;padding:1.75rem 0 3rem;font-size:.8rem;color:#a0988a;line-height:1.85;}
+.legal-body h2{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--offwhite);margin:1.5rem 0 .5rem;}
+.legal-body p{margin-bottom:.85rem;}
+.legal-todo{border:1px solid rgba(201,168,76,.3);background:rgba(201,168,76,.05);padding:.85rem 1rem;margin-bottom:1.25rem;font-size:.72rem;color:var(--gold);}
+</style>
+<div class="legal-hero">
+  <p class="eyebrow">&#x2756; ATMNOPIN&#x2122; Legal</p>
+  <h1 class="legal-h1">Terms of Service</h1>
+  <p style="font-size:.68rem;color:#555;margin-top:.4rem;">Version 1.0 &nbsp;&middot;&nbsp; Last updated: July 2026</p>
+</div>
+<div class="legal-body">
+  <div class="legal-todo">&#x26A0; TODO: These terms are placeholder text and must be reviewed and finalized by qualified legal counsel before production use.</div>
+  <h2>1. Acceptance of Terms</h2>
+  <p>By accessing or using ATMNOPIN™ (operated by Sunfish Technologies LLC), you agree to be bound by these Terms of Service. If you do not agree, do not use the site.</p>
+  <h2>2. Age Requirement</h2>
+  <p>You must be at least 21 years of age to use community features including The Rail, Community Wall, and AI Profile Generator. By using these features, you certify that you meet this requirement.</p>
+  <h2>3. User Content</h2>
+  <p>You retain ownership of content you post. By submitting content, you grant ATMNOPIN™ a non-exclusive, royalty-free license to display, edit, and remove that content. You are solely responsible for ensuring your content does not violate any laws or third-party rights.</p>
+  <h2>4. Prohibited Conduct</h2>
+  <p>Users may not post content that is harassing, defamatory, fraudulent, infringing, or otherwise unlawful. See our <a href="/community-guidelines">Community Guidelines</a> for specifics.</p>
+  <h2>5. Moderation</h2>
+  <p>ATMNOPIN™ reserves the right to edit, remove, or reject any content at any time for any reason. Accounts may be suspended or banned for violations.</p>
+  <h2>6. Disclaimer</h2>
+  <p>ATMNOPIN™ is a poker entertainment and community platform. Nothing on this site constitutes gambling advice, financial advice, or legal advice. All poker content is for entertainment purposes only.</p>
+  <h2>7. Limitation of Liability</h2>
+  <p>To the maximum extent permitted by law, Sunfish Technologies LLC shall not be liable for any indirect, incidental, or consequential damages arising from your use of this site.</p>
+  <h2>8. Changes to Terms</h2>
+  <p>We may update these terms at any time. Continued use of the site after changes constitutes acceptance of the new terms.</p>
+  <h2>9. Contact</h2>
+  <p>Questions about these terms: <a href="mailto:hello@atmwithnopin.com">hello@atmwithnopin.com</a></p>
+</div>
+`);
+}
+
+function renderPrivacyPage() {
+  return renderLayout('Privacy Policy | ATMNOPIN™', `
+<style>
+.legal-hero{padding:2rem 0 1.25rem;border-bottom:1px solid #1e1e1e;}
+.legal-h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,5vw,3.5rem);line-height:1;color:var(--offwhite);margin:.4rem 0;}
+.legal-body{max-width:68ch;padding:1.75rem 0 3rem;font-size:.8rem;color:#a0988a;line-height:1.85;}
+.legal-body h2{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--offwhite);margin:1.5rem 0 .5rem;}
+.legal-body p{margin-bottom:.85rem;}
+.legal-todo{border:1px solid rgba(201,168,76,.3);background:rgba(201,168,76,.05);padding:.85rem 1rem;margin-bottom:1.25rem;font-size:.72rem;color:var(--gold);}
+</style>
+<div class="legal-hero">
+  <p class="eyebrow">&#x2756; ATMNOPIN&#x2122; Legal</p>
+  <h1 class="legal-h1">Privacy Policy</h1>
+  <p style="font-size:.68rem;color:#555;margin-top:.4rem;">Version 1.0 &nbsp;&middot;&nbsp; Last updated: July 2026</p>
+</div>
+<div class="legal-body">
+  <div class="legal-todo">&#x26A0; TODO: This policy is placeholder text and must be reviewed and finalized by qualified legal counsel before production use.</div>
+  <h2>What We Collect</h2>
+  <p>When you post on The Rail or submit a community profile, we collect: your name, email address, IP address, browser/device information, and the content you submit. We also log consent events tied to your email and IP for compliance purposes.</p>
+  <h2>How We Use It</h2>
+  <p>We use your information to display your posts, moderate content, prevent abuse, and improve the site. Your email is never published. We do not sell your data.</p>
+  <h2>Consent Logs</h2>
+  <p>Every checkbox you accept on ATMNOPIN™ creates a permanent consent record including your email, IP address, timestamp, and the specific version of the terms you agreed to. These records are retained indefinitely as a legal compliance requirement.</p>
+  <h2>Cookies</h2>
+  <p>We use a session cookie for admin authentication. We may use analytics cookies in the future. No third-party advertising cookies are used.</p>
+  <h2>Firebase</h2>
+  <p>Our chat and visitor tracking features use Firebase (Google). See Google&rsquo;s privacy policy for how Firebase handles data.</p>
+  <h2>Your Rights</h2>
+  <p>You may request deletion of your post or profile at any time by emailing <a href="mailto:hello@atmwithnopin.com">hello@atmwithnopin.com</a>. Note that consent log records cannot be deleted as they serve a legal compliance function.</p>
+  <h2>Contact</h2>
+  <p><a href="mailto:hello@atmwithnopin.com">hello@atmwithnopin.com</a></p>
+</div>
+`);
+}
+
+function renderDmcaPage() {
+  return renderLayout('DMCA Policy | ATMNOPIN™', `
+<style>
+.legal-hero{padding:2rem 0 1.25rem;border-bottom:1px solid #1e1e1e;}
+.legal-h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,5vw,3.5rem);line-height:1;color:var(--offwhite);margin:.4rem 0;}
+.legal-body{max-width:68ch;padding:1.75rem 0 3rem;font-size:.8rem;color:#a0988a;line-height:1.85;}
+.legal-body h2{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--offwhite);margin:1.5rem 0 .5rem;}
+.legal-body p{margin-bottom:.85rem;}
+.legal-todo{border:1px solid rgba(201,168,76,.3);background:rgba(201,168,76,.05);padding:.85rem 1rem;margin-bottom:1.25rem;font-size:.72rem;color:var(--gold);}
+</style>
+<div class="legal-hero">
+  <p class="eyebrow">&#x2756; ATMNOPIN&#x2122; Legal</p>
+  <h1 class="legal-h1">DMCA Policy</h1>
+  <p style="font-size:.68rem;color:#555;margin-top:.4rem;">Version 1.0 &nbsp;&middot;&nbsp; Last updated: July 2026</p>
+</div>
+<div class="legal-body">
+  <div class="legal-todo">&#x26A0; TODO: This DMCA policy is placeholder text and must be reviewed and finalized by qualified legal counsel before production use.</div>
+  <h2>Copyright Infringement Notice</h2>
+  <p>ATMNOPIN™ (Sunfish Technologies LLC) respects intellectual property rights. If you believe content on this site infringes your copyright, you may submit a DMCA takedown notice.</p>
+  <h2>To File a Notice, Include:</h2>
+  <p>1. Your name and contact information.<br>
+  2. A description of the copyrighted work you claim has been infringed.<br>
+  3. The URL of the allegedly infringing content on our site.<br>
+  4. A statement that you have a good faith belief the use is not authorized.<br>
+  5. A statement, under penalty of perjury, that the information is accurate and you are the copyright owner or authorized to act on their behalf.<br>
+  6. Your physical or electronic signature.</p>
+  <h2>Send Notices To</h2>
+  <p>Email: <a href="mailto:hello@atmwithnopin.com">hello@atmwithnopin.com</a><br>
+  Subject line: DMCA Takedown Notice</p>
+  <h2>Counter-Notice</h2>
+  <p>If you believe your content was wrongly removed, you may submit a counter-notice with the same information and a statement under penalty of perjury that the content was removed by mistake.</p>
+</div>
+`);
+}
+
+function renderAdminRailPage(pendingPosts, flaggedPosts, reports, consentRecords) {
+  function escP(s) { return escapeHtml(String(s||'')); }
+  function fmtDate(s) { return s ? new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'; }
+
+  const pendingHtml = pendingPosts.length
+    ? pendingPosts.map((p) => {
+        const typeConf = RAIL_POST_TYPES[p.postType] || { label: p.postType||'Post', color: '#888' };
+        return `<div style="border:1px solid #1e1e1e;background:#0c0c0c;padding:1rem;margin-bottom:.75rem;">
+          <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
+            <span style="font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:${escP(typeConf.color)};border:1px solid ${escP(typeConf.color)}40;padding:.1rem .4rem;">${escP(typeConf.label)}</span>
+            <span style="font-size:.56rem;color:#555;">${escP(fmtDate(p.createdAt))} &middot; ${escP(p.authorName||'Anon')} &middot; ${escP(p.pokerRoom||'')}</span>
+          </div>
+          ${p.title ? `<p style="font-family:'DM Serif Display',serif;font-size:.92rem;color:var(--offwhite);margin-bottom:.35rem;">${escP(p.title)}</p>` : ''}
+          <p style="font-size:.75rem;color:#888;line-height:1.65;margin-bottom:.65rem;">${escP((p.content||'').slice(0,400))}${(p.content||'').length>400?'…':''}</p>
+          ${p.aiFlagged ? `<p style="font-size:.62rem;color:#e06060;margin-bottom:.5rem;">&#x26A0; AI Flagged: ${escP(p.aiFlagReason)}</p>` : ''}
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+            <button onclick="railAdmin('approve','${escP(p.id)}')" style="background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.35);color:var(--green);padding:.3rem .75rem;font:.64rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;">&#x2713; Approve</button>
+            <button onclick="railAdmin('reject','${escP(p.id)}')" style="background:rgba(200,80,80,.08);border:1px solid rgba(200,80,80,.3);color:#e06060;padding:.3rem .75rem;font:.64rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;">&#x2717; Reject</button>
+            <button onclick="railAdmin('remove','${escP(p.id)}')" style="background:#111;border:1px solid #2a2a2a;color:#666;padding:.3rem .75rem;font:.64rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;">Remove</button>
+          </div>
+        </div>`;
+      }).join('')
+    : '<div class="notice">No pending posts. The Rail is clear.</div>';
+
+  const reportsHtml = reports.length
+    ? reports.map((r) => `<div style="border:1px solid #1a1a1a;background:#0a0a0a;padding:.75rem;margin-bottom:.5rem;font-size:.7rem;color:#888;">
+        <span style="color:var(--gold);font-size:.6rem;text-transform:uppercase;">${escP(RAIL_REPORT_TYPES[r.reportType]||r.reportType)}</span>
+        &nbsp;&middot;&nbsp; Post: <code style="color:var(--offwhite);font-size:.65rem;">${escP(r.postId)}</code>
+        &nbsp;&middot;&nbsp; ${escP(fmtDate(r.createdAt))}
+        ${r.description ? `<p style="margin-top:.3rem;color:#777;">${escP(r.description)}</p>` : ''}
+      </div>`).join('')
+    : '<div class="notice">No pending reports.</div>';
+
+  const consentHtml = consentRecords.length
+    ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.65rem;">
+        <thead><tr style="color:var(--green);font-size:.54rem;text-transform:uppercase;letter-spacing:.12em;border-bottom:1px solid #1a1a1a;">
+          <th style="padding:.35rem .5rem;text-align:left;">Time</th>
+          <th style="padding:.35rem .5rem;text-align:left;">Email</th>
+          <th style="padding:.35rem .5rem;text-align:left;">Type</th>
+          <th style="padding:.35rem .5rem;text-align:left;">Version</th>
+          <th style="padding:.35rem .5rem;text-align:left;">Feature</th>
+          <th style="padding:.35rem .5rem;text-align:left;">IP</th>
+        </tr></thead>
+        <tbody>${consentRecords.slice(0,50).map((c) => `<tr style="border-bottom:1px solid #0f0f0f;">
+          <td style="padding:.3rem .5rem;color:#666;">${escP(fmtDate(c.accepted_at||c.acceptedAt))}</td>
+          <td style="padding:.3rem .5rem;color:var(--offwhite);">${escP(c.email_address||c.emailAddress||'')}</td>
+          <td style="padding:.3rem .5rem;color:var(--green);">${escP(c.consent_type||c.consentType||'')}</td>
+          <td style="padding:.3rem .5rem;color:#666;">v${escP(c.consent_version||c.consentVersion||'1.0')}</td>
+          <td style="padding:.3rem .5rem;color:#777;">${escP(c.source_feature||c.sourceFeature||'')}</td>
+          <td style="padding:.3rem .5rem;color:#555;font-size:.58rem;">${escP((c.ip_address||c.ipAddress||'').slice(0,20))}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`
+    : '<div class="notice">No consent records yet.</div>';
+
+  return renderLayout('Rail Admin | ATMNOPIN™', `
+<style>
+.radm-tabs{display:flex;gap:.5rem;margin:1.5rem 0 1rem;border-bottom:1px solid #1e1e1e;padding-bottom:.75rem;}
+.radm-tab{border:1px solid #242424;background:#111;color:#888;border-radius:8px;padding:.4rem .9rem;font:.7rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:all .2s;}
+.radm-tab.active,.radm-tab:hover{background:rgba(0,200,83,.1);border-color:rgba(0,200,83,.35);color:var(--green);}
+</style>
+<section class="hero" style="padding:1.5rem 0 1rem;border-bottom:1px solid #1e1e1e;">
+  <p class="eyebrow">Admin &rarr; The Rail</p>
+  <h1 style="font-size:clamp(2rem,5vw,3.5rem);">Rail Moderation</h1>
+  <p style="font-size:.78rem;color:#888;margin-top:.35rem;"><a href="/admin" style="color:var(--green);">&larr; Back to Admin Dashboard</a></p>
+</section>
+<div class="radm-tabs">
+  <button class="radm-tab active" onclick="radmShow('pending',this)">Pending (${pendingPosts.length})</button>
+  <button class="radm-tab" onclick="radmShow('reports',this)">Reports (${reports.length})</button>
+  <button class="radm-tab" onclick="radmShow('consent',this)">Consent Log (${consentRecords.length})</button>
+</div>
+<div id="radm-pending">${pendingHtml}</div>
+<div id="radm-reports" style="display:none;">${reportsHtml}</div>
+<div id="radm-consent" style="display:none;">${consentHtml}</div>
+<div class="notice" id="radm-msg" style="display:none;margin-top:.75rem;"></div>
+<script>
+function radmShow(panel, btn) {
+  ['pending','reports','consent'].forEach(function(p){
+    document.getElementById('radm-'+p).style.display = p===panel?'':'none';
+  });
+  document.querySelectorAll('.radm-tab').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+}
+async function railAdmin(action, postId) {
+  var msg = document.getElementById('radm-msg');
+  msg.style.display='none';
+  try {
+    var r = await fetch('/api/admin/rail/' + postId + '/' + action, { method:'POST', headers:{'Content-Type':'application/json'} });
+    var d = await r.json();
+    if (d.ok) {
+      msg.textContent = 'Post ' + action + 'd successfully.';
+      msg.style.display = 'block';
+      msg.style.borderColor = 'rgba(0,200,83,.3)';
+      // Remove the card from the DOM
+      var cards = document.querySelectorAll('#radm-pending > div');
+      cards.forEach(function(c){ if(c.innerHTML.includes(postId)) c.remove(); });
+    } else {
+      msg.textContent = 'Error: ' + (d.error||'Unknown');
+      msg.style.display = 'block';
+    }
+  } catch(e) {
+    msg.textContent = 'Network error.';
+    msg.style.display = 'block';
+  }
+}
+</script>
+`);
+}
+
 function renderChronicleCard(c) {
   const dateStr = new Date(c.published_at || c.created_at).toLocaleDateString();
   const rt = estimateReadingTime(c.content);
@@ -4732,6 +5391,227 @@ function renderChroniclePage(chronicle, allChronicles) {
         ${relatedHtml ? `<div class="rel-section"><h2>More ${escapeHtml(chronicle.category || 'Stories')}</h2><div style="margin-top:.75rem;">${relatedHtml}</div></div>` : ''}
       </aside>` : ''}
     </section>`);
+}
+
+// ─── THE RAIL ENGINE ────────────────────────────────────────────────────────
+
+const RAIL_POST_TYPES = {
+  bad_beat:          { label: 'Bad Beat',          color: '#e06060' },
+  big_win:           { label: 'Big Win',            color: '#c9a84c' },
+  tournament_update: { label: 'Tournament Update',  color: '#6699ee' },
+  cash_game:         { label: 'Cash Game Story',    color: '#00c853' },
+  hand_history:      { label: 'Hand History',       color: '#b060ff' },
+  humor:             { label: 'Poker Humor',        color: '#ff8c00' },
+  shoutout:          { label: 'Community Shoutout', color: '#00bcd4' },
+  question:          { label: 'Question',           color: '#999999' },
+  table_quote:       { label: 'Table Quote',        color: '#90c090' },
+  behind_scenes:     { label: 'Behind the Scenes',  color: '#c0a08a' },
+};
+
+const RAIL_REPORT_TYPES = {
+  harassment:           'Harassment',
+  spam:                 'Spam',
+  private_info:         'Private Information',
+  copyright:            'Copyright',
+  cheating_accusation:  'Cheating Accusation',
+  offensive:            'Offensive Content',
+  other:                'Other',
+};
+
+const RAIL_CONSENT_VERSIONS = {
+  age_verification:       '1.0',
+  content_ownership:      '1.0',
+  community_guidelines:   '1.0',
+  moderation_policy:      '1.0',
+  terms_of_service:       '1.0',
+  privacy_policy:         '1.0',
+};
+
+const RAIL_FLAG_PATTERNS = [
+  [/\b(harass(?:ment|ing|ed)?|stalk(?:ing|ed)?|doxx(?:ing|ed)?|doxing)\b/i, 'Potential harassment or doxxing'],
+  [/\b(cheat(?:er|ing|ed)|stole chips|marked cards|collu[sd](?:ion|e)?)\b/i, 'Possible cheating accusation'],
+  [/\bfuck\s+you\b|\bpiece\s+of\s+shit\b|\bgo\s+fuck\b|\beat\s+shit\b|\bmotherfuck/i, 'Directed profanity'],
+  [/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/, 'Possible phone number in content'],
+  [/https?:\/\/[^\s]{20,}/i, 'External link detected'],
+];
+
+function moderateRailContent(text) {
+  const s = String(text || '');
+  for (const [pat, reason] of RAIL_FLAG_PATTERNS) {
+    if (pat.test(s)) return { flagged: true, reason };
+  }
+  return { flagged: false, reason: '' };
+}
+
+async function logConsent(entries, { ipAddress = '', userAgent = '', pageUrl = '', sourceFeature = '' } = {}) {
+  const now = new Date().toISOString();
+  for (const e of (Array.isArray(entries) ? entries : [entries])) {
+    if (!e.accepted) continue;
+    const id = crypto.randomUUID();
+    const acceptedAt = e.acceptedAt || now;
+    if (pgPool) {
+      await pgPool.query(
+        `INSERT INTO consent_log (id,email_address,consent_type,consent_version,accepted,accepted_at,source_feature,ip_address,user_agent,page_url,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [id, e.emailAddress||'', e.consentType, e.consentVersion||'1.0', true, acceptedAt, e.sourceFeature||sourceFeature, e.ipAddress||ipAddress, e.userAgent||userAgent, e.pageUrl||pageUrl, now]
+      );
+    } else if (sqliteDb) {
+      sqliteDb.prepare(
+        `INSERT INTO consent_log (id,email_address,consent_type,consent_version,accepted,accepted_at,source_feature,ip_address,user_agent,page_url,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+      ).run(id, e.emailAddress||'', e.consentType, e.consentVersion||'1.0', 1, acceptedAt, e.sourceFeature||sourceFeature, e.ipAddress||ipAddress, e.userAgent||userAgent, e.pageUrl||pageUrl, now);
+    }
+  }
+}
+
+async function createRailPost(data) {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const post = { ...data, id, createdAt: now, updatedAt: now, likeCount: 0, status: 'pending', approvedAt: null, approvedBy: '' };
+  delete post.authorIp;
+  const json = JSON.stringify({ ...post, authorIp: data.authorIp || '' });
+  if (pgPool) {
+    await pgPool.query(`INSERT INTO rail_posts (id,status,like_count,created_at,data) VALUES ($1,'pending',0,$2,$3)`, [id, now, json]);
+  } else if (sqliteDb) {
+    sqliteDb.prepare(`INSERT INTO rail_posts (id,status,like_count,created_at,data) VALUES (?,'pending',0,?,?)`).run(id, now, json);
+  }
+  return post;
+}
+
+async function loadRailPosts({ status = 'approved', page = 1, limit = 20, type = '' } = {}) {
+  const offset = (page - 1) * limit;
+  if (pgPool) {
+    const typeClause = type ? ` AND data->>'postType'=$4` : '';
+    const countClause = type ? ` AND data->>'postType'=$2` : '';
+    const baseArgs = [status, limit, offset];
+    const countArgs = [status];
+    if (type) { baseArgs.push(type); countArgs.push(type); }
+    const [{ rows }, { rows: cnt }] = await Promise.all([
+      pgPool.query(`SELECT id,like_count,data FROM rail_posts WHERE status=$1${typeClause} ORDER BY created_at DESC LIMIT $2 OFFSET $3`, baseArgs),
+      pgPool.query(`SELECT COUNT(*) AS n FROM rail_posts WHERE status=$1${countClause}`, countArgs),
+    ]);
+    const posts = rows.map((r) => { const d = (typeof r.data === 'string' ? JSON.parse(r.data) : r.data); d.likeCount = r.like_count; return d; });
+    return { posts, total: parseInt(cnt[0]?.n || 0) };
+  }
+  if (sqliteDb) {
+    const typeClause = type ? ` AND json_extract(data,'$.postType')=?` : '';
+    const baseArgs = type ? [status, type, limit, offset] : [status, limit, offset];
+    const countArgs = type ? [status, type] : [status];
+    const rows = sqliteDb.prepare(`SELECT id,like_count,data FROM rail_posts WHERE status=?${typeClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(...baseArgs);
+    const { n } = sqliteDb.prepare(`SELECT COUNT(*) AS n FROM rail_posts WHERE status=?${typeClause}`).get(...countArgs) || { n: 0 };
+    const posts = rows.map((r) => { const d = JSON.parse(r.data); d.likeCount = r.like_count; return d; });
+    return { posts, total: n };
+  }
+  return { posts: [], total: 0 };
+}
+
+async function loadRailPost(id) {
+  if (pgPool) {
+    const { rows } = await pgPool.query(`SELECT id,like_count,data FROM rail_posts WHERE id=$1`, [id]);
+    if (!rows[0]) return null;
+    const d = (typeof rows[0].data === 'string' ? JSON.parse(rows[0].data) : rows[0].data);
+    d.likeCount = rows[0].like_count;
+    return d;
+  }
+  if (sqliteDb) {
+    const row = sqliteDb.prepare(`SELECT id,like_count,data FROM rail_posts WHERE id=?`).get(id);
+    if (!row) return null;
+    const d = JSON.parse(row.data);
+    d.likeCount = row.like_count;
+    return d;
+  }
+  return null;
+}
+
+async function updateRailPostStatus(id, status, approvedBy) {
+  const now = new Date().toISOString();
+  if (pgPool) {
+    const { rows } = await pgPool.query(`SELECT data FROM rail_posts WHERE id=$1`, [id]);
+    if (!rows[0]) return null;
+    const d = (typeof rows[0].data === 'string' ? JSON.parse(rows[0].data) : rows[0].data);
+    d.status = status; d.updatedAt = now;
+    if (status === 'approved') { d.approvedAt = now; d.approvedBy = approvedBy || ''; }
+    await pgPool.query(`UPDATE rail_posts SET status=$1,data=$2 WHERE id=$3`, [status, JSON.stringify(d), id]);
+    return d;
+  }
+  if (sqliteDb) {
+    const row = sqliteDb.prepare(`SELECT data FROM rail_posts WHERE id=?`).get(id);
+    if (!row) return null;
+    const d = JSON.parse(row.data);
+    d.status = status; d.updatedAt = now;
+    if (status === 'approved') { d.approvedAt = now; d.approvedBy = approvedBy || ''; }
+    sqliteDb.prepare(`UPDATE rail_posts SET status=?,data=? WHERE id=?`).run(status, JSON.stringify(d), id);
+    return d;
+  }
+  return null;
+}
+
+async function likeRailPost(postId, likerIp) {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  if (pgPool) {
+    try {
+      await pgPool.query(`INSERT INTO rail_likes (id,post_id,liker_ip,created_at) VALUES ($1,$2,$3,$4)`, [id, postId, likerIp, now]);
+      const { rows } = await pgPool.query(`UPDATE rail_posts SET like_count=like_count+1 WHERE id=$1 RETURNING like_count`, [postId]);
+      return { liked: true, likeCount: rows[0]?.like_count || 0 };
+    } catch (e) {
+      if (e.code === '23505') {
+        const { rows } = await pgPool.query(`SELECT like_count FROM rail_posts WHERE id=$1`, [postId]);
+        return { liked: false, alreadyLiked: true, likeCount: rows[0]?.like_count || 0 };
+      }
+      throw e;
+    }
+  }
+  if (sqliteDb) {
+    try {
+      sqliteDb.prepare(`INSERT INTO rail_likes (id,post_id,liker_ip,created_at) VALUES (?,?,?,?)`).run(id, postId, likerIp, now);
+      sqliteDb.prepare(`UPDATE rail_posts SET like_count=like_count+1 WHERE id=?`).run(postId);
+      const row = sqliteDb.prepare(`SELECT like_count FROM rail_posts WHERE id=?`).get(postId);
+      return { liked: true, likeCount: row?.like_count || 0 };
+    } catch (e) {
+      if (String(e.message).includes('UNIQUE')) {
+        const row = sqliteDb.prepare(`SELECT like_count FROM rail_posts WHERE id=?`).get(postId);
+        return { liked: false, alreadyLiked: true, likeCount: row?.like_count || 0 };
+      }
+      throw e;
+    }
+  }
+  return { liked: false, likeCount: 0 };
+}
+
+async function reportRailPost(postId, reportType, description, reporterIp) {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const data = JSON.stringify({ id, postId, reportType, description: String(description||'').slice(0,500), reporterIp, status: 'pending', createdAt: now });
+  if (pgPool) {
+    await pgPool.query(`INSERT INTO rail_reports (id,post_id,status,created_at,data) VALUES ($1,$2,'pending',$3,$4)`, [id, postId, now, data]);
+  } else if (sqliteDb) {
+    sqliteDb.prepare(`INSERT INTO rail_reports (id,post_id,status,created_at,data) VALUES (?,'pending',?,'pending',?)`).run(id, now, data);
+  }
+}
+
+async function loadConsentLog({ limit = 100, offset = 0 } = {}) {
+  if (pgPool) {
+    const { rows } = await pgPool.query(`SELECT * FROM consent_log ORDER BY created_at DESC LIMIT $1 OFFSET $2`, [limit, offset]);
+    const { rows: cnt } = await pgPool.query(`SELECT COUNT(*) AS n FROM consent_log`);
+    return { records: rows, total: parseInt(cnt[0]?.n || 0) };
+  }
+  if (sqliteDb) {
+    const records = sqliteDb.prepare(`SELECT * FROM consent_log ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(limit, offset);
+    const { n } = sqliteDb.prepare(`SELECT COUNT(*) AS n FROM consent_log`).get() || { n: 0 };
+    return { records, total: n };
+  }
+  return { records: [], total: 0 };
+}
+
+async function loadRailReports() {
+  if (pgPool) {
+    const { rows } = await pgPool.query(`SELECT data FROM rail_reports WHERE status='pending' ORDER BY created_at DESC LIMIT 50`);
+    return rows.map((r) => (typeof r.data === 'string' ? JSON.parse(r.data) : r.data));
+  }
+  if (sqliteDb) {
+    const rows = sqliteDb.prepare(`SELECT data FROM rail_reports WHERE status='pending' ORDER BY created_at DESC LIMIT 50`).all();
+    return rows.map((r) => JSON.parse(r.data));
+  }
+  return [];
 }
 
 // ─── PLAYER CARD ENGINE ──────────────────────────────────────────────────────
@@ -7350,6 +8230,228 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
     logPageVisit(req, pathname);
     return;
   }
+
+  // ─── THE RAIL ROUTES ────────────────────────────────────────────────────────
+
+  if (pathname === '/rail') {
+    const page = Math.max(1, parseInt(parsed.searchParams.get('page') || '1', 10));
+    const filters = { type: parsed.searchParams.get('type') || '' };
+    const { posts, total } = await loadRailPosts({ status: 'approved', page, limit: 20, type: filters.type });
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderRailPage(posts, total, page, filters));
+    logPageVisit(req, pathname);
+    return;
+  }
+
+  if (pathname === '/community-guidelines') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderCommunityGuidelinesPage());
+    logPageVisit(req, pathname);
+    return;
+  }
+
+  if (pathname === '/terms') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderTermsPage());
+    logPageVisit(req, pathname);
+    return;
+  }
+
+  if (pathname === '/privacy') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderPrivacyPage());
+    logPageVisit(req, pathname);
+    return;
+  }
+
+  if (pathname === '/dmca') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderDmcaPage());
+    logPageVisit(req, pathname);
+    return;
+  }
+
+  // POST /api/rail/posts — submit a new post
+  if (pathname === '/api/rail/posts' && req.method === 'POST') {
+    let body;
+    try { body = await parseJsonBody(req); } catch { body = {}; }
+    const { authorName, authorEmail, postType, title, content, pokerRoom, gameStakes, tags, consents } = body;
+    if (!content || !authorName || !authorEmail || !postType) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing required fields: authorName, authorEmail, postType, content.' }));
+      return;
+    }
+    if (!RAIL_POST_TYPES[postType]) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid post type.' }));
+      return;
+    }
+    const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+    const ua = req.headers['user-agent'] || '';
+    try {
+      if (Array.isArray(consents) && consents.length > 0) {
+        await logConsent(consents, {
+          ipAddress: clientIp, userAgent: ua,
+          pageUrl: '/rail', sourceFeature: 'rail_post_submit',
+          emailAddress: authorEmail,
+        });
+      }
+      const post = await createRailPost({
+        authorName, authorEmail, postType,
+        title: title || '', content,
+        pokerRoom: pokerRoom || '', gameStakes: gameStakes || '',
+        tags: Array.isArray(tags) ? tags : [],
+        submitterIp: clientIp,
+      });
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, id: post.id }));
+    } catch (err) {
+      console.error('[rail] createRailPost error:', err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to submit post. Please try again.' }));
+    }
+    return;
+  }
+
+  // GET /api/rail/posts — paginated public feed
+  if (pathname === '/api/rail/posts' && req.method === 'GET') {
+    const page = Math.max(1, parseInt(parsed.searchParams.get('page') || '1', 10));
+    const type = parsed.searchParams.get('type') || '';
+    try {
+      const result = await loadRailPosts({ status: 'approved', page, limit: 20, type });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // POST /api/rail/posts/:id/like
+  if (pathname.match(/^\/api\/rail\/posts\/([^/]+)\/like$/) && req.method === 'POST') {
+    const postId = pathname.split('/')[4];
+    const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+    try {
+      const result = await likeRailPost(postId, clientIp);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // POST /api/rail/posts/:id/report
+  if (pathname.match(/^\/api\/rail\/posts\/([^/]+)\/report$/) && req.method === 'POST') {
+    const postId = pathname.split('/')[4];
+    let body;
+    try { body = await parseJsonBody(req); } catch { body = {}; }
+    const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+    try {
+      await reportRailPost(postId, body.reportType || 'other', body.description || '', clientIp);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // POST /api/rail/ai-rewrite
+  if (pathname === '/api/rail/ai-rewrite' && req.method === 'POST') {
+    let body;
+    try { body = await parseJsonBody(req); } catch { body = {}; }
+    const rawContent = (body.content || '').trim().slice(0, 2000);
+    if (!rawContent) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'No content provided.' }));
+      return;
+    }
+    try {
+      const rewritten = await callOpenAI(
+        [{ role: 'user', content: `You are ATM AI — a poker storytelling assistant for the ATMNOPIN™ community. Rewrite the following poker story to be more vivid, punchy, and entertaining while keeping all facts exactly the same. Keep it under 400 words. Return only the rewritten text, no commentary.\n\n${rawContent}` }],
+        { maxTokens: 600 }
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ rewritten: rewritten.trim() }));
+    } catch (err) {
+      res.writeHead(429, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'AI rewrite unavailable right now. Try again shortly.' }));
+    }
+    return;
+  }
+
+  // GET /admin/rail — admin moderation page
+  if (pathname === '/admin/rail') {
+    if (!(await verifyAdmin(req))) {
+      res.writeHead(302, { Location: '/admin' });
+      res.end();
+      return;
+    }
+    try {
+      const [{ posts: pendingPosts }, { posts: flaggedPosts }, reports, { records: consentRecords }] = await Promise.all([
+        loadRailPosts({ status: 'pending', page: 1, limit: 50 }),
+        loadRailPosts({ status: 'flagged', page: 1, limit: 50 }),
+        loadRailReports(),
+        loadConsentLog({ limit: 100 }),
+      ]);
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(renderAdminRailPage(pendingPosts, flaggedPosts, reports, consentRecords));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(renderLayout('Rail Admin Error', `<section class="card"><h1>Error loading Rail admin</h1><p>${escapeHtml(err.message)}</p></section>`));
+    }
+    return;
+  }
+
+  // POST /api/admin/rail/:id/(approve|reject|remove)
+  if (pathname.match(/^\/api\/admin\/rail\/([^/]+)\/(approve|reject|remove)$/) && req.method === 'POST') {
+    if (!(await verifyAdmin(req))) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized' }));
+      return;
+    }
+    const parts = pathname.split('/');
+    const postId = parts[4];
+    const action = parts[5];
+    const statusMap = { approve: 'approved', reject: 'rejected', remove: 'removed' };
+    const newStatus = statusMap[action];
+    try {
+      const session = adminSessions.get(req.headers.cookie?.match(/admin_session=([^;]+)/)?.[1] || '');
+      await updateRailPostStatus(postId, newStatus, session?.email || 'admin');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // GET /api/admin/consent-log
+  if (pathname === '/api/admin/consent-log' && req.method === 'GET') {
+    if (!(await verifyAdmin(req))) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized' }));
+      return;
+    }
+    const limit = Math.min(500, parseInt(parsed.searchParams.get('limit') || '100', 10));
+    const offset = Math.max(0, parseInt(parsed.searchParams.get('offset') || '0', 10));
+    try {
+      const result = await loadConsentLog({ limit, offset });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
 
   if (pathname.startsWith('/players/')) {
     const slug = pathname.split('/').filter(Boolean).slice(1).join('/');
