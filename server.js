@@ -5047,7 +5047,44 @@ function renderDmcaPage() {
 `);
 }
 
-function renderAdminRailPage(pendingPosts, flaggedPosts, reports, consentRecords) {
+function buildHistoryHtml(approvedPosts, rejectedPosts, escP, fmtTs) {
+  const all = [
+    ...approvedPosts.map((p) => ({ ...p, _bucket: 'approved' })),
+    ...rejectedPosts.map((p) => ({ ...p, _bucket: 'rejected' })),
+  ].sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+
+  if (!all.length) return '<div class="notice">No approved or rejected posts yet.</div>';
+
+  return all.map((p) => {
+    const typeConf = RAIL_POST_TYPES[p.postType] || { label: p.postType || 'Post', color: '#888' };
+    const isApproved = p._bucket === 'approved';
+    const statusColor = isApproved ? '#00c853' : '#e06060';
+    const statusLabel = isApproved ? '&#x2713; Approved' : '&#x2717; Rejected';
+    return `<div style="border:1px solid #1a1a1a;background:#0a0a0a;padding:.85rem;margin-bottom:.55rem;display:grid;grid-template-columns:1fr auto;gap:.5rem;align-items:start;">
+      <div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:.4rem;">
+          <span style="font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;color:${escP(typeConf.color)};border:1px solid ${escP(typeConf.color)}40;padding:.1rem .35rem;">${escP(typeConf.label)}</span>
+          ${p.title ? `<span style="font-family:'DM Serif Display',serif;font-size:.85rem;color:var(--offwhite);">${escP(p.title)}</span>` : ''}
+        </div>
+        <p style="font-size:.72rem;color:#777;line-height:1.6;margin-bottom:.35rem;">${escP((p.content||'').slice(0,200))}${(p.content||'').length>200?'…':''}</p>
+        <div style="font-size:.58rem;color:#555;display:flex;flex-wrap:wrap;gap:.75rem;">
+          <span>&#x2666; ${escP(p.authorName||'Anon')}</span>
+          ${p.pokerRoom ? `<span>${escP(p.pokerRoom)}</span>` : ''}
+          ${p.gameStakes ? `<span>${escP(p.gameStakes)}</span>` : ''}
+          <span>Submitted: ${fmtTs(p.createdAt)}</span>
+          ${p.approvedBy ? `<span>By: ${escP(p.approvedBy)}</span>` : ''}
+        </div>
+      </div>
+      <div style="text-align:right;white-space:nowrap;">
+        <div style="font-size:.6rem;font-weight:700;color:${statusColor};letter-spacing:.08em;margin-bottom:.3rem;">${statusLabel}</div>
+        <div style="font-size:.55rem;color:#555;">${fmtTs(p.approvedAt || p.updatedAt || p.createdAt)}</div>
+        ${isApproved ? `<button onclick="railAdmin('remove','${escP(p.id)}')" style="margin-top:.4rem;background:transparent;border:1px solid #2a2a2a;color:#666;padding:.2rem .5rem;font:.58rem 'DM Mono',monospace;text-transform:uppercase;cursor:pointer;">Remove</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderAdminRailPage(pendingPosts, flaggedPosts, approvedPosts, rejectedPosts, reports, consentRecords) {
   function escP(s) { return escapeHtml(String(s||'')); }
   function fmtTs(s) {
     if (!s) return '—';
@@ -5118,16 +5155,18 @@ function renderAdminRailPage(pendingPosts, flaggedPosts, reports, consentRecords
 </section>
 <div class="radm-tabs">
   <button class="radm-tab active" onclick="radmShow('pending',this)">Pending (${pendingPosts.length})</button>
+  <button class="radm-tab" onclick="radmShow('history',this)">History (${approvedPosts.length + rejectedPosts.length})</button>
   <button class="radm-tab" onclick="radmShow('reports',this)">Reports (${reports.length})</button>
   <button class="radm-tab" onclick="radmShow('consent',this)">Consent Log (${consentRecords.length})</button>
 </div>
 <div id="radm-pending">${pendingHtml}</div>
+<div id="radm-history" style="display:none;">${buildHistoryHtml(approvedPosts, rejectedPosts, escP, fmtTs)}</div>
 <div id="radm-reports" style="display:none;">${reportsHtml}</div>
 <div id="radm-consent" style="display:none;">${consentHtml}</div>
 <div class="notice" id="radm-msg" style="display:none;margin-top:.75rem;"></div>
 <script>
 function radmShow(panel, btn) {
-  ['pending','reports','consent'].forEach(function(p){
+  ['pending','history','reports','consent'].forEach(function(p){
     document.getElementById('radm-'+p).style.display = p===panel?'':'none';
   });
   document.querySelectorAll('.radm-tab').forEach(function(b){ b.classList.remove('active'); });
@@ -8444,14 +8483,16 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
       return;
     }
     try {
-      const [{ posts: pendingPosts }, { posts: flaggedPosts }, reports, { records: consentRecords }] = await Promise.all([
+      const [{ posts: pendingPosts }, { posts: flaggedPosts }, { posts: approvedPosts }, { posts: rejectedPosts }, reports, { records: consentRecords }] = await Promise.all([
         loadRailPosts({ status: 'pending', page: 1, limit: 50 }),
         loadRailPosts({ status: 'flagged', page: 1, limit: 50 }),
+        loadRailPosts({ status: 'approved', page: 1, limit: 100 }),
+        loadRailPosts({ status: 'rejected', page: 1, limit: 100 }),
         loadRailReports(),
         loadConsentLog({ limit: 100 }),
       ]);
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(renderAdminRailPage(pendingPosts, flaggedPosts, reports, consentRecords));
+      res.end(renderAdminRailPage(pendingPosts, flaggedPosts, approvedPosts, rejectedPosts, reports, consentRecords));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(renderLayout('Rail Admin Error', `<section class="card"><h1>Error loading Rail admin</h1><p>${escapeHtml(err.message)}</p></section>`));
