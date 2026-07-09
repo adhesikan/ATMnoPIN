@@ -93,10 +93,16 @@ async function initializeDatabase() {
         accepted_at TEXT NOT NULL,
         source_feature TEXT DEFAULT '',
         ip_address TEXT DEFAULT '',
+        location TEXT DEFAULT '',
         user_agent TEXT DEFAULT '',
         page_url TEXT DEFAULT '',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS _consent_log_v2_done (id INTEGER PRIMARY KEY);
+      INSERT OR IGNORE INTO _consent_log_v2_done VALUES (1);
+    `);
+    try { sqliteDb.exec(`ALTER TABLE consent_log ADD COLUMN location TEXT DEFAULT ''`); } catch {}
+    sqliteDb.exec(`
       CREATE TABLE IF NOT EXISTS rail_posts (
         id TEXT PRIMARY KEY,
         status TEXT NOT NULL DEFAULT 'pending',
@@ -153,10 +159,12 @@ async function initializeDatabase() {
         accepted_at TIMESTAMPTZ NOT NULL,
         source_feature TEXT DEFAULT '',
         ip_address TEXT DEFAULT '',
+        location TEXT DEFAULT '',
         user_agent TEXT DEFAULT '',
         page_url TEXT DEFAULT '',
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE consent_log ADD COLUMN IF NOT EXISTS location TEXT DEFAULT '';
       CREATE TABLE IF NOT EXISTS rail_posts (
         id TEXT PRIMARY KEY,
         status TEXT NOT NULL DEFAULT 'pending',
@@ -4726,19 +4734,22 @@ function renderRailPage(posts, total, page, filters) {
           <label>Game / Stakes<input name="gameStakes" placeholder="$2/$5 NLH, $1/$3 PLO…" /></label>
         </div>
         <label>Tags <span style="font-size:.55rem;color:#555;">(comma separated)</span><input name="tags" placeholder="bad-beat, aces, cooler" /></label>
-        <p class="rail-form-section">Required Confirmations</p>
-        <label class="rail-consent-row">
-          <input type="checkbox" name="c_ownership" required>
-          <span>I confirm this content is my own or I have permission to post it.</span>
-        </label>
-        <label class="rail-consent-row">
-          <input type="checkbox" name="c_guidelines" required>
-          <span>I agree to the <a href="/community-guidelines" target="_blank">Community Guidelines</a>.</span>
-        </label>
-        <label class="rail-consent-row">
-          <input type="checkbox" name="c_moderation" required>
-          <span>I understand ATMNOPIN&#x2122; may edit, reject, or remove my content.</span>
-        </label>
+        <div id="railConsentSection">
+          <p class="rail-form-section">Required Confirmations</p>
+          <label class="rail-consent-row">
+            <input type="checkbox" name="c_ownership" required>
+            <span>I confirm this content is my own or I have permission to post it.</span>
+          </label>
+          <label class="rail-consent-row">
+            <input type="checkbox" name="c_guidelines" required>
+            <span>I agree to the <a href="/community-guidelines" target="_blank">Community Guidelines</a>.</span>
+          </label>
+          <label class="rail-consent-row">
+            <input type="checkbox" name="c_moderation" required>
+            <span>I understand ATMNOPIN&#x2122; may edit, reject, or remove my content.</span>
+          </label>
+        </div>
+        <p id="railReturnNote" style="display:none;font-size:.65rem;color:#666;border:1px solid #1a1a1a;padding:.5rem .75rem;">&#x2713; You agreed to our <a href="/community-guidelines" target="_blank" style="color:var(--green);">Community Guidelines</a> on a previous visit.</p>
         <div id="railFormError" class="rail-error-msg"></div>
         <div class="rail-form-actions">
           <button type="button" class="rail-ai-btn" id="railAIBtn" onclick="railAIRewrite()">&#x2736; Rewrite with ATM AI</button>
@@ -4753,11 +4764,23 @@ function renderRailPage(posts, total, page, filters) {
 
 <script>
 function railOpenComposer() {
+  var ageOk = localStorage.getItem('rail_age_ok') === '1';
+  var prevConsented = localStorage.getItem('rail_consented') === '1';
   document.getElementById('railModal').style.display = 'flex';
-  document.getElementById('railStep1').style.display = 'block';
-  document.getElementById('railStep2').style.display = 'none';
+  document.getElementById('railStep1').style.display = ageOk ? 'none' : 'block';
+  document.getElementById('railStep2').style.display = ageOk ? 'block' : 'none';
   document.getElementById('ageCheck').checked = false;
   document.body.style.overflow = 'hidden';
+  if (prevConsented) {
+    ['c_ownership','c_guidelines','c_moderation'].forEach(function(n) {
+      var el = document.querySelector('#railPostForm [name="'+n+'"]');
+      if (el) el.checked = true;
+    });
+    var sec = document.getElementById('railConsentSection');
+    if (sec) sec.style.display = 'none';
+    var note = document.getElementById('railReturnNote');
+    if (note) note.style.display = 'block';
+  }
 }
 function railCloseComposer() {
   document.getElementById('railModal').style.display = 'none';
@@ -4768,6 +4791,7 @@ function railAgeConfirm() {
     alert('You must confirm you are at least 21 years old to post on The Rail.');
     return;
   }
+  localStorage.setItem('rail_age_ok', '1');
   document.getElementById('railStep1').style.display = 'none';
   document.getElementById('railStep2').style.display = 'block';
 }
@@ -4820,6 +4844,8 @@ async function railSubmit(e) {
     });
     var d = await r.json();
     if (d.ok) {
+      localStorage.setItem('rail_consented', '1');
+      localStorage.setItem('rail_age_ok', '1');
       railCloseComposer();
       var msg = document.getElementById('railSuccessMsg');
       msg.style.display = 'block';
@@ -5060,17 +5086,17 @@ function renderAdminRailPage(pendingPosts, flaggedPosts, reports, consentRecords
           <th style="padding:.35rem .5rem;text-align:left;">Time</th>
           <th style="padding:.35rem .5rem;text-align:left;">Email</th>
           <th style="padding:.35rem .5rem;text-align:left;">Type</th>
-          <th style="padding:.35rem .5rem;text-align:left;">Version</th>
-          <th style="padding:.35rem .5rem;text-align:left;">Feature</th>
           <th style="padding:.35rem .5rem;text-align:left;">IP</th>
+          <th style="padding:.35rem .5rem;text-align:left;">Location</th>
+          <th style="padding:.35rem .5rem;text-align:left;">Feature</th>
         </tr></thead>
         <tbody>${consentRecords.slice(0,50).map((c) => `<tr style="border-bottom:1px solid #0f0f0f;">
-          <td style="padding:.3rem .5rem;color:#666;">${escP(fmtDate(c.accepted_at||c.acceptedAt))}</td>
+          <td style="padding:.3rem .5rem;color:#666;white-space:nowrap;">${escP(fmtDate(c.accepted_at||c.acceptedAt))}</td>
           <td style="padding:.3rem .5rem;color:var(--offwhite);">${escP(c.email_address||c.emailAddress||'')}</td>
           <td style="padding:.3rem .5rem;color:var(--green);">${escP(c.consent_type||c.consentType||'')}</td>
-          <td style="padding:.3rem .5rem;color:#666;">v${escP(c.consent_version||c.consentVersion||'1.0')}</td>
+          <td style="padding:.3rem .5rem;color:#555;font-size:.58rem;white-space:nowrap;">${escP((c.ip_address||c.ipAddress||'').slice(0,20))}</td>
+          <td style="padding:.3rem .5rem;color:#a0988a;font-size:.65rem;">${escP(c.location||'—')}</td>
           <td style="padding:.3rem .5rem;color:#777;">${escP(c.source_feature||c.sourceFeature||'')}</td>
-          <td style="padding:.3rem .5rem;color:#555;font-size:.58rem;">${escP((c.ip_address||c.ipAddress||'').slice(0,20))}</td>
         </tr>`).join('')}</tbody>
       </table></div>`
     : '<div class="notice">No consent records yet.</div>';
@@ -5445,21 +5471,35 @@ function moderateRailContent(text) {
   return { flagged: false, reason: '' };
 }
 
-async function logConsent(entries, { ipAddress = '', userAgent = '', pageUrl = '', sourceFeature = '' } = {}) {
+async function lookupIpLocation(ip) {
+  const local = ['127.0.0.1','::1','::ffff:127.0.0.1'];
+  if (!ip || local.includes(ip) || ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) return '';
+  try {
+    const r = await fetch(`http://ip-api.com/json/${encodeURIComponent(ip)}?fields=city,regionName,country`, { signal: AbortSignal.timeout(2500) });
+    if (!r.ok) return '';
+    const d = await r.json();
+    return [d.city, d.regionName, d.country].filter(Boolean).join(', ');
+  } catch { return ''; }
+}
+
+async function logConsent(entries, { ipAddress = '', emailAddress = '', userAgent = '', pageUrl = '', sourceFeature = '' } = {}) {
   const now = new Date().toISOString();
+  const location = await lookupIpLocation(ipAddress);
   for (const e of (Array.isArray(entries) ? entries : [entries])) {
     if (!e.accepted) continue;
     const id = crypto.randomUUID();
     const acceptedAt = e.acceptedAt || now;
+    const email = e.emailAddress || emailAddress || '';
+    const ip = e.ipAddress || ipAddress;
     if (pgPool) {
       await pgPool.query(
-        `INSERT INTO consent_log (id,email_address,consent_type,consent_version,accepted,accepted_at,source_feature,ip_address,user_agent,page_url,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-        [id, e.emailAddress||'', e.consentType, e.consentVersion||'1.0', true, acceptedAt, e.sourceFeature||sourceFeature, e.ipAddress||ipAddress, e.userAgent||userAgent, e.pageUrl||pageUrl, now]
+        `INSERT INTO consent_log (id,email_address,consent_type,consent_version,accepted,accepted_at,source_feature,ip_address,location,user_agent,page_url,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [id, email, e.consentType, e.consentVersion||'1.0', true, acceptedAt, e.sourceFeature||sourceFeature, ip, location, e.userAgent||userAgent, e.pageUrl||pageUrl, now]
       );
     } else if (sqliteDb) {
       sqliteDb.prepare(
-        `INSERT INTO consent_log (id,email_address,consent_type,consent_version,accepted,accepted_at,source_feature,ip_address,user_agent,page_url,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
-      ).run(id, e.emailAddress||'', e.consentType, e.consentVersion||'1.0', 1, acceptedAt, e.sourceFeature||sourceFeature, e.ipAddress||ipAddress, e.userAgent||userAgent, e.pageUrl||pageUrl, now);
+        `INSERT INTO consent_log (id,email_address,consent_type,consent_version,accepted,accepted_at,source_feature,ip_address,location,user_agent,page_url,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
+      ).run(id, email, e.consentType, e.consentVersion||'1.0', 1, acceptedAt, e.sourceFeature||sourceFeature, ip, location, e.userAgent||userAgent, e.pageUrl||pageUrl, now);
     }
   }
 }
