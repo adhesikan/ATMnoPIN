@@ -8374,8 +8374,9 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
     }
     try {
       const rewritten = await callOpenAI(
-        [{ role: 'user', content: `You are ATM AI — a poker storytelling assistant for the ATMNOPIN™ community. Rewrite the following poker story to be more vivid, punchy, and entertaining while keeping all facts exactly the same. Keep it under 400 words. Return only the rewritten text, no commentary.\n\n${rawContent}` }],
-        { maxTokens: 600 }
+        'You are ATM AI — a poker storytelling assistant for the ATMNOPIN™ community. Rewrite the user\'s poker story to be more vivid, punchy, and entertaining while keeping all facts exactly the same. Keep it under 400 words. Return only the rewritten text, no commentary.',
+        rawContent,
+        600
       );
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ rewritten: rewritten.trim() }));
@@ -8422,7 +8423,7 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
     const statusMap = { approve: 'approved', reject: 'rejected', remove: 'removed' };
     const newStatus = statusMap[action];
     try {
-      const session = adminSessions.get(req.headers.cookie?.match(/admin_session=([^;]+)/)?.[1] || '');
+      const session = sessions.get(req.headers.cookie?.match(/admin_session=([^;]+)/)?.[1] || '');
       await updateRailPostStatus(postId, newStatus, session?.email || 'admin');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
