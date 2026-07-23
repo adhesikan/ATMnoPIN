@@ -3103,6 +3103,35 @@ const SEED_SUBMISSIONS = [
     submitted_at: '2026-07-08T10:00:00.000Z',
   },
   {
+    id: 'crew-oliver-the-mailman-001',
+    name: 'Oliver',
+    nickname: 'The Mailman',
+    email: '',
+    city: 'Foxwoods, CT',
+    favorite_game: '$2/$5 NLH',
+    bio: 'Always delivers — rain, shine, or river card. Shows up like it\'s scheduled, and the card he needed somehow already has a stamp on it.',
+    biggest_accomplishment: 'Never missed a delivery. Or a session.',
+    funny_story: '',
+    bad_beat_story: '',
+    social_link: '',
+    photo_url: '',
+    permission: true,
+    status: 'approved',
+    badge: 'Fellow Fish',
+    featured_on_home: false,
+    admin_notes: 'Original crew member.',
+    slug: 'oliver-the-mailman',
+    player_type: 'crew',
+    suit: '♥',
+    tags: ['Players', 'Fellow Fish', 'Poker Friends', 'Foxwoods', '$2/$5 NLH', 'Table Characters'],
+    specialty: 'Always delivering, whatever the street',
+    tell: 'Checks his phone right before he shows up big',
+    threat_level: 'Comes rain or shine',
+    poker_room: 'Foxwoods Resort Casino',
+    created_at: '2026-01-01T00:00:00.000Z',
+    submitted_at: '2026-01-01T00:00:00.000Z',
+  },
+  {
     id: 'crew-seat-open-001',
     name: 'You?',
     nickname: 'TBD',
@@ -8747,30 +8776,39 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
         <div class="hof-preview-grid">${chronPreviewHtml}</div>
         <div style="margin-top:1.5rem;"><a href="/chronicles" style="display:inline-block;color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View All Chronicles →</a></div>
       </section>`;
-      const featuredPlayers = allSubs
+      const allApprovedPlayers = allSubs
         .filter((s) => s.status === 'approved')
-        .sort((a, b) => (b.featured_on_home ? 1 : 0) - (a.featured_on_home ? 1 : 0))
-        .slice(0, 4);
-      const communityCardsHtml = featuredPlayers.length
-        ? featuredPlayers.map((p) => {
-            const initials = ((p.name || 'P').split(' ').map((w) => w[0]).join('').slice(0, 2)).toUpperCase();
-            const badgeHtml = p.badge ? `<span style="display:inline-block;padding:.2rem .5rem;border-radius:20px;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;background:var(--green);color:#000;margin-bottom:.4rem;">${escapeHtml(p.badge)}</span>` : '';
-            const photoHtml = p.photo_url
-              ? `<img src="${escapeHtml(p.photo_url)}" alt="${escapeHtml(p.name)}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--green);margin-right:.75rem;">`
-              : `<div style="width:56px;height:56px;border-radius:50%;background:var(--felt);display:flex;align-items:center;justify-content:center;color:var(--green);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;border:2px solid var(--green-dim);margin-right:.75rem;">${escapeHtml(initials)}</div>`;
-            return `<article style="border:1px solid #1e1e1e;background:#0c0c0c;border-radius:14px;padding:1rem;">
-              <div style="display:flex;align-items:center;margin-bottom:.75rem;">${photoHtml}<div><div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--offwhite);">${escapeHtml(p.name)}${p.nickname ? ` <span style="color:var(--green);font-size:.85rem;">"${escapeHtml(p.nickname)}"</span>` : ''}</div>${p.city ? `<div style="color:var(--gray);font-size:.72rem;">${escapeHtml(p.city)}</div>` : ''}</div></div>
-              ${badgeHtml}
-              ${p.accomplishment ? `<p style="color:#888;font-size:.78rem;line-height:1.5;margin-bottom:.5rem;">${escapeHtml(p.accomplishment.slice(0, 100))}${p.accomplishment.length > 100 ? '…' : ''}</p>` : ''}
-              <a href="/players/${escapeHtml(p.slug)}" style="color:var(--green);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;text-decoration:none;">View Profile →</a>
-            </article>`;
-          }).join('')
-        : '<div style="color:var(--gray);font-size:.9rem;">No community profiles yet. <a href="/ai-profile-generator" style="color:var(--green);">Be the first →</a></div>';
+        .sort((a, b) => (b.featured_on_home ? 1 : 0) - (a.featured_on_home ? 1 : 0));
+      const communityCard = (p) => {
+        const initials = ((p.name || 'P').split(' ').map((w) => w[0]).join('').slice(0, 2)).toUpperCase();
+        const badgeHtml = p.badge ? `<span style="display:inline-block;padding:.2rem .5rem;border-radius:20px;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;background:var(--green);color:#000;margin-bottom:.4rem;">${escapeHtml(p.badge)}</span>` : '';
+        const photoHtml = p.photo_url
+          ? `<img src="${escapeHtml(p.photo_url)}" alt="${escapeHtml(p.name)}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--green);margin-right:.75rem;">`
+          : `<div style="width:56px;height:56px;border-radius:50%;background:var(--felt);display:flex;align-items:center;justify-content:center;color:var(--green);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;border:2px solid var(--green-dim);margin-right:.75rem;">${escapeHtml(initials)}</div>`;
+        return `<article class="cw-card">
+          <div style="display:flex;align-items:center;margin-bottom:.75rem;">${photoHtml}<div><div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--offwhite);">${escapeHtml(p.name)}${p.nickname ? ` <span style="color:var(--green);font-size:.85rem;">"${escapeHtml(p.nickname)}"</span>` : ''}</div>${p.city ? `<div style="color:var(--gray);font-size:.72rem;">${escapeHtml(p.city)}</div>` : ''}</div></div>
+          ${badgeHtml}
+          ${p.accomplishment ? `<p style="color:#888;font-size:.78rem;line-height:1.5;margin-bottom:.5rem;">${escapeHtml(p.accomplishment.slice(0, 100))}${p.accomplishment.length > 100 ? '…' : ''}</p>` : ''}
+          <a href="/players/${escapeHtml(p.slug)}" style="color:var(--green);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;text-decoration:none;">View Profile →</a>
+        </article>`;
+      };
+      const cwDuration = Math.max(24, allApprovedPlayers.length * 5);
+      const communityWallHtml = allApprovedPlayers.length
+        ? `<style>
+            .cw-viewport{overflow:hidden;margin-top:1rem;-webkit-mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);}
+            .cw-track{display:flex;gap:1rem;width:max-content;animation:cwScroll ${cwDuration}s linear infinite;}
+            .cw-viewport:hover .cw-track{animation-play-state:paused;}
+            .cw-card{flex:0 0 240px;border:1px solid #1e1e1e;background:#0c0c0c;border-radius:14px;padding:1rem;}
+            @keyframes cwScroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+            @media(prefers-reduced-motion:reduce){.cw-track{animation:none;}}
+          </style>
+          <div class="cw-viewport"><div class="cw-track">${allApprovedPlayers.map(communityCard).join('')}${allApprovedPlayers.map(communityCard).join('')}</div></div>`
+        : '<div style="color:var(--gray);font-size:.9rem;margin-top:1rem;">No community profiles yet. <a href="/ai-profile-generator" style="color:var(--green);">Be the first →</a></div>';
       const communitySection = `<section class="schedule" id="community-preview" style="border-top:1px solid #1a1a1a;">
         <p class="section-label">// ATMNOPIN Community</p>
         <h2>Community Wall</h2>
         <p class="body-text" style="max-width:60ch;">Poker players from the ATMNOPIN universe — their stories, bad beats, and moments of glory.</p>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin-top:1rem;">${communityCardsHtml}</div>
+        ${communityWallHtml}
         <div style="margin-top:1.5rem;display:flex;gap:1rem;flex-wrap:wrap;">
           <a href="/community-wall" style="display:inline-block;color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View Community Wall →</a>
           <a href="/ai-profile-generator" style="display:inline-block;color:var(--gold);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">Get Featured →</a>
