@@ -4586,6 +4586,10 @@ function renderRailPostCard(post) {
   const preview = escapeHtml((post.content || '').slice(0, 260)) + ((post.content || '').length > 260 ? '…' : '');
   const tagsHtml = (post.tags || []).slice(0, 4).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('');
   const metaParts = [post.pokerRoom, post.gameStakes].filter(Boolean);
+  const imgs = (post.images || []).slice(0, 3);
+  const imagesHtml = imgs.length
+    ? `<div class="rail-images ri-${imgs.length}">${imgs.map((im) => `<a href="${escapeHtml(im.url)}" target="_blank" rel="noopener"><img src="${escapeHtml(im.url)}" alt="${escapeHtml(im.alt || 'Rail post photo')}" loading="lazy" /></a>`).join('')}</div>`
+    : '';
   return `<article class="rail-card" data-id="${escapeHtml(post.id)}" data-type="${escapeHtml(post.postType||'')}">
   <div class="rail-card-top">
     <span class="rail-type" style="color:${typeConf.color};border-color:${typeConf.color}40">${escapeHtml(typeConf.label)}</span>
@@ -4593,6 +4597,7 @@ function renderRailPostCard(post) {
   </div>
   ${post.title ? `<h3 class="rail-title">${escapeHtml(post.title)}</h3>` : ''}
   <p class="rail-content">${preview}</p>
+  ${imagesHtml}
   ${tagsHtml ? `<div class="rail-tags">${tagsHtml}</div>` : ''}
   <div class="rail-card-footer">
     <span class="rail-author">&#x2666; ${escapeHtml(post.authorName || 'Anonymous')}</span>
@@ -4604,7 +4609,7 @@ function renderRailPostCard(post) {
 </article>`;
 }
 
-function renderRailPage(posts, total, page, filters) {
+function renderRailPage(posts, total, page, filters, isAdmin = false) {
   const limit = 20;
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const cardsHtml = posts.length
@@ -4650,6 +4655,19 @@ function renderRailPage(posts, total, page, filters) {
 .rail-title{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--offwhite);margin-bottom:.45rem;line-height:1.3;}
 .rail-content{font-size:.78rem;color:#a0988a;line-height:1.75;margin-bottom:.5rem;}
 .rail-tags{margin-bottom:.5rem;}
+.rail-images{display:grid;gap:.4rem;margin-bottom:.5rem;}
+.rail-images.ri-1{grid-template-columns:1fr;}
+.rail-images.ri-2{grid-template-columns:1fr 1fr;}
+.rail-images.ri-3{grid-template-columns:repeat(3,1fr);}
+@media(max-width:540px){.rail-images.ri-3{grid-template-columns:1fr 1fr;}}
+.rail-images img{width:100%;max-height:280px;object-fit:cover;display:block;border:1px solid #1e1e1e;transition:border-color .2s;}
+.rail-images a:hover img{border-color:rgba(0,200,83,.4);}
+.rail-img-preview{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.35rem;}
+.rail-img-thumb{position:relative;width:72px;height:72px;border:1px solid #2a2a2a;}
+.rail-img-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.rail-img-thumb button{position:absolute;top:-8px;right:-8px;width:18px;height:18px;line-height:15px;padding:0;background:#111;border:1px solid #2a2a2a;color:#e06060;font:700 .7rem 'DM Mono',monospace;cursor:pointer;border-radius:50%;}
+.rail-img-thumb button:hover{border-color:#e06060;}
+.rail-admin-note{border:1px solid rgba(201,168,76,.35);background:rgba(201,168,76,.06);color:var(--gold);padding:.5rem .75rem;font-size:.64rem;letter-spacing:.04em;margin-bottom:.65rem;}
 .rail-card-footer{display:flex;justify-content:space-between;align-items:center;margin-top:.25rem;padding-top:.5rem;border-top:1px solid #141414;}
 .rail-author{font-size:.62rem;color:#666;letter-spacing:.06em;}
 .rail-actions{display:flex;gap:.5rem;}
@@ -4748,7 +4766,8 @@ function renderRailPage(posts, total, page, filters) {
     <!-- STEP 2: Post Form -->
     <div id="railStep2" style="display:none">
       <p class="rail-modal-h">Post to The Rail</p>
-      <p class="rail-modal-sub">Share your poker story. All posts are reviewed before publishing.</p>
+      <p class="rail-modal-sub">${isAdmin ? 'Share an update with the community.' : 'Share your poker story. All posts are reviewed before publishing.'}</p>
+      ${isAdmin ? '<p class="rail-admin-note">&#x2666; Admin mode &mdash; your post publishes to The Rail immediately, no review needed.</p>' : ''}
       <form id="railPostForm" onsubmit="railSubmit(event)" class="rail-form-grid">
         <p class="rail-form-section">Your Info</p>
         <div class="rail-form-row">
@@ -4766,7 +4785,12 @@ function renderRailPage(posts, total, page, filters) {
           <label>Game / Stakes<input name="gameStakes" placeholder="$2/$5 NLH, $1/$3 PLO…" /></label>
         </div>
         <label>Tags <span style="font-size:.55rem;color:#555;">(comma separated)</span><input name="tags" placeholder="bad-beat, aces, cooler" /></label>
-        <div id="railConsentSection">
+        <label>Photos <span style="font-size:.55rem;color:#555;">(optional &mdash; up to 3, JPG/PNG/WEBP, max 5MB each)</span>
+          <input type="file" id="railImageInput" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple onchange="railImagesSelected(this)" />
+        </label>
+        <div id="railImagePreview" class="rail-img-preview"></div>
+        <div id="railImageStatus" style="font-size:.62rem;color:#666;"></div>
+        ${isAdmin ? '' : `<div id="railConsentSection">
           <p class="rail-form-section">Required Confirmations</p>
           <label class="rail-consent-row">
             <input type="checkbox" name="c_ownership" required>
@@ -4780,7 +4804,7 @@ function renderRailPage(posts, total, page, filters) {
             <input type="checkbox" name="c_moderation" required>
             <span>I understand ATMNOPIN&#x2122; may edit, reject, or remove my content.</span>
           </label>
-        </div>
+        </div>`}
         <p id="railReturnNote" style="display:none;font-size:.65rem;color:#666;border:1px solid #1a1a1a;padding:.5rem .75rem;">&#x2713; You agreed to our <a href="/community-guidelines" target="_blank" style="color:var(--green);">Community Guidelines</a> on a previous visit.</p>
         <div id="railFormError" class="rail-error-msg"></div>
         <div class="rail-form-actions">
@@ -4795,9 +4819,11 @@ function renderRailPage(posts, total, page, filters) {
 </div>
 
 <script>
+var RAIL_IS_ADMIN = ${isAdmin ? 'true' : 'false'};
+var railImages = [];
 function railOpenComposer() {
-  var ageOk = localStorage.getItem('rail_age_ok') === '1';
-  var prevConsented = localStorage.getItem('rail_consented') === '1';
+  var ageOk = RAIL_IS_ADMIN || localStorage.getItem('rail_age_ok') === '1';
+  var prevConsented = !RAIL_IS_ADMIN && localStorage.getItem('rail_consented') === '1';
   document.getElementById('railModal').style.display = 'flex';
   document.getElementById('railStep1').style.display = ageOk ? 'none' : 'block';
   document.getElementById('railStep2').style.display = ageOk ? 'block' : 'none';
@@ -4846,6 +4872,37 @@ async function railAIRewrite() {
   } catch(e) { alert('AI rewrite failed. Please try again.'); }
   finally { btn.disabled = false; btn.textContent = '\\u2736 Rewrite with ATM AI'; }
 }
+async function railImagesSelected(input) {
+  var files = Array.prototype.slice.call(input.files || []);
+  input.value = '';
+  var status = document.getElementById('railImageStatus');
+  for (var i = 0; i < files.length; i++) {
+    if (railImages.length >= 3) { alert('Maximum 3 photos per post.'); break; }
+    var f = files[i];
+    if (f.size > 5 * 1024 * 1024) { alert(f.name + ' is over 5MB — skipped.'); continue; }
+    status.textContent = 'Uploading ' + f.name + '\\u2026';
+    try {
+      var form = new FormData();
+      form.append('file', f);
+      var r = await fetch('/api/rail/upload', { method: 'POST', body: form });
+      var d = await r.json();
+      if (d.ok && d.url) railImages.push({ url: d.url, alt: f.name });
+      else alert('Upload failed: ' + (d.error || 'please try again'));
+    } catch(e) { alert('Upload failed. Please try again.'); }
+    status.textContent = '';
+  }
+  railRenderImagePreviews();
+}
+function railRenderImagePreviews() {
+  var box = document.getElementById('railImagePreview');
+  box.innerHTML = railImages.map(function(im, i) {
+    return '<div class="rail-img-thumb"><img src="' + im.url + '" alt="" /><button type="button" onclick="railRemoveImage(' + i + ')" title="Remove photo">&times;</button></div>';
+  }).join('');
+}
+function railRemoveImage(i) {
+  railImages.splice(i, 1);
+  railRenderImagePreviews();
+}
 async function railSubmit(e) {
   e.preventDefault();
   var form = e.target;
@@ -4860,7 +4917,8 @@ async function railSubmit(e) {
     pokerRoom:   form.pokerRoom.value.trim(),
     gameStakes:  form.gameStakes.value.trim(),
     tags:        form.tags.value.split(',').map(function(t){return t.trim();}).filter(Boolean),
-    consents: [
+    images:      railImages,
+    consents: RAIL_IS_ADMIN ? [] : [
       { consentType:'age_verification',     consentVersion:'1.0', accepted:true },
       { consentType:'content_ownership',    consentVersion:'1.0', accepted:form.c_ownership.checked },
       { consentType:'community_guidelines', consentVersion:'1.0', accepted:form.c_guidelines.checked },
@@ -4876,9 +4934,17 @@ async function railSubmit(e) {
     });
     var d = await r.json();
     if (d.ok) {
-      localStorage.setItem('rail_consented', '1');
-      localStorage.setItem('rail_age_ok', '1');
+      if (!RAIL_IS_ADMIN) {
+        localStorage.setItem('rail_consented', '1');
+        localStorage.setItem('rail_age_ok', '1');
+      }
+      railImages = [];
+      railRenderImagePreviews();
       railCloseComposer();
+      if (d.status === 'approved') {
+        window.location.reload();
+        return;
+      }
       var msg = document.getElementById('railSuccessMsg');
       msg.style.display = 'block';
       form.reset();
@@ -5099,6 +5165,7 @@ function buildHistoryHtml(approvedPosts, rejectedPosts, escP, fmtTs) {
           ${p.title ? `<span style="font-family:'DM Serif Display',serif;font-size:.85rem;color:var(--offwhite);">${escP(p.title)}</span>` : ''}
         </div>
         <p style="font-size:.72rem;color:#777;line-height:1.6;margin-bottom:.35rem;">${escP((p.content||'').slice(0,200))}${(p.content||'').length>200?'…':''}</p>
+        ${(p.images||[]).length ? `<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.4rem;">${p.images.slice(0,3).map((im)=>`<a href="${escP(im.url)}" target="_blank" rel="noopener"><img src="${escP(im.url)}" alt="${escP(im.alt||'')}" style="width:64px;height:64px;object-fit:cover;display:block;border:1px solid #2a2a2a;" /></a>`).join('')}</div>` : ''}
         <div style="font-size:.58rem;color:#555;display:flex;flex-wrap:wrap;gap:.75rem;">
           <span>&#x2666; ${escP(p.authorName||'Anon')}</span>
           ${p.pokerRoom ? `<span>${escP(p.pokerRoom)}</span>` : ''}
@@ -5134,6 +5201,7 @@ function renderAdminRailPage(pendingPosts, flaggedPosts, approvedPosts, rejected
           </div>
           ${p.title ? `<p style="font-family:'DM Serif Display',serif;font-size:.92rem;color:var(--offwhite);margin-bottom:.35rem;">${escP(p.title)}</p>` : ''}
           <p style="font-size:.75rem;color:#888;line-height:1.65;margin-bottom:.65rem;">${escP((p.content||'').slice(0,400))}${(p.content||'').length>400?'…':''}</p>
+          ${(p.images||[]).length ? `<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem;">${p.images.slice(0,3).map((im)=>`<a href="${escP(im.url)}" target="_blank" rel="noopener"><img src="${escP(im.url)}" alt="${escP(im.alt||'')}" style="width:90px;height:90px;object-fit:cover;display:block;border:1px solid #2a2a2a;" /></a>`).join('')}</div>` : ''}
           ${p.aiFlagged ? `<p style="font-size:.62rem;color:#e06060;margin-bottom:.5rem;">&#x26A0; AI Flagged: ${escP(p.aiFlagReason)}</p>` : ''}
           <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
             <button onclick="railAdmin('approve','${escP(p.id)}')" style="background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.35);color:var(--green);padding:.3rem .75rem;font:.64rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;">&#x2713; Approve</button>
@@ -5183,7 +5251,7 @@ function renderAdminRailPage(pendingPosts, flaggedPosts, approvedPosts, rejected
 <section class="hero" style="padding:1.5rem 0 1rem;border-bottom:1px solid #1e1e1e;">
   <p class="eyebrow">Admin &rarr; The Rail</p>
   <h1 style="font-size:clamp(2rem,5vw,3.5rem);">Rail Moderation</h1>
-  <p style="font-size:.78rem;color:#888;margin-top:.35rem;"><a href="/admin" style="color:var(--green);">&larr; Back to Admin Dashboard</a></p>
+  <p style="font-size:.78rem;color:#888;margin-top:.35rem;"><a href="/admin" style="color:var(--green);">&larr; Back to Admin Dashboard</a> &nbsp;&middot;&nbsp; <a href="/rail" style="color:var(--gold);">&#x2666; Post to The Rail (publishes instantly) &rarr;</a></p>
 </section>
 <div class="radm-tabs">
   <button class="radm-tab active" onclick="radmShow('pending',this)">Pending (${pendingPosts.length})</button>
@@ -5584,16 +5652,17 @@ async function logConsent(entries, { ipAddress = '', emailAddress = '', userAgen
   }
 }
 
-async function createRailPost(data) {
+async function createRailPost(data, { status = 'pending', approvedBy = '' } = {}) {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
-  const post = { ...data, id, createdAt: now, updatedAt: now, likeCount: 0, status: 'pending', approvedAt: null, approvedBy: '' };
+  const approved = status === 'approved';
+  const post = { ...data, id, createdAt: now, updatedAt: now, likeCount: 0, status, approvedAt: approved ? now : null, approvedBy: approved ? approvedBy : '' };
   delete post.authorIp;
   const json = JSON.stringify({ ...post, authorIp: data.authorIp || '' });
   if (pgPool) {
-    await pgPool.query(`INSERT INTO rail_posts (id,status,like_count,created_at,data) VALUES ($1,'pending',0,$2,$3)`, [id, now, json]);
+    await pgPool.query(`INSERT INTO rail_posts (id,status,like_count,created_at,data) VALUES ($1,$2,0,$3,$4)`, [id, status, now, json]);
   } else if (sqliteDb) {
-    sqliteDb.prepare(`INSERT INTO rail_posts (id,status,like_count,created_at,data) VALUES (?,'pending',0,?,?)`).run(id, now, json);
+    sqliteDb.prepare(`INSERT INTO rail_posts (id,status,like_count,created_at,data) VALUES (?,?,0,?,?)`).run(id, status, now, json);
   }
   return post;
 }
@@ -7141,6 +7210,55 @@ function isSafeImage(fileName) {
   return /\.(jpg|jpeg|png|webp)$/i.test(fileName);
 }
 
+function handleImageUploadRequest(req, res) {
+  try {
+    const boundary = req.headers['content-type']?.split('boundary=')[1];
+    if (!boundary) throw new Error('Multipart upload required.');
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+    req.on('end', async () => {
+      try {
+        const bodyBuffer = Buffer.concat(chunks);
+        const boundaryMarker = `--${boundary}`;
+        const parts = bodyBuffer.toString('binary').split(boundaryMarker);
+        let fileBuffer = null;
+        let fileName = '';
+        let kind = 'gallery';
+        for (const part of parts) {
+          if (!part.includes('Content-Disposition')) continue;
+          const headerEnd = part.indexOf('\r\n\r\n');
+          const headers = part.slice(0, headerEnd);
+          const content = part.slice(headerEnd + 4, -2);
+          if (headers.includes('name="file"')) {
+            const match = headers.match(/filename="([^"]+)"/);
+            if (match) fileName = match[1];
+            fileBuffer = Buffer.from(content, 'binary');
+          }
+          if (headers.includes('name="kind"')) {
+            kind = content.replace(/\r\n/g, '').trim();
+          }
+        }
+        if (!fileBuffer || !fileName) throw new Error('No image file uploaded.');
+        if (!isSafeImage(fileName)) throw new Error('Only JPG, PNG, and WEBP images are allowed.');
+        if (fileBuffer.length > 5 * 1024 * 1024) throw new Error('Image is too large. Max 5MB.');
+        let uploadResult = null;
+        try { uploadResult = await uploadImageToCloudinary(fileBuffer, fileName, kind); }
+        catch (cloudErr) { uploadResult = null; }
+        const fallback = uploadImageLocally(fileBuffer, fileName);
+        const result = uploadResult || fallback;
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, url: result.url, alt: result.alt }));
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+  } catch (error) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: error.message }));
+  }
+}
+
 function renderHeroCarousel() {
   const cardsHtml = HERO_PROFILES.map((p) => {
     const linkHtml = `<a class="hc-card-link" href="${escapeHtml(p.href)}">${escapeHtml(p.cta || 'View Profile →')}</a>`;
@@ -7628,53 +7746,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/api/admin/upload' && req.method === 'POST') {
-    try {
-      const boundary = req.headers['content-type']?.split('boundary=')[1];
-      if (!boundary) throw new Error('Multipart upload required.');
-      const chunks = [];
-      req.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
-      req.on('end', async () => {
-        try {
-          const bodyBuffer = Buffer.concat(chunks);
-          const boundaryMarker = `--${boundary}`;
-          const parts = bodyBuffer.toString('binary').split(boundaryMarker);
-          let fileBuffer = null;
-          let fileName = '';
-          let kind = 'gallery';
-          for (const part of parts) {
-            if (!part.includes('Content-Disposition')) continue;
-            const headerEnd = part.indexOf('\r\n\r\n');
-            const headers = part.slice(0, headerEnd);
-            const content = part.slice(headerEnd + 4, -2);
-            if (headers.includes('name="file"')) {
-              const match = headers.match(/filename="([^"]+)"/);
-              if (match) fileName = match[1];
-              fileBuffer = Buffer.from(content, 'binary');
-            }
-            if (headers.includes('name="kind"')) {
-              kind = content.replace(/\r\n/g, '').trim();
-            }
-          }
-          if (!fileBuffer || !fileName) throw new Error('No image file uploaded.');
-          if (!isSafeImage(fileName)) throw new Error('Only JPG, PNG, and WEBP images are allowed.');
-          if (fileBuffer.length > 5 * 1024 * 1024) throw new Error('Image is too large. Max 5MB.');
-          let uploadResult = null;
-          try { uploadResult = await uploadImageToCloudinary(fileBuffer, fileName, kind); }
-          catch (cloudErr) { uploadResult = null; }
-          const fallback = uploadImageLocally(fileBuffer, fileName);
-          const result = uploadResult || fallback;
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, url: result.url, alt: result.alt }));
-        } catch (error) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: error.message }));
-        }
-      });
-      return;
-    } catch (error) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: error.message }));
-    }
+    handleImageUploadRequest(req, res);
     return;
   }
 
@@ -8360,7 +8432,7 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
     const filters = { type: parsed.searchParams.get('type') || '' };
     const { posts, total } = await loadRailPosts({ status: 'approved', page, limit: 20, type: filters.type });
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(renderRailPage(posts, total, page, filters));
+    res.end(renderRailPage(posts, total, page, filters, !!verifyAdmin(req)));
     logPageVisit(req, pathname);
     return;
   }
@@ -8393,6 +8465,12 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
     return;
   }
 
+  // POST /api/rail/upload — image upload for Rail posts (public, same limits as admin upload)
+  if (pathname === '/api/rail/upload' && req.method === 'POST') {
+    handleImageUploadRequest(req, res);
+    return;
+  }
+
   // POST /api/rail/posts — submit a new post
   if (pathname === '/api/rail/posts' && req.method === 'POST') {
     let body;
@@ -8410,6 +8488,10 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
     }
     const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
     const ua = req.headers['user-agent'] || '';
+    const railAdminSession = verifyAdmin(req);
+    const images = (Array.isArray(body.images) ? body.images : []).slice(0, 3)
+      .map((im) => ({ url: String(im?.url || ''), alt: String(im?.alt || '').slice(0, 200) }))
+      .filter((im) => im.url.length < 500 && /^(\/uploads\/|https:\/\/)/.test(im.url));
     try {
       if (Array.isArray(consents) && consents.length > 0) {
         await logConsent(consents, {
@@ -8423,10 +8505,11 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
         title: title || '', content,
         pokerRoom: pokerRoom || '', gameStakes: gameStakes || '',
         tags: Array.isArray(tags) ? tags : [],
+        images,
         submitterIp: clientIp,
-      });
+      }, railAdminSession ? { status: 'approved', approvedBy: railAdminSession.email || 'admin' } : {});
       res.writeHead(201, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, id: post.id }));
+      res.end(JSON.stringify({ ok: true, id: post.id, status: post.status }));
     } catch (err) {
       console.error('[rail] createRailPost error:', err);
       res.writeHead(500, { 'Content-Type': 'application/json' });
