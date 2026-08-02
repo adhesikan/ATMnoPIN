@@ -5260,6 +5260,7 @@ function renderAdminRailPage(pendingPosts, flaggedPosts, approvedPosts, rejected
     : '<div class="notice">No consent records yet.</div>';
 
   const typeSelectOptsAdmin = Object.entries(RAIL_POST_TYPES).map(([k, v]) => `<option value="${k}">${escP(v.label)}</option>`).join('');
+  const railAiToneOptsAdmin = Object.entries(RAIL_AI_TONES).map(([k, v]) => `<option value="${k}">${escP(v.label)}</option>`).join('');
   const postsById = {};
   [...pendingPosts, ...flaggedPosts, ...approvedPosts, ...rejectedPosts].forEach((p) => { postsById[p.id] = p; });
   const postsJson = JSON.stringify(postsById).replace(/</g, '\\u003c');
@@ -5302,6 +5303,10 @@ function renderAdminRailPage(pendingPosts, flaggedPosts, approvedPosts, rejected
         <label style="${labelStyle}">Title<input id="reTitle" style="${fieldStyle}" /></label>
       </div>
       <label style="${labelStyle}">Content<textarea id="reContent" rows="5" style="${fieldStyle}resize:vertical;"></textarea></label>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:-.35rem;">
+        <select id="reAITone" style="background:#111;border:1px solid rgba(0,200,83,.3);color:var(--green);padding:.4rem .5rem;font:.66rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;">${railAiToneOptsAdmin}</select>
+        <button type="button" id="reAIBtn" onclick="railEditAIRewrite()" style="background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.3);color:var(--green);padding:.4rem .8rem;font:.66rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;">&#x2736; Rewrite with ATM AI</button>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;">
         <label style="${labelStyle}">Poker Room<input id="rePokerRoom" style="${fieldStyle}" /></label>
         <label style="${labelStyle}">Game / Stakes<input id="reGameStakes" style="${fieldStyle}" /></label>
@@ -5375,6 +5380,27 @@ async function railEditImagesSelected(input) {
     status.textContent = '';
   }
   railEditRenderImages();
+}
+async function railEditAIRewrite() {
+  var contentEl = document.getElementById('reContent');
+  var content = contentEl.value.trim();
+  if (!content) { alert('Add some content first, then let ATM AI improve it.'); return; }
+  var tone = document.getElementById('reAITone').value;
+  var btn = document.getElementById('reAIBtn');
+  btn.disabled = true; btn.textContent = '\\u2736 Rewriting…';
+  try {
+    var r = await fetch('/api/rail/ai-rewrite', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: content, tone: tone })
+    });
+    var d = await r.json();
+    if (d.rewritten) {
+      contentEl.value = d.rewritten;
+    } else {
+      alert('AI rewrite unavailable: ' + (d.error || 'try again shortly'));
+    }
+  } catch(e) { alert('AI rewrite failed. Please try again.'); }
+  finally { btn.disabled = false; btn.textContent = '\\u2736 Rewrite with ATM AI'; }
 }
 async function railEditSave() {
   var errEl = document.getElementById('reError');
