@@ -5177,7 +5177,10 @@ function buildHistoryHtml(approvedPosts, rejectedPosts, escP, fmtTs) {
       <div style="text-align:right;white-space:nowrap;">
         <div style="font-size:.6rem;font-weight:700;color:${statusColor};letter-spacing:.08em;margin-bottom:.3rem;">${statusLabel}</div>
         <div style="font-size:.55rem;color:#555;">${fmtTs(p.approvedAt || p.updatedAt || p.createdAt)}</div>
-        ${isApproved ? `<button onclick="railAdmin('remove','${escP(p.id)}')" style="margin-top:.4rem;background:transparent;border:1px solid #2a2a2a;color:#666;padding:.2rem .5rem;font:.58rem 'DM Mono',monospace;text-transform:uppercase;cursor:pointer;">Remove</button>` : ''}
+        <div style="display:flex;gap:.35rem;justify-content:flex-end;margin-top:.4rem;">
+          <button onclick="railEditOpen('${escP(p.id)}')" style="background:transparent;border:1px solid rgba(102,153,238,.3);color:#6699ee;padding:.2rem .5rem;font:.58rem 'DM Mono',monospace;text-transform:uppercase;cursor:pointer;">&#x270E; Edit</button>
+          ${isApproved ? `<button onclick="railAdmin('remove','${escP(p.id)}')" style="background:transparent;border:1px solid #2a2a2a;color:#666;padding:.2rem .5rem;font:.58rem 'DM Mono',monospace;text-transform:uppercase;cursor:pointer;">Remove</button>` : ''}
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -5205,6 +5208,7 @@ function renderAdminRailPage(pendingPosts, flaggedPosts, approvedPosts, rejected
           ${p.aiFlagged ? `<p style="font-size:.62rem;color:#e06060;margin-bottom:.5rem;">&#x26A0; AI Flagged: ${escP(p.aiFlagReason)}</p>` : ''}
           <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
             <button onclick="railAdmin('approve','${escP(p.id)}')" style="background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.35);color:var(--green);padding:.3rem .75rem;font:.64rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;">&#x2713; Approve</button>
+            <button onclick="railEditOpen('${escP(p.id)}')" style="background:rgba(102,153,238,.08);border:1px solid rgba(102,153,238,.3);color:#6699ee;padding:.3rem .75rem;font:.64rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;">&#x270E; Edit</button>
             <button onclick="railAdmin('reject','${escP(p.id)}')" style="background:rgba(200,80,80,.08);border:1px solid rgba(200,80,80,.3);color:#e06060;padding:.3rem .75rem;font:.64rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;">&#x2717; Reject</button>
             <button onclick="railAdmin('remove','${escP(p.id)}')" style="background:#111;border:1px solid #2a2a2a;color:#666;padding:.3rem .75rem;font:.64rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;">Remove</button>
           </div>
@@ -5242,6 +5246,13 @@ function renderAdminRailPage(pendingPosts, flaggedPosts, approvedPosts, rejected
       </table></div>`
     : '<div class="notice">No consent records yet.</div>';
 
+  const typeSelectOptsAdmin = Object.entries(RAIL_POST_TYPES).map(([k, v]) => `<option value="${k}">${escP(v.label)}</option>`).join('');
+  const postsById = {};
+  [...pendingPosts, ...flaggedPosts, ...approvedPosts, ...rejectedPosts].forEach((p) => { postsById[p.id] = p; });
+  const postsJson = JSON.stringify(postsById).replace(/</g, '\\u003c');
+  const fieldStyle = 'width:100%;margin-top:.25rem;background:#111;border:1px solid #2a2a2a;color:var(--offwhite);padding:.4rem .5rem;font:.75rem \'DM Mono\',monospace;';
+  const labelStyle = 'font-size:.62rem;color:#888;';
+
   return renderLayout('Rail Admin | ATMNOPIN™', `
 <style>
 .radm-tabs{display:flex;gap:.5rem;margin:1.5rem 0 1rem;border-bottom:1px solid #1e1e1e;padding-bottom:.75rem;}
@@ -5264,7 +5275,128 @@ function renderAdminRailPage(pendingPosts, flaggedPosts, approvedPosts, rejected
 <div id="radm-reports" style="display:none;">${reportsHtml}</div>
 <div id="radm-consent" style="display:none;">${consentHtml}</div>
 <div class="notice" id="radm-msg" style="display:none;margin-top:.75rem;"></div>
+
+<div id="railEditModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:center;justify-content:center;padding:1rem;" onclick="if(event.target===this)railEditClose()">
+  <div style="background:#0c0c0c;border:1px solid #242424;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:1.5rem;">
+    <p style="font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--offwhite);margin-bottom:1rem;">Edit Rail Post</p>
+    <div style="display:grid;gap:.65rem;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;">
+        <label style="${labelStyle}">Author Name<input id="reAuthorName" style="${fieldStyle}" /></label>
+        <label style="${labelStyle}">Author Email<input id="reAuthorEmail" style="${fieldStyle}" /></label>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;">
+        <label style="${labelStyle}">Post Type<select id="rePostType" style="${fieldStyle}">${typeSelectOptsAdmin}</select></label>
+        <label style="${labelStyle}">Title<input id="reTitle" style="${fieldStyle}" /></label>
+      </div>
+      <label style="${labelStyle}">Content<textarea id="reContent" rows="5" style="${fieldStyle}resize:vertical;"></textarea></label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;">
+        <label style="${labelStyle}">Poker Room<input id="rePokerRoom" style="${fieldStyle}" /></label>
+        <label style="${labelStyle}">Game / Stakes<input id="reGameStakes" style="${fieldStyle}" /></label>
+      </div>
+      <label style="${labelStyle}">Tags <span style="color:#555;">(comma separated)</span><input id="reTags" style="${fieldStyle}" /></label>
+      <label style="${labelStyle}">Photos <span style="color:#555;">(up to 3)</span><input type="file" id="reImageInput" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple onchange="railEditImagesSelected(this)" style="display:block;margin-top:.3rem;font-size:.68rem;color:#888;" /></label>
+      <div id="reImagePreview" style="display:flex;gap:.5rem;flex-wrap:wrap;"></div>
+      <div id="reImageStatus" style="font-size:.6rem;color:#666;"></div>
+      <div id="reError" style="display:none;border:1px solid rgba(200,80,80,.3);background:rgba(200,80,80,.06);padding:.6rem;font-size:.68rem;color:#e06060;"></div>
+      <div style="display:flex;gap:.65rem;flex-wrap:wrap;margin-top:.35rem;">
+        <button id="reSaveBtn" onclick="railEditSave()" style="background:var(--green);border:none;color:#000;padding:.5rem 1.2rem;font:.7rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;font-weight:700;">Save Changes</button>
+        <button onclick="railEditClose()" style="background:transparent;border:1px solid #2a2a2a;color:#888;padding:.5rem .9rem;font:.68rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+var railEditPosts = ${postsJson};
+var railEditImages = [];
+var railEditCurrentId = null;
+function railEditOpen(postId) {
+  var p = railEditPosts[postId];
+  if (!p) { alert('Post not found.'); return; }
+  railEditCurrentId = postId;
+  railEditImages = (p.images || []).slice();
+  document.getElementById('reAuthorName').value = p.authorName || '';
+  document.getElementById('reAuthorEmail').value = p.authorEmail || '';
+  document.getElementById('rePostType').value = p.postType || '';
+  document.getElementById('reTitle').value = p.title || '';
+  document.getElementById('reContent').value = p.content || '';
+  document.getElementById('rePokerRoom').value = p.pokerRoom || '';
+  document.getElementById('reGameStakes').value = p.gameStakes || '';
+  document.getElementById('reTags').value = (p.tags || []).join(', ');
+  document.getElementById('reError').style.display = 'none';
+  railEditRenderImages();
+  document.getElementById('railEditModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function railEditClose() {
+  document.getElementById('railEditModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+function railEditRenderImages() {
+  var box = document.getElementById('reImagePreview');
+  box.innerHTML = railEditImages.map(function(im, i) {
+    return '<div style="position:relative;width:72px;height:72px;border:1px solid #2a2a2a;"><img src="' + im.url + '" style="width:100%;height:100%;object-fit:cover;display:block;" /><button type="button" onclick="railEditRemoveImage(' + i + ')" title="Remove photo" style="position:absolute;top:-8px;right:-8px;width:18px;height:18px;line-height:15px;padding:0;background:#111;border:1px solid #2a2a2a;color:#e06060;font:700 .7rem \\'DM Mono\\',monospace;cursor:pointer;border-radius:50%;">&times;</button></div>';
+  }).join('');
+}
+function railEditRemoveImage(i) {
+  railEditImages.splice(i, 1);
+  railEditRenderImages();
+}
+async function railEditImagesSelected(input) {
+  var files = Array.prototype.slice.call(input.files || []);
+  input.value = '';
+  var status = document.getElementById('reImageStatus');
+  for (var i = 0; i < files.length; i++) {
+    if (railEditImages.length >= 3) { alert('Maximum 3 photos per post.'); break; }
+    var f = files[i];
+    if (f.size > 5 * 1024 * 1024) { alert(f.name + ' is over 5MB — skipped.'); continue; }
+    status.textContent = 'Uploading ' + f.name + '\\u2026';
+    try {
+      var form = new FormData();
+      form.append('file', f);
+      var r = await fetch('/api/rail/upload', { method: 'POST', body: form });
+      var d = await r.json();
+      if (d.ok && d.url) railEditImages.push({ url: d.url, alt: f.name });
+      else alert('Upload failed: ' + (d.error || 'please try again'));
+    } catch(e) { alert('Upload failed. Please try again.'); }
+    status.textContent = '';
+  }
+  railEditRenderImages();
+}
+async function railEditSave() {
+  var errEl = document.getElementById('reError');
+  errEl.style.display = 'none';
+  var payload = {
+    authorName: document.getElementById('reAuthorName').value.trim(),
+    authorEmail: document.getElementById('reAuthorEmail').value.trim(),
+    postType: document.getElementById('rePostType').value,
+    title: document.getElementById('reTitle').value.trim(),
+    content: document.getElementById('reContent').value.trim(),
+    pokerRoom: document.getElementById('rePokerRoom').value.trim(),
+    gameStakes: document.getElementById('reGameStakes').value.trim(),
+    tags: document.getElementById('reTags').value.split(',').map(function(t){ return t.trim(); }).filter(Boolean),
+    images: railEditImages,
+  };
+  var btn = document.getElementById('reSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    var r = await fetch('/api/admin/rail/' + railEditCurrentId + '/edit', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    });
+    var d = await r.json();
+    if (d.ok) {
+      window.location.reload();
+    } else {
+      errEl.textContent = d.error || 'Something went wrong.';
+      errEl.style.display = 'block';
+    }
+  } catch(e) {
+    errEl.textContent = 'Network error. Please try again.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Changes';
+  }
+}
 function radmShow(panel, btn) {
   ['pending','history','reports','consent'].forEach(function(p){
     document.getElementById('radm-'+p).style.display = p===panel?'':'none';
@@ -5730,6 +5862,32 @@ async function updateRailPostStatus(id, status, approvedBy) {
     d.status = status; d.updatedAt = now;
     if (status === 'approved') { d.approvedAt = now; d.approvedBy = approvedBy || ''; }
     sqliteDb.prepare(`UPDATE rail_posts SET status=?,data=? WHERE id=?`).run(status, JSON.stringify(d), id);
+    return d;
+  }
+  return null;
+}
+
+const RAIL_EDITABLE_FIELDS = ['authorName', 'authorEmail', 'postType', 'title', 'content', 'pokerRoom', 'gameStakes', 'tags', 'images'];
+
+async function updateRailPost(id, updates) {
+  const now = new Date().toISOString();
+  const patch = {};
+  for (const key of RAIL_EDITABLE_FIELDS) {
+    if (updates[key] === undefined) continue;
+    patch[key] = updates[key];
+  }
+  if (pgPool) {
+    const { rows } = await pgPool.query(`SELECT data FROM rail_posts WHERE id=$1`, [id]);
+    if (!rows[0]) return null;
+    const d = { ...(typeof rows[0].data === 'string' ? JSON.parse(rows[0].data) : rows[0].data), ...patch, updatedAt: now };
+    await pgPool.query(`UPDATE rail_posts SET data=$1 WHERE id=$2`, [JSON.stringify(d), id]);
+    return d;
+  }
+  if (sqliteDb) {
+    const row = sqliteDb.prepare(`SELECT data FROM rail_posts WHERE id=?`).get(id);
+    if (!row) return null;
+    const d = { ...JSON.parse(row.data), ...patch, updatedAt: now };
+    sqliteDb.prepare(`UPDATE rail_posts SET data=? WHERE id=?`).run(JSON.stringify(d), id);
     return d;
   }
   return null;
@@ -8632,6 +8790,51 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
       await updateRailPostStatus(postId, newStatus, session?.email || 'admin');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // POST /api/admin/rail/:id/edit
+  if (pathname.match(/^\/api\/admin\/rail\/([^/]+)\/edit$/) && req.method === 'POST') {
+    if (!(await verifyAdmin(req))) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized' }));
+      return;
+    }
+    const postId = pathname.split('/')[4];
+    let body;
+    try { body = await parseJsonBody(req); } catch { body = {}; }
+    const images = (Array.isArray(body.images) ? body.images : []).slice(0, 3)
+      .map((im) => ({ url: String(im?.url || ''), alt: String(im?.alt || '').slice(0, 200) }))
+      .filter((im) => im.url.length < 500 && /^(\/uploads\/|https:\/\/)/.test(im.url));
+    const updates = {
+      authorName: body.authorName, authorEmail: body.authorEmail, postType: body.postType,
+      title: body.title, content: body.content, pokerRoom: body.pokerRoom, gameStakes: body.gameStakes,
+      tags: Array.isArray(body.tags) ? body.tags : undefined,
+      images,
+    };
+    if (updates.postType && !RAIL_POST_TYPES[updates.postType]) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid post type.' }));
+      return;
+    }
+    if (!updates.content || !updates.authorName || !updates.authorEmail) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing required fields: authorName, authorEmail, content.' }));
+      return;
+    }
+    try {
+      const post = await updateRailPost(postId, updates);
+      if (!post) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Post not found.' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, post }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message }));
