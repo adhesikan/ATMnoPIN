@@ -4583,7 +4583,7 @@ const CHRON_CATEGORIES = ['Player Spotlight', 'Dealer Spotlight', 'Floor Spotlig
 function renderRailPostCard(post) {
   const typeConf = RAIL_POST_TYPES[post.postType] || { label: post.postType || 'Post', color: '#888' };
   const when = new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const preview = escapeHtml((post.content || '').slice(0, 260)) + ((post.content || '').length > 260 ? '…' : '');
+  const preview = escapeHtml(post.content || '');
   const tagsHtml = (post.tags || []).slice(0, 4).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('');
   const metaParts = [post.pokerRoom, post.gameStakes].filter(Boolean);
   const imgs = (post.images || []).slice(0, 3);
@@ -4653,14 +4653,14 @@ function renderRailPage(posts, total, page, filters, isAdmin = false) {
 .rail-type{font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;border:1px solid;padding:.12rem .45rem;}
 .rail-meta-right{font-size:.56rem;color:#555;letter-spacing:.06em;}
 .rail-title{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--offwhite);margin-bottom:.45rem;line-height:1.3;}
-.rail-content{font-size:.78rem;color:#a0988a;line-height:1.75;margin-bottom:.5rem;}
+.rail-content{font-size:.78rem;color:#a0988a;line-height:1.75;margin-bottom:.5rem;white-space:pre-wrap;}
 .rail-tags{margin-bottom:.5rem;}
 .rail-images{display:grid;gap:.4rem;margin-bottom:.5rem;}
 .rail-images.ri-1{grid-template-columns:1fr;}
 .rail-images.ri-2{grid-template-columns:1fr 1fr;}
 .rail-images.ri-3{grid-template-columns:repeat(3,1fr);}
 @media(max-width:540px){.rail-images.ri-3{grid-template-columns:1fr 1fr;}}
-.rail-images img{width:100%;max-height:280px;object-fit:cover;display:block;border:1px solid #1e1e1e;transition:border-color .2s;}
+.rail-images img{width:100%;max-height:480px;object-fit:contain;background:#050505;display:block;border:1px solid #1e1e1e;transition:border-color .2s;}
 .rail-images a:hover img{border-color:rgba(0,200,83,.4);}
 .rail-img-preview{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.35rem;}
 .rail-img-thumb{position:relative;width:72px;height:72px;border:1px solid #2a2a2a;}
