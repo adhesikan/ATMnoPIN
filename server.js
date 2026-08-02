@@ -2891,6 +2891,15 @@ const REWRITE_STYLES = [
   { id: 'roast', label: 'Poker Roast Version' },
   { id: 'documentary', label: 'WSOP Documentary Version' },
 ];
+const RAIL_AI_TONES = {
+  punchy:       { label: 'Punchy (Default)', instruction: 'vivid, punchy, and entertaining' },
+  humorous:     { label: 'Humorous',         instruction: 'humorous and witty, leaning into the comedy of the situation while staying good-natured' },
+  serious:      { label: 'Serious',          instruction: 'serious and reflective, focused on the tension and stakes of the moment' },
+  professional: { label: 'Professional',     instruction: 'clean and professional, polished and articulate with minimal slang' },
+  dramatic:     { label: 'Dramatic',         instruction: 'dramatic and high-stakes, building suspense and emphasizing the emotional highs and lows' },
+  hype:         { label: 'Hype / Announcer', instruction: 'hyped-up like a sports announcer calling the action, big energy and excitement' },
+  roast:        { label: 'Poker Roast',      instruction: 'playfully roasting, poking fun at the bad play or bad luck while staying good-natured, never mean-spirited' },
+};
 const POINT_RULES = { approved_profile: 50, approved_funny_story: 25, approved_bad_beat_story: 25, approved_photo: 10, featured_on_home: 100, monthly_winner: 250 };
 const aiRateLimiter = new Map(); // token -> { count, resetAt }
 
@@ -4626,6 +4635,8 @@ function renderRailPage(posts, total, page, filters, isAdmin = false) {
   const typeSelectOpts = [['', 'Select type…'], ...Object.entries(RAIL_POST_TYPES).map(([k, v]) => [k, v.label])]
     .map(([v, l]) => `<option value="${escapeHtml(v)}">${escapeHtml(l)}</option>`).join('');
 
+  const railAiToneOpts = Object.entries(RAIL_AI_TONES).map(([k, v]) => `<option value="${escapeHtml(k)}">${escapeHtml(v.label)}</option>`).join('');
+
   return renderLayout('The Rail | ATMNOPIN™', `
 <style>
 .rail-hero{padding:2.5rem 0 1.5rem;border-bottom:1px solid #1e1e1e;}
@@ -4808,6 +4819,7 @@ function renderRailPage(posts, total, page, filters, isAdmin = false) {
         <p id="railReturnNote" style="display:none;font-size:.65rem;color:#666;border:1px solid #1a1a1a;padding:.5rem .75rem;">&#x2713; You agreed to our <a href="/community-guidelines" target="_blank" style="color:var(--green);">Community Guidelines</a> on a previous visit.</p>
         <div id="railFormError" class="rail-error-msg"></div>
         <div class="rail-form-actions">
+          <select id="railAITone" style="background:#111;border:1px solid rgba(0,200,83,.3);color:var(--green);padding:.55rem .6rem;font:.68rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;">${railAiToneOpts}</select>
           <button type="button" class="rail-ai-btn" id="railAIBtn" onclick="railAIRewrite()">&#x2736; Rewrite with ATM AI</button>
           <button type="submit" class="rail-submit-btn" id="railSubmitBtn">Post to The Rail</button>
           <button type="button" class="rail-cancel-btn" onclick="railCloseComposer()">Cancel</button>
@@ -4856,12 +4868,13 @@ function railAgeConfirm() {
 async function railAIRewrite() {
   var content = document.querySelector('#railPostForm [name="content"]').value.trim();
   if (!content) { alert('Write your story first, then let ATM AI improve it.'); return; }
+  var tone = document.getElementById('railAITone').value;
   var btn = document.getElementById('railAIBtn');
   btn.disabled = true; btn.textContent = '\\u2736 Rewriting…';
   try {
     var r = await fetch('/api/rail/ai-rewrite', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: content })
+      body: JSON.stringify({ content: content, tone: tone })
     });
     var d = await r.json();
     if (d.rewritten) {
@@ -8733,9 +8746,10 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
       res.end(JSON.stringify({ error: 'No content provided.' }));
       return;
     }
+    const tone = Object.hasOwn(RAIL_AI_TONES, body.tone || '') ? body.tone : 'punchy';
     try {
       const rewritten = await callOpenAI(
-        'You are ATM AI — a poker storytelling assistant for the ATMNOPIN™ community. Rewrite the user\'s poker story to be more vivid, punchy, and entertaining while keeping all facts exactly the same. Keep it under 400 words. Return only the rewritten text, no commentary.',
+        `You are ATM AI — a poker storytelling assistant for the ATMNOPIN™ community. Rewrite the user's poker story to be more ${RAIL_AI_TONES[tone].instruction}, while keeping all facts exactly the same. Keep it under 400 words. Return only the rewritten text, no commentary.`,
         rawContent,
         600
       );
