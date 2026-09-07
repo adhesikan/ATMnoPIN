@@ -173,8 +173,22 @@ async function main() {
     check('featured+published Howler Monkey card on homepage', home.text.includes('href="/stories/poker-wildlife/howler-monkey"'));
     check('published-but-NOT-featured Whale absent from homepage grid', !home.text.includes('href="/stories/poker-wildlife/whale"'));
     check('draft species absent from homepage', !['tanking-turtle', 'parrot', 'peacock', 'chipmunk', 'fox', 'elephant', 'slow-roll-sloth'].some((s) => home.text.includes('/stories/poker-wildlife/' + s + '"')));
-    check('old "Get on the Community Wall" promo section removed', !/id="community-preview"/.test(home.text) && !/their stories, bad beats, and moments of glory/.test(home.text) && !/class="cw-track"/.test(home.text));
+    check('old mid-page "Community Wall" promo section removed', !/id="community-preview"/.test(home.text) && !/their stories, bad beats, and moments of glory/.test(home.text) && !/class="cw-track"/.test(home.text));
     check('homepage did not break: hero + follow still present', /id="home"/.test(home.text) && /id="follow"/.test(home.text));
+
+    // ── Flash / stale-overwrite bug: the homepage must never be cached ──
+    const cc = String(home.headers['cache-control'] || '');
+    check('homepage sent with Cache-Control: no-store (no stale/prerender overwrite)', /no-store/.test(cc), cc || '(none)');
+    const idxHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    const scriptBlocks = (idxHtml.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) || []).join('\n');
+    // strip the one known-safe innerHTML (hero carousel dots), then assert nothing else assigns innerHTML
+    const scriptsMinusKnown = scriptBlocks.replace(/dotsEl\.innerHTML\s*=\s*'';/g, '');
+    check('no homepage inline script injects markup into a content section',
+      !/insertAdjacentHTML/.test(scriptBlocks) &&
+      !/COMMUNITY_PREVIEW|community-preview|renderCommunity|loadCommunity/.test(scriptBlocks) &&
+      !/\.innerHTML\s*=/.test(scriptsMinusKnown) &&
+      !/getElementById\(['"](poker-wildlife|community-preview)['"]\)/.test(scriptBlocks));
+    check('raw index.html carries no old Community Wall promo markup', !/id="community-preview"|class="cw-track"|their stories, bad beats, and moments of glory/.test(idxHtml));
 
     // Create species #11 entirely via API
     const create11 = await request('POST', '/api/admin/wildlife', { cookie, body: {

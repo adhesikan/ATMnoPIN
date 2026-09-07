@@ -9856,7 +9856,16 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
         .replace('<!-- COMMUNITY_PREVIEW -->', wildlifeSection)
         .replace(/ATM With No PIN — Dhezz/g, 'ATMNOPIN™ Poker | Official Site')
         .replace(/<title>ATM With No PIN — Dhezz<\/title>/, '<title>ATMNOPIN™ Poker | Official Site</title>');
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      // The homepage is composed fresh from live DB content on every request
+      // (blog, chronicles, Poker Wildlife). It must never be served from an HTTP
+      // cache, the bfcache, or a stale speculative prerender — otherwise a
+      // pre-deploy copy (old Community Wall promo) can paint over the current
+      // page. Same reason renderAdminPage / draft previews use no-store.
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store, must-revalidate',
+        'Pragma': 'no-cache',
+      });
       res.end(html);
       logPageVisit(req, '/');
     });
