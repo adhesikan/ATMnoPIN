@@ -118,6 +118,20 @@ async function main() {
     check('landing hides all drafts', !SEED_SLUGS.some((s) => landing1.text.includes(`/stories/poker-wildlife/${s}"`)));
     check('landing shows no species-count while none published', !/Species Discovered:/.test(landing1.text));
 
+    // ── Field Guide Rule #1 editorial callout (landing page only) ──
+    const FGR_SENTENCE = 'Poker Wildlife documents the species found around poker tables — not particular people.';
+    const FGR_CLOSER = 'No naming names. Just enjoy the wildlife.';
+    check('landing shows "FIELD GUIDE RULE #1"', landing1.text.includes('FIELD GUIDE RULE #1'));
+    check('landing has the exact Field Guide Rule sentence', landing1.text.includes(FGR_SENTENCE));
+    check('landing has "No naming names. Just enjoy the wildlife."', landing1.text.includes(FGR_CLOSER));
+    check('Field Guide Rule uses a semantic aside with aria-label', /<aside class="pw-rule" aria-label="Poker Wildlife field guide rule">/.test(landing1.text));
+    check('Field Guide Rule appears AFTER the intro, BEFORE the species grid/notice',
+      landing1.text.indexOf('Every poker table is an ecosystem') < landing1.text.indexOf('FIELD GUIDE RULE #1') &&
+      landing1.text.indexOf('FIELD GUIDE RULE #1') < landing1.text.indexOf('No species have been published yet'));
+    check('landing still shows the Satire Disclaimer', landing1.text.includes(EXACT_DISCLAIMER) && /Satire Disclaimer/.test(landing1.text));
+    check('Field Guide Rule sits ABOVE the Satire Disclaimer', landing1.text.indexOf('FIELD GUIDE RULE #1') < landing1.text.indexOf(EXACT_DISCLAIMER));
+    check('Field Guide Rule is NOT the satire disclaimer helper output', !/pw-disclaimer/.test(landing1.text.split('FIELD GUIDE RULE #1')[0].slice(-400)));
+
     const draftDirect = await request('GET', '/stories/poker-wildlife/shark');
     check('draft species direct URL 404s', draftDirect.status === 404, String(draftDirect.status));
     const previewNoAuth = await request('GET', '/stories/poker-wildlife/shark?preview=1');
@@ -153,8 +167,12 @@ async function main() {
     const landing2 = await request('GET', '/stories/poker-wildlife');
     check('published Shark now on landing', landing2.text.includes('/stories/poker-wildlife/shark"'));
     check('species count = 3', /Species Discovered:\s*3/.test(landing2.text));
+    check('Field Guide Rule appears before the species grid when species exist',
+      landing2.text.indexOf('FIELD GUIDE RULE #1') < landing2.text.indexOf('class="pw-grid"'));
     const sharkPage = await request('GET', '/stories/poker-wildlife/shark');
     check('published species page 200 + OG tags', sharkPage.status === 200 && /property="og:title"/.test(sharkPage.text) && /rel="canonical"/.test(sharkPage.text));
+    check('individual species page does NOT contain "FIELD GUIDE RULE #1"', !sharkPage.text.includes('FIELD GUIDE RULE #1'));
+    check('draft preview page does NOT contain "FIELD GUIDE RULE #1"', !previewAuth.text.includes('FIELD GUIDE RULE #1'));
     check('published species page carries exact satire disclaimer', sharkPage.text.includes(EXACT_DISCLAIMER) && /Satire Disclaimer/.test(sharkPage.text));
     check('disclaimer renders before the Explore All Species CTA', sharkPage.text.indexOf(EXACT_DISCLAIMER) < sharkPage.text.indexOf('Explore All Species'));
 

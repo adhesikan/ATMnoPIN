@@ -6105,6 +6105,11 @@ const WILDLIFE_CSS = `
   .pw-lede{max-width:60ch;color:var(--gray);font-size:.92rem;line-height:1.8;}
   .pw-lede strong{color:var(--offwhite);}
   .pw-count{display:inline-block;margin-top:1.1rem;border:1px solid rgba(0,200,83,.35);background:rgba(0,200,83,.07);color:var(--green);border-radius:999px;padding:.35rem .9rem;font-size:.66rem;text-transform:uppercase;letter-spacing:.16em;}
+  .pw-rule{margin-top:1.75rem;max-width:60ch;border:1px solid #1e3a28;border-left:3px solid var(--gold);background:#0c1a10;border-radius:12px;padding:1rem 1.25rem;}
+  .pw-rule-label{font-size:.6rem;text-transform:uppercase;letter-spacing:.18em;color:var(--gold);margin-bottom:.55rem;}
+  .pw-rule-text{color:#c9c3b6;font-size:.86rem;line-height:1.75;}
+  .pw-rule-text + .pw-rule-text{margin-top:.45rem;}
+  .pw-rule-text strong{color:var(--green);font-weight:500;}
   .pw-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1.75rem;}
   @media(min-width:600px) and (max-width:980px){.pw-grid{grid-template-columns:repeat(2,1fr);}}
   @media(max-width:600px){.pw-grid{grid-template-columns:1fr;}}
@@ -6188,6 +6193,12 @@ function renderWildlifeLandingPage(speciesList) {
       </p>
       ${published.length ? `<span class="pw-count">Species Discovered: ${published.length}</span>` : ''}
     </section>
+    <aside class="pw-rule" aria-label="Poker Wildlife field guide rule">
+      <p class="pw-rule-label">FIELD GUIDE RULE #1</p>
+      <p class="pw-rule-text">Poker Wildlife documents the species found around poker tables — not particular people.</p>
+      <p class="pw-rule-text">If someone immediately comes to mind, keep that discovery to yourself. 😂</p>
+      <p class="pw-rule-text"><strong>No naming names. Just enjoy the wildlife.</strong></p>
+    </aside>
     ${published.length
       ? `<section class="pw-grid">${cards}</section>`
       : `<section class="notice" style="margin-top:1.5rem;">No species have been published yet. Check back soon.</section>`}
