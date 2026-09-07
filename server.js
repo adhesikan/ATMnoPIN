@@ -3141,14 +3141,28 @@ async function callOpenAI(systemPrompt, userContent, maxTokens = 600, jsonMode =
   return d.choices[0].message.content.trim();
 }
 
-function checkAIRateLimit(token) {
+const AI_DAILY_LIMIT = 5;
+
+function openAIConfigured() {
+  return !!(process.env.OPENAI_API_KEY || '').trim();
+}
+
+// Peek without consuming — used to reject early before any work is done.
+function aiRateLimitExceeded(token) {
+  const now = Date.now();
+  const s = aiRateLimiter.get(token);
+  if (!s || now > s.resetAt) return false;
+  return s.count >= AI_DAILY_LIMIT;
+}
+
+// Consume one generation — call this only when an OpenAI request actually
+// succeeds, so failed/blocked attempts don't burn the user's daily quota.
+function consumeAIRateLimit(token) {
   const now = Date.now();
   const s = aiRateLimiter.get(token) || { count: 0, resetAt: now + 86400000 };
   if (now > s.resetAt) { s.count = 0; s.resetAt = now + 86400000; }
-  if (s.count >= 5) return false;
   s.count++;
   aiRateLimiter.set(token, s);
-  return true;
 }
 
 const SEED_SUBMISSIONS = [
@@ -3848,6 +3862,29 @@ function renderSubmissionCardHtml(s) {
   const name = esc(s.name || 'Unnamed');
   const status = s.status || 'pending';
   const isReady = !!(s.submitted_for_review && s.status !== 'approved');
+  const stColor = (st) => st === 'approved' ? 'var(--green)' : st === 'rejected' ? '#e06060' : 'var(--gold)';
+  const aiP = s.ai_personality || null;
+  const aiPStatus = aiP ? (aiP.status || 'pending_review') : null;
+  const aiChron = Array.isArray(s.ai_chronicles) ? s.ai_chronicles : [];
+  const aiReviewHtml = (aiP || aiChron.length) ? `
+      <div class="sub-field" style="margin-top:.6rem;border-top:1px solid #1a1a1a;padding-top:.6rem;">
+        <div class="sub-field-lbl">AI Content Review</div>
+        <p class="small" style="color:#666;margin:0 0 .4rem;">Approve here to make it show on the player's public page (${status === 'approved' ? 'profile is live' : 'after the profile is approved'}).</p>
+        ${aiP ? `
+        <div class="sub-actions" style="align-items:center;">
+          <span style="font-size:.7rem;color:#888;">AI Poker Personality: <strong style="color:${stColor(aiPStatus)};">${esc(aiPStatus)}</strong></span>
+          ${aiPStatus !== 'approved' ? `<button class="secondary" style="font-size:.68rem;" onclick="subAIApprove('${id}')">Approve AI Personality</button>` : ''}
+          ${aiPStatus !== 'rejected' ? `<button class="secondary" style="font-size:.68rem;" onclick="subAIReject('${id}')">Reject</button>` : ''}
+        </div>
+        ${aiP.tagline ? `<p class="small" style="color:#b0a898;margin:.3rem 0 0;font-style:italic;">&quot;${esc(aiP.tagline)}&quot;</p>` : ''}` : ''}
+        ${aiChron.map((c) => `
+        <div class="sub-actions" style="align-items:center;margin-top:.45rem;">
+          <span style="font-size:.7rem;color:#888;">Story — ${esc(c.story_type || 'Story')}: <strong style="color:${stColor(c.status || 'draft')};">${esc(c.status || 'draft')}</strong></span>
+          ${(c.status !== 'approved' && c.selected_text) ? `<button class="secondary" style="font-size:.68rem;" onclick="subChronicleApprove('${id}','${esc(c.id || '')}')">Approve Story</button>` : ''}
+          ${c.status !== 'rejected' ? `<button class="secondary" style="font-size:.68rem;" onclick="subChronicleReject('${id}','${esc(c.id || '')}')">Reject</button>` : ''}
+        </div>
+        ${c.selected_text ? `<p class="small" style="color:#b0a898;margin:.2rem 0 0;">${esc(String(c.selected_text).slice(0, 260))}${String(c.selected_text || '').length > 260 ? '…' : ''}</p>` : '<p class="small" style="color:#666;margin:.2rem 0 0;">Player has not picked a rewrite yet.</p>'}`).join('')}
+      </div>` : '';
   const city = esc(s.city || '');
   const createdAt = s.created_at ? new Date(s.created_at).toLocaleDateString() : '—';
   const nickname = s.nickname ? `<em>&quot;${esc(s.nickname)}&quot;</em>` : '';
@@ -3900,6 +3937,7 @@ function renderSubmissionCardHtml(s) {
         <input id="notes-${id}" type="text" style="flex:1;min-width:120px;padding:.4rem .6rem;font-size:.72rem;" placeholder="Admin note..." value="${esc(s.admin_notes||'')}" />
         <button class="secondary" id="snotes-${id}" onclick="subSaveNotes('${id}')">Save Note</button>
       </div>
+      ${aiReviewHtml}
     </div>
   </div>`;
 }
@@ -7110,8 +7148,8 @@ function renderProfileSetupPage(profile) {
             ${aiUnlocked ? (aiStatus === 'approved' ? 'Approved ✓' : aiStatus === 'pending_review' ? 'Pending Review' : aiStatus === 'rejected' ? 'Needs Edit' : 'Generate') : '🔒 Locked'}
           </span>
         </div>
-        <div class="ps-section-body${aiUnlocked ? ' open' : ''}" id="aiSectionBody">
-          ${!aiUnlocked ? `<div class="ps-locked-msg" id="aiLockedMsg"><span class="lock-icon">🔒</span>Save your poker stories in Section 2 above — once you hit 40% profile completion, the Generate button will appear here automatically.</div>` : `
+        <div class="ps-section-body open" id="aiSectionBody">
+          ${!aiUnlocked ? `<div class="ps-locked-msg" id="aiLockedMsg"><span class="lock-icon">🔒</span>Your profile is ${pct}% complete — reach <strong>40%</strong> to unlock this. Fill in a few more fields above (your stories in Section 2 count the most), and the <strong>Generate</strong> button appears here automatically. Nothing is generated until you tap it.</div>` : `
           <p class="small" style="color:#888;margin-bottom:1rem;">Powered by AI and clearly labeled as entertainment. Our AI reads your poker stories and creates a playful poker personality summary for your public profile.</p>
           ${aiP && aiP.text ? `<div class="ai-box">
             <div class="ai-box-label">AI Poker Personality${aiStatus === 'pending_review' ? ' — Pending Admin Review' : aiStatus === 'approved' ? ' — Approved ✓' : ''}</div>
@@ -7122,7 +7160,7 @@ function renderProfileSetupPage(profile) {
             ${aiP.threat_level ? `<div style="margin-top:.35rem;font-size:.65rem;color:var(--gold);">Threat Level: ${escapeHtml(aiP.threat_level)}</div>` : ''}
             ${aiP.table_quote ? `<div style="margin-top:.35rem;font-size:.68rem;color:var(--offwhite);font-style:italic;">"${escapeHtml(aiP.table_quote)}"</div>` : ''}
             ${aiP.hall_of_fame_potential ? `<div style="margin-top:.35rem;font-size:.65rem;color:#888;">Hall of Fame Potential: ${escapeHtml(aiP.hall_of_fame_potential)}</div>` : ''}
-            <div class="ai-disclaimer">✦ AI-generated for entertainment only. Appears publicly after admin review.</div>
+            <div class="ai-disclaimer">✦ AI-generated for entertainment only. Appears on your public player page once an admin approves it.</div>
           </div>` : ''}
           <div style="margin-top:.85rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;">
             <button class="ps-save-btn" id="aiGenBtn" onclick="psGenerateAI(this)">${aiP ? 'Regenerate Personality' : 'Generate My AI Poker Personality ✨'}</button>
@@ -7141,7 +7179,7 @@ function renderProfileSetupPage(profile) {
         </div>
         <div class="ps-section-body">
           ${!aiUnlocked ? `<div class="ps-locked-msg"><span class="lock-icon">🔒</span>Complete 40% of your profile to unlock story submission.</div>` : `
-          <p class="small" style="color:#888;margin-bottom:1rem;">Submit a raw story and our AI will offer 5 rewrite versions — funny, dramatic, sports announcer, poker roast, or WSOP documentary style. You pick one. Admin reviews before it publishes.</p>
+          <p class="small" style="color:#888;margin-bottom:1rem;">Submit a raw story and our AI will offer 5 rewrite versions — funny, dramatic, sports announcer, poker roast, or WSOP documentary style. You pick one. An admin reviews it before it appears on your public player page.</p>
           ${chronicles.length ? `<div style="margin-bottom:1rem;">
             ${chronicles.map((c, i) => `<div style="border:1px solid #1e1e1e;border-radius:10px;padding:.75rem;margin-bottom:.5rem;">
               <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -7176,7 +7214,8 @@ function renderProfileSetupPage(profile) {
         <div class="ps-section-body open">
           ${profile.status === 'approved' ? `<p class="small" style="color:var(--green);margin-bottom:.6rem;">✓ Your profile is live on the Community Wall.</p><a href="/players/${escapeHtml(profile.slug)}" style="color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View Public Profile →</a>${cardUnlocked ? `<br><a class="card-preview-link" href="/players/${escapeHtml(profile.slug)}/card">🃏 View Poker Trading Card →</a>` : ''}` : `
           <p class="small" style="color:#888;margin-bottom:.75rem;">Fill in as much as you can above, then hit Submit when you're ready. The more complete your profile, the better your public page will look.</p>
-          ${profile.submitted_for_review ? `<p class="small" style="color:var(--green);">✓ Profile submitted! The ATMNOPIN crew will review it and get you live on the Community Wall soon.</p>` : `<button class="ps-submit-final-btn" id="submitFinalBtn" onclick="psSubmitProfile(this)">Submit My Profile for Review →</button>`}
+          <p class="small" style="color:#888;margin-bottom:.75rem;">Nothing is public yet. Once an admin approves your submission, your profile goes live on the <strong style="color:var(--green);">Community Wall</strong> (/community-wall) and gets its own page at <strong style="color:var(--green);">/players/${escapeHtml(profile.slug || 'your-name')}</strong>. Your AI Poker Personality and any stories appear there too, once they're reviewed.</p>
+          ${profile.submitted_for_review ? `<p class="small" style="color:var(--green);">✓ Profile submitted! The ATMNOPIN crew will review it and — once approved — publish it to the Community Wall and your player page at /players/${escapeHtml(profile.slug || 'your-name')}. You'll stay pending until then.</p>` : `<button class="ps-submit-final-btn" id="submitFinalBtn" onclick="psSubmitProfile(this)">Submit My Profile for Review →</button>`}
           ${pct >= 70 ? '<p class="small" style="color:var(--gold);margin-top:.75rem;">Profile is looking strong — great time to submit!</p>' : ''}`}
         </div>
       </div>
@@ -7305,7 +7344,7 @@ function renderProfileSetupPage(profile) {
             + (d.threat_level ? '<div style="margin-top:.35rem;font-size:.65rem;color:var(--gold);">Threat Level: ' + vesc(d.threat_level) + '</div>' : '')
             + (d.table_quote ? '<div style="margin-top:.35rem;font-size:.68rem;color:var(--offwhite);font-style:italic;">"' + vesc(d.table_quote) + '"</div>' : '')
             + (d.hall_of_fame_potential ? '<div style="margin-top:.35rem;font-size:.65rem;color:#888;">Hall of Fame Potential: ' + vesc(d.hall_of_fame_potential) + '</div>' : '')
-            + '<div class="ai-disclaimer">✦ AI-generated for entertainment only. Appears publicly after admin review.</div>';
+            + '<div class="ai-disclaimer">✦ AI-generated for entertainment only. Appears on your public player page once an admin approves it.</div>';
           btn.textContent = 'Regenerate Personality';
         } catch(e) {
           btn.textContent = origText;
@@ -7402,7 +7441,7 @@ function renderProfileSetupPage(profile) {
           var msg = document.createElement('p');
           msg.className = 'small';
           msg.style.cssText = 'color:var(--green);margin-top:.5rem;';
-          msg.textContent = '✓ Profile submitted! The ATMNOPIN crew will review it and get you live on the Community Wall soon.';
+          msg.textContent = "✓ Profile submitted! The ATMNOPIN crew will review it and — once approved — publish it to the Community Wall and your player page at /players/${escapeHtml(profile.slug || 'your-name')}. You'll stay pending until then.";
           btn.parentNode.appendChild(msg);
           var tag = document.getElementById('sec6Tag');
           if (tag) { tag.className = 'ps-section-tag done'; tag.textContent = 'Submitted ✓'; }
@@ -7828,7 +7867,8 @@ function renderAIProfileGeneratorPage(error) {
             <label for="aipgPerm">I understand this information may be used to generate a funny poker profile, Chronicle draft, and Community Wall entry. I will review and approve before anything is published. I give ATMNOPIN™ permission to feature my name and stories on their website. <span style="color:var(--green);">*</span></label>
           </div>
 
-          <button class="aipg-submit" type="submit" id="aipgSubmitBtn">Generate My Poker Profile ✨</button>
+          <button class="aipg-submit" type="submit" id="aipgSubmitBtn">Start My Poker Profile →</button>
+          <p class="small" style="color:#888;text-align:center;margin-top:.6rem;">Next step: you'll land on your private profile page to finish a few details, then tap <strong>Generate My AI Poker Personality</strong> there. Nothing is public until an admin approves it.</p>
           <div class="notice" id="aipgStatus" style="display:none;margin-top:.75rem;"></div>
           <p class="aipg-disclaimer">Profiles are generated for entertainment and may be exaggerated for comedic effect. Content requires admin review before appearing publicly.</p>
         </form>
@@ -7842,26 +7882,26 @@ function renderAIProfileGeneratorPage(error) {
       if (!form) return;
       form.addEventListener('submit', async function(e) {
         e.preventDefault();
-        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting...'; }
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving...'; }
         statusEl.style.display = '';
         statusEl.style.borderColor = '#1e1e1e';
-        statusEl.textContent = 'Submitting your info...';
+        statusEl.textContent = 'Saving your info...';
         try {
           var fd = new FormData(form);
           var res = await fetch('/request-feature', { method: 'POST', body: fd });
           var data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Submission failed.');
-          statusEl.textContent = data.message || 'Submitted! Generating your poker profile...';
+          statusEl.textContent = (data.message || 'Saved!') + ' Taking you to your profile page…';
           statusEl.style.borderColor = '#1f5c31';
           form.style.opacity = '.5';
           form.style.pointerEvents = 'none';
           if (data.profile_url) {
-            setTimeout(function() { window.location.href = data.profile_url; }, 1000);
+            setTimeout(function() { window.location.href = data.profile_url; }, 1200);
           }
         } catch(err) {
           statusEl.textContent = err.message;
           statusEl.style.borderColor = '#5c1f1f';
-          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Generate My Poker Profile ✨'; }
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Start My Poker Profile →'; }
         }
       });
     })();
@@ -8570,6 +8610,11 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname === '/api/admin/generate-player-profile' && req.method === 'POST') {
     try {
+      if (!openAIConfigured()) {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'OPENAI_API_KEY is not set. Add it in the Railway service variables to use AI generation.' }));
+        return;
+      }
       const body = await parseJsonBody(req);
       const submissionId = String(body.submissionId || '').trim();
       const styleHints = String(body.styleHints || '').trim().slice(0, 500);
@@ -8992,17 +9037,22 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
 
   if (pathname.match(/^\/api\/profile\/[^/]+\/ai-personality$/) && req.method === 'POST') {
     const token = pathname.split('/')[3];
-    if (!checkAIRateLimit(token)) {
-      res.writeHead(429, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Rate limit reached. Max 5 AI generations per day. Try again tomorrow.' }));
-      return;
-    }
     const all = await loadSubmissions();
     const idx = all.findIndex((s) => s.edit_token === token);
     if (idx === -1) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found.' })); return; }
     const p = all[idx];
     const score = computeCompletionScore(p);
-    if (score < 40) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Complete at least 40% of your profile to generate an AI Poker Personality.' })); return; }
+    if (score < 40) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Complete at least 40% of your profile to generate an AI Poker Personality. (Add your stories in Section 2.)' })); return; }
+    if (!openAIConfigured()) {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'AI generation is temporarily unavailable. Your profile is saved — an admin can still publish it. Please try the AI step again later.' }));
+      return;
+    }
+    if (aiRateLimitExceeded(token)) {
+      res.writeHead(429, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Daily limit reached (5 AI generations per day). Try again tomorrow.' }));
+      return;
+    }
     try {
       const context = [
         `Name: ${p.name || ''}${p.nickname ? ' (nicknamed "' + p.nickname + '")' : ''}`,
@@ -9022,6 +9072,7 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
       const systemPrompt = `You are a poker entertainment writer for ATMNOPIN™, a funny, irreverent poker content brand in the style of Foxwoods table banter. Write a poker identity profile for this player. Be playful, clever, and roast-y but never mean. Profiles are for entertainment only. Output JSON with EXACTLY these fields: text (2-3 paragraph poker personality bio, 150-250 words), tagline (one punchy shareable one-liner, under 20 words), style (one concise phrase for their playing style), strengths (array of 2-3 funny strengths), weaknesses (array of 2-3 funny weaknesses), suggested_nickname (a funny poker nickname if they don't have one already, else null), suggested_badges (array of 1-3 badge names from: ${PLAYER_BADGES.join(', ')}), signature_tell (their most obvious poker tell in under 15 words, funny), threat_level (a string like "6/10 — Will fold to any three-barrel"), table_quote (the one thing they probably say too much at the table, in quotes, under 15 words), hall_of_fame_potential (a short funny phrase, e.g. "Likely — if the Hall counts bad-beat storytellers").`;
       const raw = await callOpenAI(systemPrompt, context, 900, true);
       const parsed = JSON.parse(raw);
+      consumeAIRateLimit(token);
       const aiP = {
         text: String(parsed.text || '').slice(0, 1500),
         tagline: String(parsed.tagline || '').slice(0, 120),
@@ -9052,16 +9103,21 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
 
   if (pathname.match(/^\/api\/profile\/[^/]+\/ai-chronicle$/) && req.method === 'POST') {
     const token = pathname.split('/')[3];
-    if (!checkAIRateLimit(token)) {
-      res.writeHead(429, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Rate limit reached. Max 5 AI generations per day.' }));
-      return;
-    }
     const all = await loadSubmissions();
     const idx = all.findIndex((s) => s.edit_token === token);
     if (idx === -1) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found.' })); return; }
     const score = computeCompletionScore(all[idx]);
     if (score < 40) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Complete at least 40% of your profile first.' })); return; }
+    if (!openAIConfigured()) {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'AI rewrites are temporarily unavailable. Please try again later.' }));
+      return;
+    }
+    if (aiRateLimitExceeded(token)) {
+      res.writeHead(429, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Daily limit reached (5 AI generations per day). Try again tomorrow.' }));
+      return;
+    }
     try {
       const body = await parseJsonBody(req);
       const storyType = String(body.story_type || 'Bad Beat').slice(0, 50);
@@ -9080,6 +9136,7 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
         const text = await callOpenAI(`${systemBase} ${rp.instruction}`, rawText, 300);
         return { style: rp.style, style_label: rp.label, text: text.slice(0, 1000) };
       }));
+      consumeAIRateLimit(token);
       const chronicle = {
         id: crypto.randomUUID(),
         story_type: storyType,
@@ -9246,7 +9303,7 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
       console.log('[submit] saved OK, total now', all.length);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
-        message: 'Story submitted! Complete your poker profile to unlock your AI Poker Personality and public player page.',
+        message: 'Story submitted! Complete your poker profile, then submit it for review. It stays private until an admin approves it — then it goes live on the Community Wall and your own player page.',
         profile_url: `/profile/setup/${edit_token}`,
       }));
     } catch (error) {

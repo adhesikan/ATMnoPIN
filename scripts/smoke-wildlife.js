@@ -258,6 +258,77 @@ async function main() {
     const homeNav = await request('GET', '/');
     check('homepage nav keeps Community + Get Featured links', homeNav.text.includes('href="/community-wall"') && homeNav.text.includes('>Get Featured<'));
 
+    // ── Admin AI-content approval + submitter "appears once approved" messaging ──
+    {
+      const Database = require('better-sqlite3');
+      const db = new Database(DB_FILE);
+      const subId = 'smoke-ai-sub-1';
+      const token = 'smoke-ai-token-1';
+      const chronId = 'smoke-ai-chron-1';
+      const now = new Date().toISOString();
+      const sub = {
+        id: subId, edit_token: token, slug: 'smoke-ai-player', name: 'Smoke AI Player',
+        email: 's@x.com', status: 'pending', submitted_for_review: true, submitted_at: now,
+        ai_personality: { text: 'A calm, calculating grinder.', tagline: 'Folds pre, doubts post.', status: 'pending_review', generated_at: now },
+        ai_chronicles: [{ id: chronId, story_type: 'Bad Beat', selected_text: 'Aces cracked by 7-2 on the river, again.', selected_style: 'Funny Version', status: 'pending_review', submitted_at: now }],
+        created_at: now, updated_at: now,
+      };
+      db.prepare('INSERT INTO player_submissions (id, data) VALUES (?, ?)').run(subId, JSON.stringify(sub));
+      db.close();
+
+      const adm = await request('GET', '/admin', { cookie });
+      check('admin card shows Approve AI Personality control', adm.text.includes(`subAIApprove('${subId}')`) && adm.text.includes('Approve AI Personality'));
+      check('admin card shows Approve Story control for the AI chronicle', adm.text.includes(`subChronicleApprove('${subId}','${chronId}')`));
+
+      const aiApprove = await request('PUT', '/api/admin/submissions/' + subId, { cookie, body: { ai_personality_status: 'approved' } });
+      check('approve AI personality via API succeeds', aiApprove.status === 200 && JSON.parse(aiApprove.text).ai_personality.status === 'approved', aiApprove.text.slice(0, 120));
+
+      const chrApprove = await request('PUT', '/api/admin/submissions/' + subId, { cookie, body: { chronicle_id: chronId, chronicle_status: 'approved' } });
+      check('approve AI chronicle via API succeeds', chrApprove.status === 200 && JSON.parse(chrApprove.text).ai_chronicles[0].status === 'approved', chrApprove.text.slice(0, 120));
+
+      const setup = await request('GET', '/profile/setup/' + token);
+      check('profile setup page tells submitter where the profile appears once approved',
+        setup.status === 200 &&
+        /once an admin approves/i.test(setup.text) &&
+        setup.text.includes('/players/smoke-ai-player') &&
+        /Community Wall/.test(setup.text));
+
+      // ── AI generation without OPENAI_API_KEY: clean 503, no quota burn ──
+      const fullId = 'smoke-ai-full-1';
+      const fullTok = 'smoke-ai-full-tok-1';
+      const dbf = new Database(DB_FILE);
+      dbf.prepare('INSERT INTO player_submissions (id, data) VALUES (?, ?)').run(fullId, JSON.stringify({
+        id: fullId, edit_token: fullTok, slug: 'smoke-full', name: 'Full Sub', email: 'f@x.com',
+        nickname: 'The Nit', city: 'Foxwoods', favorite_casino: 'Foxwoods', favorite_game: '$2/$5 NLH',
+        biggest_accomplishment: 'cashed a daily once', funny_story: 'lost with aces to a straight flush somehow it was funny',
+        bad_beat_story: 'kk vs aa preflop for stacks, standard', permission_granted: true,
+        status: 'pending', created_at: now, updated_at: now,
+      }));
+      dbf.close();
+
+      const lowSub = await request('POST', '/api/profile/' + token + '/ai-personality');
+      check('AI generation under 40% → 400 (before key/rate checks)', lowSub.status === 400 && /at least 40%/.test(lowSub.text), `${lowSub.status} ${lowSub.text.slice(0,80)}`);
+
+      const noKey1 = await request('POST', '/api/profile/' + fullTok + '/ai-personality');
+      check('AI generation with no OPENAI_API_KEY → 503 (not 500/429)', noKey1.status === 503 && /temporarily unavailable/i.test(noKey1.text), `${noKey1.status} ${noKey1.text.slice(0,100)}`);
+      let stillOk = true;
+      for (let i = 0; i < 6; i++) {
+        const r = await request('POST', '/api/profile/' + fullTok + '/ai-personality');
+        if (r.status !== 503) stillOk = false;
+      }
+      check('failed AI attempts never trip the daily rate limit (stays 503, never 429)', stillOk);
+
+      const genPage = await request('GET', '/ai-profile-generator');
+      check('generator button relabeled "Start My Poker Profile" (not "Generate My Poker Profile")',
+        genPage.text.includes('Start My Poker Profile') && !genPage.text.includes('Generate My Poker Profile ✨'));
+      check('generator page explains the AI step comes next', /Generate My AI Poker Personality<\/strong> there/.test(genPage.text));
+
+      // clean up the injected rows so they can't leak into other phases
+      const db2 = new Database(DB_FILE);
+      db2.prepare('DELETE FROM player_submissions WHERE id IN (?, ?)').run(subId, fullId);
+      db2.close();
+    }
+
     await stop(child);
 
     // ---- Restart: idempotent seed + edits survive ----

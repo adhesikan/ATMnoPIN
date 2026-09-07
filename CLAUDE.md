@@ -139,6 +139,19 @@ An editorial series of **fictional / composite** poker-table archetypes (The Sha
 - Every species page shows a fixed satire disclaimer, rendered by the template via `renderPokerSatireDisclaimer()` (text: `POKER_SATIRE_DISCLAIMER`) — never entered into the markdown body. It renders as an `<aside>` with a "Satire Disclaimer" heading, near the bottom of the article, before the prev/next nav and "Explore All Species" CTA. No fields exist for real names / casinos / locations — this is intentional.
 - Smoke test: `node scripts/smoke-wildlife.js` (self-contained, spawns its own server against a temp SQLite DB).
 
+## Community / Get Featured
+
+`player_submissions` table (same `id/data/created_at` shape). Flow:
+
+1. Public form at `/ai-profile-generator` ("Start My Poker Profile →") → creates a submission, `status: 'pending'`, returns a private link `/profile/setup/<edit_token>`. **No AI runs at this step** — it just saves + redirects.
+2. On `/profile/setup/<token>` the user completes fields; once `computeCompletionScore >= 40` the **Generate My AI Poker Personality** button unlocks (Section 4) → `POST /api/profile/<token>/ai-personality` (`ai_personality.status: 'pending_review'`). AI Chronicles work the same (`POST .../ai-chronicle`, `ai_chronicles[].status: 'pending_review'` after they pick a rewrite). Then **Submit for Review** (`submitted_for_review: true`).
+   - **AI requires `OPENAI_API_KEY`** (see `.env.example`). Handler order: 404 check → `<40%` → 400 → key missing → **503** ("temporarily unavailable") → daily limit → 429. `aiRateLimitExceeded()` only peeks; `consumeAIRateLimit()` is called **only after a successful OpenAI call**, so blocked/failed attempts never burn the 5/day quota (`aiRateLimiter` is an in-memory Map keyed by `edit_token`, resets on deploy).
+3. Admin: `/admin` → **Community** tab → **📬 Ready for Review** filter → expand a card → **Approve** (`status: 'approved'`, stamps `approved_at`). That publishes the player to `/community-wall` and `/players/<slug>`.
+4. Each card also has an **AI Content Review** block: **Approve AI Personality** / **Reject** (`subAIApprove`/`subAIReject` → PUT `ai_personality_status`) and per-story **Approve Story** / **Reject** (`subChronicleApprove`/`subChronicleReject` → PUT `chronicle_id`+`chronicle_status`). The public profile only renders `ai_personality`/`ai_chronicles` entries whose `status === 'approved'`.
+5. The `/profile/setup` page tells the submitter their profile stays private until an admin approves it, then appears on the Community Wall + their `/players/<slug>` page.
+
+Community routes/APIs/data are independent of Poker Wildlife; do not merge them.
+
 ## Firebase Configuration
 
 Firebase is client-side only. The config is hardcoded in `visitor-tracker.js` and `chat.html` (public API keys — this is intentional for Firebase web apps; security is enforced via Firestore rules).
