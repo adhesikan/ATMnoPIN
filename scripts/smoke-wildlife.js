@@ -25,6 +25,9 @@ const ADMIN_PASSWORD = 'smoke-pass-123';
 
 const SEED_SLUGS = ['shark', 'whale', 'howler-monkey', 'tanking-turtle', 'parrot', 'peacock', 'chipmunk', 'fox', 'elephant', 'slow-roll-sloth'];
 
+// Must match POKER_SATIRE_DISCLAIMER in server.js exactly (contains no HTML-escaped chars).
+const EXACT_DISCLAIMER = 'ATMwithNoPIN Poker Stories is satire. Characters, dialogue, poker hands and incidents appearing in this story are fictional, exaggerated or composites created for entertainment. They are not intended to depict any particular individual. Any resemblance to an actual person or event is coincidental.';
+
 let pass = 0, fail = 0;
 function ok(name) { pass++; console.log(`  ✓ ${name}`); }
 function bad(name, detail) { fail++; console.log(`  ✗ ${name}${detail ? ' — ' + detail : ''}`); }
@@ -121,6 +124,7 @@ async function main() {
     check('preview without session 404s', previewNoAuth.status === 404, String(previewNoAuth.status));
     const previewAuth = await request('GET', '/stories/poker-wildlife/shark?preview=1', { cookie });
     check('preview with session 200 + ribbon', previewAuth.status === 200 && /Preview — status/.test(previewAuth.text), String(previewAuth.status));
+    check('draft preview carries exact satire disclaimer', previewAuth.text.includes(EXACT_DISCLAIMER) && /Satire Disclaimer/.test(previewAuth.text));
 
     // Publish the Shark with a Cloudinary URL
     const shark = bySlug['shark'];
@@ -143,7 +147,8 @@ async function main() {
     check('species count = 2', /Species Discovered:\s*2/.test(landing2.text));
     const sharkPage = await request('GET', '/stories/poker-wildlife/shark');
     check('published species page 200 + OG tags', sharkPage.status === 200 && /property="og:title"/.test(sharkPage.text) && /rel="canonical"/.test(sharkPage.text));
-    check('species page carries satire disclaimer', /fictional satire about poker culture/.test(sharkPage.text));
+    check('published species page carries exact satire disclaimer', sharkPage.text.includes(EXACT_DISCLAIMER) && /Satire Disclaimer/.test(sharkPage.text));
+    check('disclaimer renders before the Explore All Species CTA', sharkPage.text.indexOf(EXACT_DISCLAIMER) < sharkPage.text.indexOf('Explore All Species'));
 
     // Homepage teaser
     const home = await request('GET', '/');

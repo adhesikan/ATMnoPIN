@@ -134,7 +134,7 @@ An editorial series of **fictional / composite** poker-table archetypes (The Sha
 - **Public**: `renderWildlifeLandingPage()` (`/stories/poker-wildlife`), `renderSpeciesPage()` (`/stories/poker-wildlife/:slug`, published only). Draft preview: `?preview=1` + valid admin session (`verifyAdmin`).
 - **Homepage**: `<!-- POKER_WILDLIFE_PREVIEW -->` placeholder in `index.html`, between Chronicles and Tournament Journey. Populated from `featured` + `display_order`; omitted entirely when nothing qualifies.
 - **SEO**: `renderLayout(title, body, head='')` now takes an optional third arg for per-page `<head>` markup (canonical + OG + Twitter). Existing 2-arg calls are unchanged; when `head` is passed, the generic fallback `<meta name="description">` is suppressed.
-- Every species page shows a fixed satire disclaimer (`WILDLIFE_DISCLAIMER`). No fields exist for real names / casinos / locations — this is intentional.
+- Every species page shows a fixed satire disclaimer, rendered by the template via `renderPokerSatireDisclaimer()` (text: `POKER_SATIRE_DISCLAIMER`) — never entered into the markdown body. It renders as an `<aside>` with a "Satire Disclaimer" heading, near the bottom of the article, before the prev/next nav and "Explore All Species" CTA. No fields exist for real names / casinos / locations — this is intentional.
 - Smoke test: `node scripts/smoke-wildlife.js` (self-contained, spawns its own server against a temp SQLite DB).
 
 ## Firebase Configuration

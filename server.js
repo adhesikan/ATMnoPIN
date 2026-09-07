@@ -2908,7 +2908,7 @@ const WILDLIFE_SEED = [
   { name: 'The Slow-Roll Sloth', slug: 'slow-roll-sloth', animal: 'Sloth',     display_order: 100, tagline: 'Has the nuts. Apparently needs another minute to confirm it.' },
 ];
 
-const WILDLIFE_DISCLAIMER = 'Poker Wildlife is fictional satire about poker culture. Characters, dialogue, hands, situations and incidents are fictional, exaggerated or composite creations for entertainment. They are not intended to depict or identify any particular person. Any resemblance to an actual individual or event is coincidental.';
+const POKER_SATIRE_DISCLAIMER = 'ATMwithNoPIN Poker Stories is satire. Characters, dialogue, poker hands and incidents appearing in this story are fictional, exaggerated or composites created for entertainment. They are not intended to depict any particular individual. Any resemblance to an actual person or event is coincidental.';
 
 function wildlifeSlugify(text) {
   return slugify(String(text || '').replace(/^the\s+/i, ''));
@@ -6134,8 +6134,13 @@ function renderWildlifeMeta(species, canonicalPath) {
   <meta name="twitter:image" content="${escapeHtml(img)}" />`;
 }
 
-function renderWildlifeDisclaimer(compact = false) {
-  return `<p class="pw-disclaimer${compact ? ' pw-disclaimer-compact' : ''}">${escapeHtml(WILDLIFE_DISCLAIMER)}</p>`;
+// Reusable satire note for Poker Wildlife story pages. Rendered by the template
+// so every species page gets identical wording — never entered into markdown.
+function renderPokerSatireDisclaimer(compact = false) {
+  return `<aside class="pw-disclaimer${compact ? ' pw-disclaimer-compact' : ''}" aria-label="Satire disclaimer">
+    <p class="pw-disclaimer-heading">Satire Disclaimer</p>
+    <p class="pw-disclaimer-text">${escapeHtml(POKER_SATIRE_DISCLAIMER)}</p>
+  </aside>`;
 }
 
 const WILDLIFE_CSS = `
@@ -6160,8 +6165,11 @@ const WILDLIFE_CSS = `
   .pw-card-desc{color:var(--gray);font-size:.78rem;line-height:1.6;flex:1;}
   .pw-card-cta{color:var(--green);font-size:.68rem;text-transform:uppercase;letter-spacing:.14em;text-decoration:none;margin-top:.3rem;}
   .pw-card-cta:hover{color:#00ff6a;}
-  .pw-disclaimer{margin-top:2.5rem;padding:1rem 1.15rem;border:1px solid #1c1c1c;background:#0b0b0b;border-radius:12px;color:#7a7a7a;font-size:.72rem;line-height:1.7;max-width:75ch;}
-  .pw-disclaimer-compact{margin-top:1.25rem;font-size:.68rem;}
+  .pw-disclaimer{margin-top:2.5rem;padding:1rem 1.15rem;border:1px solid #1c1c1c;background:#0b0b0b;border-radius:12px;max-width:75ch;}
+  .pw-disclaimer-compact{margin-top:1.25rem;}
+  .pw-disclaimer-heading{font-size:.6rem;text-transform:uppercase;letter-spacing:.18em;color:var(--gray);margin-bottom:.4rem;}
+  .pw-disclaimer-text{color:#8a857c;font-size:.72rem;line-height:1.7;}
+  .pw-disclaimer-compact .pw-disclaimer-text{font-size:.7rem;}
   .pw-preview-ribbon{margin-bottom:1rem;padding:.6rem .9rem;border:1px solid var(--gold);background:rgba(201,168,76,.1);color:var(--gold);border-radius:10px;font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;}
   .pw-hero-img{width:100%;max-height:440px;object-fit:cover;border-radius:14px;border:1px solid #1e1e1e;display:block;margin-bottom:1.25rem;}
   .pw-hero-ph{aspect-ratio:16/9;background:linear-gradient(135deg,#0d2e1a 0%,#0a1a0f 100%);border-radius:14px;border:1px solid #1e1e1e;display:flex;align-items:center;justify-content:center;color:var(--green-dim);font-family:'Bebas Neue',sans-serif;letter-spacing:.25em;text-transform:uppercase;margin-bottom:1.25rem;}
@@ -6226,7 +6234,7 @@ function renderWildlifeLandingPage(speciesList) {
     ${published.length
       ? `<section class="pw-grid">${cards}</section>`
       : `<section class="notice" style="margin-top:1.5rem;">No species have been published yet. Check back soon.</section>`}
-    ${renderWildlifeDisclaimer()}
+    ${renderPokerSatireDisclaimer()}
   `;
   const head = renderWildlifeMeta(null, WILDLIFE_BASE_PATH);
   return renderLayout('Poker Wildlife | ATMwithNoPIN', body, head);
@@ -6275,11 +6283,11 @@ function renderSpeciesPage(species, allSpecies, opts = {}) {
             <button class="pw-share-btn" onclick="navigator.clipboard.writeText('${shareUrl}').then(function(){var b=this;this.textContent='Copied!';setTimeout(function(){b.textContent='Copy Link';},2000);}.bind(this))">Copy Link</button>
           </div>
         </div>
+        ${renderPokerSatireDisclaimer(true)}
         ${(prev || next) ? `<nav class="pw-pgnav">
           ${prev ? `<a href="${WILDLIFE_BASE_PATH}/${escapeHtml(prev.slug)}"><span class="nav-lbl">← Previous Species</span>${escapeHtml(prev.name)}</a>` : '<span></span>'}
           ${next ? `<a href="${WILDLIFE_BASE_PATH}/${escapeHtml(next.slug)}" style="text-align:right;margin-left:auto;"><span class="nav-lbl">Next Species →</span>${escapeHtml(next.name)}</a>` : ''}
         </nav>` : ''}
-        ${renderWildlifeDisclaimer(true)}
         <a class="pw-back-cta" href="${WILDLIFE_BASE_PATH}">Explore All Species →</a>
       </article>
       ${relatedHtml ? `<aside class="card pw-related"><h2>More Wildlife</h2><div style="margin-top:.75rem;">${relatedHtml}</div></aside>` : ''}
