@@ -160,6 +160,7 @@ async function main() {
 
     // ── Homepage Poker Wildlife feature section (replaces former Community Wall promo) ──
     const home = await request('GET', '/');
+    const idxHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
     check('homepage returns 200', home.status === 200, String(home.status));
     check('homepage contains "POKER WILDLIFE"', home.text.includes('POKER WILDLIFE'));
     check('homepage contains "EVERY POKER TABLE HAS ITS WILDLIFE."', home.text.includes('EVERY POKER TABLE HAS ITS WILDLIFE.'));
@@ -176,10 +177,20 @@ async function main() {
     check('old mid-page "Community Wall" promo section removed', !/id="community-preview"/.test(home.text) && !/their stories, bad beats, and moments of glory/.test(home.text) && !/class="cw-track"/.test(home.text));
     check('homepage did not break: hero + follow still present', /id="home"/.test(home.text) && /id="follow"/.test(home.text));
 
+    // ── Hero-right promo panel: "Get on the Community Wall" replaced by Poker Wildlife ──
+    check('hero-right panel no longer promotes "Get on the Community Wall"', !/Get on the <em>Community Wall<\/em>/.test(home.text) && !/Community profiles carousel/.test(home.text));
+    check('hero-right panel promotes Poker Wildlife', /class="hc-panel"/.test(home.text) && /class="hc-heading">Poker <em>Wildlife<\/em>/.test(home.text) && /class="hc-eyebrow">\/\/ ATM Field Guide/.test(home.text));
+    check('hero-right "Meet the Species" CTA links to the field guide', /<a href="\/stories\/poker-wildlife" class="hc-cta-btn">Meet the Species/.test(home.text));
+    check('hero carousel mechanics still present (viewport/track/dots)', /id="hcViewport"/.test(home.text) && /id="hcTrack"/.test(home.text) && /id="hcDots"/.test(home.text));
+    const heroTrack = (home.text.split('id="hcTrack">')[1] || '').split('hc-carousel-footer')[0] || '';
+    check('hero carousel rotates featured Poker Wildlife species', /href="\/stories\/poker-wildlife\/shark"/.test(heroTrack) && /href="\/stories\/poker-wildlife\/howler-monkey"/.test(heroTrack));
+    check('non-featured species NOT in the hero carousel', !/href="\/stories\/poker-wildlife\/whale"/.test(heroTrack));
+    check('old hero Community profile slides removed', !/\/players\/manny-the-machine/.test(home.text) && !/Fellow Fish/.test(heroTrack) && !/submit your story and get featured/.test(home.text) && !/Generate your AI poker profile and get featured on the community wall/.test(home.text));
+    check('hero carousel inline script still intact in index.html', /COMMUNITY CAROUSEL/.test(idxHtml) && /getElementById\('hcTrack'\)/.test(idxHtml));
+
     // ── Flash / stale-overwrite bug: the homepage must never be cached ──
     const cc = String(home.headers['cache-control'] || '');
     check('homepage sent with Cache-Control: no-store (no stale/prerender overwrite)', /no-store/.test(cc), cc || '(none)');
-    const idxHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
     const scriptBlocks = (idxHtml.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) || []).join('\n');
     // strip the one known-safe innerHTML (hero carousel dots), then assert nothing else assigns innerHTML
     const scriptsMinusKnown = scriptBlocks.replace(/dotsEl\.innerHTML\s*=\s*'';/g, '');

@@ -3357,48 +3357,6 @@ const SEED_SUBMISSIONS = [
   },
 ];
 
-const HERO_PROFILES = [
-  { id:'hp-manny', name:'Manny', nickname:'The Machine', type:'player',
-    summary:'Deposits chips like clockwork. Consistent. Reliable. Somehow always confident.',
-    location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/players/manny-the-machine', cta:null },
-  { id:'hp-jamie', name:'Jamie', nickname:'The Tuna', type:'player',
-    summary:"Never sees it coming — not the bluff, not the set, not the straight on the board.",
-    location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/players/jamie-the-tuna', cta:null },
-  { id:'hp-jay', name:'Jay', nickname:'Ducky Jay', type:'player',
-    summary:'The duck may be the real decision maker. Jay just brings the chips.',
-    location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/players/jay-ducky-jay', cta:null },
-  { id:'hp-eric', name:'Eric', nickname:'The Sugar Stacker', type:'player',
-    summary:'Messy stacks. Tight poker. Zero-sugar logistics. Breakfast sponsor of Jamie. Dating investigator of Ducky Jay.',
-    location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/chronicles/player-spotlight-eric-the-sugar-stacker', cta:'View Profile →' },
-  { id:'hp-luke', name:'Luke', nickname:'Lucky Horseshoe Luke', type:'player',
-    summary:'Never sits down without the horseshoe. Patient, friendly, and firmly convinced that luck is absolutely a strategy.',
-    location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/chronicles/player-spotlight-lucky-horseshoe-luke', cta:'View Profile →' },
-  { id:'hp-oliver', name:'Oliver', nickname:'The Mailman', type:'player',
-    summary:'Always delivers — rain, shine, or river card. Shows up like it\'s scheduled.',
-    location:'Foxwoods', badge:'Fellow Fish', badgeClass:'hc-badge-fish', icon:'♠', href:'/players/oliver-the-mailman', cta:null },
-  { id:'hp-bhavin', name:'Bhavin', nickname:'The Connector', type:'floor',
-    summary:'Gets players seated, keeps the room moving, and somehow handles everything at once.',
-    location:'Foxwoods', badge:'Floor Staff', badgeClass:'hc-badge-floor', icon:'♣', href:'/community-wall', cta:'View Community →' },
-  { id:'hp-charlie', name:'Charlie', nickname:'Still Standing', type:'floor',
-    summary:'Keeps the chaos under control and shows up again tomorrow.',
-    location:'Foxwoods', badge:'Floor Staff', badgeClass:'hc-badge-floor', icon:'♣', href:'/community-wall', cta:'View Community →' },
-  { id:'hp-steve', name:'Steve', nickname:'Birthday Variance', type:'floor',
-    summary:"Same birthday as Dhezz. Results still under investigation.",
-    location:'Foxwoods', badge:'Floor Staff', badgeClass:'hc-badge-floor', icon:'♣', href:'/community-wall', cta:'View Community →' },
-  { id:'hp-terrell', name:'Terrell', nickname:'The Railbird', type:'dealer',
-    summary:'Dealer by day, tournament supporter by night.',
-    location:'Horseshoe / WSOP', badge:'Dealer Spotlight', badgeClass:'hc-badge-dealer', icon:'♦', href:'/chronicles', cta:'Read Chronicles →' },
-  { id:'hp-dominick', name:'Dominick', nickname:'Poker Jesus', type:'dealer',
-    summary:'Tournament blessings available before every event. Results may vary.',
-    location:'Horseshoe / WSOP', badge:'Dealer Spotlight', badgeClass:'hc-badge-dealer', icon:'♦', href:'/chronicles', cta:'Read Chronicles →' },
-  { id:'hp-crazymike', name:'Crazy Mike', nickname:'River Card Specialist', type:'dealer',
-    summary:"Every bad river is somehow his fault. At least according to Dhezz.",
-    location:'Horseshoe / WSOP', badge:'Dealer Spotlight', badgeClass:'hc-badge-dealer', icon:'♦', href:'/chronicles', cta:'Read Chronicles →' },
-  { id:'hp-you', name:'You?', nickname:'TBD', type:'you',
-    summary:'One seat is open. Submit your story and earn your nickname.',
-    location:'Any Poker Room', badge:'Get Featured', badgeClass:'hc-badge-you', icon:'?', href:'/ai-profile-generator', cta:'Get Featured →' },
-];
-
 const submissionRateLimit = new Map();
 function checkSubmissionRateLimit(ip) {
   const now = Date.now();
@@ -8013,45 +7971,48 @@ function handleImageUploadRequest(req, res) {
   }
 }
 
-function renderHeroCarousel() {
-  const cardsHtml = HERO_PROFILES.map((p) => {
-    const linkHtml = `<a class="hc-card-link" href="${escapeHtml(p.href)}">${escapeHtml(p.cta || 'View Profile →')}</a>`;
-    return `<div class="hc-card" data-type="${escapeHtml(p.type)}" role="listitem">
-      <div class="hc-icon" aria-hidden="true">${escapeHtml(p.icon)}</div>
-      <span class="hc-badge ${escapeHtml(p.badgeClass)}">${escapeHtml(p.badge)}</span>
-      <div class="hc-name">${escapeHtml(p.name)}</div>
-      <div class="hc-nickname">&ldquo;${escapeHtml(p.nickname)}&rdquo;</div>
-      <div class="hc-summary">${escapeHtml(p.summary)}</div>
-      <div class="hc-location">&#x1F4CD; ${escapeHtml(p.location)}</div>
-      ${linkHtml}
-    </div>`;
-  }).join('');
-  return `<div class="hc-panel">
-  <div class="hc-header">
-    <p class="hc-eyebrow">// Meet the Table</p>
-    <h2 class="hc-heading">Get on the <em>Community Wall</em></h2>
-    <p class="hc-sub">Players, dealers, floor staff, poker friends — submit your story and get featured.</p>
-  </div>
+// Hero-right promotional panel. Previously the "Get on the Community Wall"
+// profile carousel; now promotes Poker Wildlife. Reuses the existing .hc-*
+// panel/carousel markup + CSS + the hero carousel inline script unchanged —
+// only the content (header, slides, CTA) changed. Community Wall, its nav,
+// GET FEATURED and its APIs are untouched and still reachable elsewhere.
+function renderHeroCarousel(species) {
+  // Same rule as the mid-page feature grid: published AND featured, by display_order.
+  const featured = (Array.isArray(species) ? species : [])
+    .filter((s) => s && s.status === 'published' && s.featured)
+    .sort((a, b) => (a.display_order ?? 100) - (b.display_order ?? 100));
+  const slides = featured.slice(0, 6);
+  const cardsHtml = slides.map((s) => `<div class="hc-card" data-type="wildlife" role="listitem">
+      <div class="hc-icon" aria-hidden="true" style="color:var(--green);">&#9824;</div>
+      <span class="hc-badge hc-badge-fish">${escapeHtml(s.animal || 'Species')}</span>
+      <div class="hc-name">${escapeHtml(s.name)}</div>
+      <div class="hc-nickname">Poker Wildlife</div>
+      <div class="hc-summary">${escapeHtml(s.tagline || s.short_description || '')}</div>
+      <div class="hc-location">ATM Field Guide</div>
+      <a class="hc-card-link" href="/stories/poker-wildlife/${escapeHtml(s.slug)}">View species &rarr;</a>
+    </div>`).join('');
+  const carouselHtml = slides.length ? `
   <div class="hc-carousel" id="hcCarousel">
-    <div class="hc-viewport" id="hcViewport" role="list" tabindex="0" aria-label="Community profiles carousel">
+    <div class="hc-viewport" id="hcViewport" role="list" tabindex="0" aria-label="Poker Wildlife species carousel">
       <div class="hc-track" id="hcTrack">${cardsHtml}</div>
     </div>
     <div class="hc-carousel-footer">
-      <button class="hc-arrow" id="hcPrev" aria-label="Previous profiles" disabled>&#x2039;</button>
-      <div class="hc-dots" id="hcDots" role="tablist" aria-label="Profile navigation"></div>
-      <button class="hc-arrow" id="hcNext" aria-label="Next profiles">&#x203a;</button>
+      <button class="hc-arrow" id="hcPrev" aria-label="Previous species" disabled>&#x2039;</button>
+      <div class="hc-dots" id="hcDots" role="tablist" aria-label="Species navigation"></div>
+      <button class="hc-arrow" id="hcNext" aria-label="Next species">&#x203a;</button>
     </div>
+  </div>` : `
+  <p class="hc-sub" style="opacity:.75;">Sharks hunt. Whales create action. Turtles tank. Parrots talk. New species are added to the field guide regularly.</p>`;
+  return `<div class="hc-panel">
+  <div class="hc-header">
+    <p class="hc-eyebrow">// ATM Field Guide</p>
+    <h2 class="hc-heading">Poker <em>Wildlife</em></h2>
+    <p class="hc-sub">Every poker table is an ecosystem. You've played with them &mdash; you may even be one of them.</p>
   </div>
-  <nav class="hc-cats" aria-label="Browse by type">
-    <a href="/community-wall" class="hc-cat">&#x2660; Players</a>
-    <a href="/community-wall" class="hc-cat">&#x2666; Dealers</a>
-    <a href="/community-wall" class="hc-cat">&#x2663; Floor Staff</a>
-    <a href="/community-wall" class="hc-cat">&#x2665; Poker Friends</a>
-    <a href="/ai-profile-generator" class="hc-cat hc-cat-you">? You?</a>
-  </nav>
+  ${carouselHtml}
   <div class="hc-cta-bar">
-    <p class="hc-cta-text">Generate your AI poker profile and get featured on the community wall.</p>
-    <a href="/ai-profile-generator" class="hc-cta-btn">Get Featured →</a>
+    <p class="hc-cta-text">Meet the species that live at every poker table.</p>
+    <a href="/stories/poker-wildlife" class="hc-cta-btn">Meet the Species &rarr;</a>
   </div>
 </div>`;
 }
@@ -9848,7 +9809,7 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
         </div>
       </section>`;
       const html = data
-        .replace('<!-- HERO_CAROUSEL -->', renderHeroCarousel())
+        .replace('<!-- HERO_CAROUSEL -->', renderHeroCarousel(pubWildlife))
         .replace('<!-- BLOG_PREVIEW -->', `<div class="section-divider"><div class="hp-section" id="stories"><p class="section-label">// Latest from the ATM</p><h2>Latest Stories</h2>${featuredHtml}<div class="section-cta-row"><a href="/blog" class="section-cta-link">View all stories →</a></div></div></div>`)
         .replace('<!-- RECENT_POSTS -->', '')
         .replace('<!-- CHRONICLES_PREVIEW -->', chronSection)
