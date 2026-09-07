@@ -8,7 +8,7 @@ const Database = require('better-sqlite3');
 
 const PORT = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, 'data', 'blog-posts.json');
-const SQLITE_DB_FILE = path.join(__dirname, 'data', 'blog-posts.sqlite');
+const SQLITE_DB_FILE = process.env.SQLITE_DB_FILE || path.join(__dirname, 'data', 'blog-posts.sqlite');
 const DATABASE_URL = process.env.DATABASE_URL || '';
 
 function loadEnvFile(filePath) {
@@ -124,6 +124,11 @@ async function initializeDatabase() {
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         data TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS wildlife_species (
+        id TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
     `);
     return;
   }
@@ -185,6 +190,11 @@ async function initializeDatabase() {
         status TEXT NOT NULL DEFAULT 'pending',
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         data JSONB NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS wildlife_species (
+        id TEXT PRIMARY KEY,
+        data JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
   }
@@ -2881,6 +2891,182 @@ function estimateReadingTime(content) {
   return Math.max(1, Math.ceil(words / 200));
 }
 
+// ─── POKER WILDLIFE ─────────────────────────────────────────────────────────
+// Fictional / composite poker-table archetypes. Its own content type — NOT a
+// Chronicles category. Storage + CRUD patterns mirror the Chronicles engine.
+
+const WILDLIFE_SEED = [
+  { name: 'The Shark',          slug: 'shark',          animal: 'Shark',        display_order: 10,  tagline: 'Says very little. Notices everything. Your chips are already in danger.' },
+  { name: 'The Whale',          slug: 'whale',          animal: 'Whale',        display_order: 20,  tagline: 'Came to play pots. Preferably all of them.' },
+  { name: 'The Howler Monkey',  slug: 'howler-monkey',  animal: 'Howler Monkey', display_order: 30, tagline: 'Every pot he wins is skill. Every pot he loses requires an investigation.' },
+  { name: 'The Tanking Turtle', slug: 'tanking-turtle', animal: 'Turtle',       display_order: 40,  tagline: 'Four minutes. Seven-deuce. Still thinking.' },
+  { name: 'The Parrot',         slug: 'parrot',         animal: 'Parrot',       display_order: 50,  tagline: "You played the hand. Now you're going to hear about it for 20 minutes." },
+  { name: 'The Peacock',        slug: 'peacock',        animal: 'Peacock',      display_order: 60,  tagline: 'Never misses an opportunity to explain how well he played.' },
+  { name: 'The Chipmunk',       slug: 'chipmunk',       animal: 'Chipmunk',     display_order: 70,  tagline: 'Protects every chip like winter is coming.' },
+  { name: 'The Fox',            slug: 'fox',            animal: 'Fox',          display_order: 80,  tagline: 'Friendly conversation. Quietly figuring out everyone at the table.' },
+  { name: 'The Elephant',       slug: 'elephant',       animal: 'Elephant',     display_order: 90,  tagline: 'Still remembers the bad beat you gave him three years ago.' },
+  { name: 'The Slow-Roll Sloth', slug: 'slow-roll-sloth', animal: 'Sloth',     display_order: 100, tagline: 'Has the nuts. Apparently needs another minute to confirm it.' },
+];
+
+const WILDLIFE_DISCLAIMER = 'Poker Wildlife is fictional satire about poker culture. Characters, dialogue, hands, situations and incidents are fictional, exaggerated or composite creations for entertainment. They are not intended to depict or identify any particular person. Any resemblance to an actual individual or event is coincidental.';
+
+function wildlifeSlugify(text) {
+  return slugify(String(text || '').replace(/^the\s+/i, ''));
+}
+
+// True when this process is a production deployment (Railway sets NODE_ENV or
+// RAILWAY_* vars; presence of DATABASE_URL is our reliable Railway signal).
+function isProductionEnv() {
+  if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') return true;
+  if (process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID || process.env.RAILWAY_SERVICE_ID) return true;
+  return !!DATABASE_URL;
+}
+
+function cloudinaryConfigured() {
+  return !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_UPLOAD_PRESET);
+}
+
+// Returns an error string if this species is not safe to publish, else null.
+function speciesPublishBlockReason(species) {
+  const url = String(species.image_url || '').trim();
+  if (!url) return null;
+  if (/^https:\/\/res\.cloudinary\.com\//i.test(url) || /^https:\/\/[a-z0-9.-]*\bcloudinary\.com\//i.test(url)) return null;
+  if (url.startsWith('/uploads/')) {
+    if (isProductionEnv()) {
+      return 'This image is stored locally and may be lost during a production redeploy. Upload the image to persistent storage before publishing.';
+    }
+    return null; // local dev: ephemeral uploads are fine
+  }
+  return null; // any other absolute URL (external host) is the admin's call
+}
+
+async function loadSpecies() {
+  if (pgPool) {
+    const { rows } = await pgPool.query('SELECT id, data FROM wildlife_species ORDER BY created_at DESC');
+    return rows.map((row) => row.data);
+  }
+  if (sqliteDb) {
+    const rows = sqliteDb.prepare('SELECT id, data FROM wildlife_species ORDER BY created_at DESC').all();
+    return rows.map((row) => JSON.parse(row.data));
+  }
+  return [];
+}
+
+async function saveSpecies(list) {
+  if (pgPool) {
+    const client = await pgPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM wildlife_species');
+      for (const s of list) {
+        await client.query(
+          'INSERT INTO wildlife_species (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data',
+          [s.id, s]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    return;
+  }
+  if (sqliteDb) {
+    const stmt = sqliteDb.prepare('INSERT INTO wildlife_species (id, data) VALUES (?, ?)');
+    sqliteDb.exec('BEGIN IMMEDIATE');
+    sqliteDb.exec('DELETE FROM wildlife_species');
+    for (const s of list) {
+      stmt.run(s.id, JSON.stringify(s));
+    }
+    sqliteDb.exec('COMMIT');
+    return;
+  }
+}
+
+function normalizeSpecies(body, old = null) {
+  const base = old || {};
+  const pick = (key, fallback = '') =>
+    body[key] !== undefined ? body[key] : (base[key] !== undefined ? base[key] : fallback);
+  const name = String(pick('name', '')).trim();
+  const status = String(pick('status', 'draft')).trim() === 'published' ? 'published' : 'draft';
+  const orderRaw = pick('display_order', 100);
+  const displayOrder = Number.isFinite(Number(orderRaw)) ? Math.trunc(Number(orderRaw)) : 100;
+  const nowIso = new Date().toISOString();
+  const species = {
+    id: base.id || crypto.randomUUID(),
+    name,
+    slug: String(pick('slug', '') || wildlifeSlugify(name)).trim() || wildlifeSlugify(name),
+    animal: String(pick('animal', '')).trim(),
+    classification: String(pick('classification', '')).trim(),
+    tagline: String(pick('tagline', '')).trim(),
+    short_description: String(pick('short_description', '')).trim(),
+    content: String(pick('content', '')).trim(),
+    image_url: String(pick('image_url', '')).trim(),
+    image_alt: String(pick('image_alt', '')).trim(),
+    status,
+    featured: body.featured !== undefined ? !!body.featured : !!base.featured,
+    display_order: displayOrder,
+    seo_title: String(pick('seo_title', '')).trim(),
+    seo_description: String(pick('seo_description', '')).trim(),
+    created_at: base.created_at || nowIso,
+    updated_at: nowIso,
+    published_at: base.published_at || null,
+  };
+  if (status === 'published') {
+    species.published_at = base.published_at || nowIso;
+  } else {
+    species.published_at = null;
+  }
+  return species;
+}
+
+// Idempotent: insert a seed species ONLY when its slug does not already exist.
+// Never updates or resets a species that exists (admin edits always win).
+async function seedWildlifeSpecies() {
+  try {
+    const existing = await loadSpecies();
+    const existingSlugs = new Set(existing.map((s) => s.slug));
+    const toAdd = [];
+    for (const seed of WILDLIFE_SEED) {
+      if (existingSlugs.has(seed.slug)) continue;
+      const nowIso = new Date().toISOString();
+      toAdd.push({
+        id: crypto.randomUUID(),
+        name: seed.name,
+        slug: seed.slug,
+        animal: seed.animal,
+        classification: '',
+        tagline: seed.tagline,
+        short_description: '',
+        content: '',
+        image_url: '',
+        image_alt: '',
+        status: 'draft',
+        featured: false,
+        display_order: seed.display_order,
+        seo_title: '',
+        seo_description: '',
+        created_at: nowIso,
+        updated_at: nowIso,
+        published_at: null,
+      });
+    }
+    if (!toAdd.length) return;
+    await saveSpecies([...toAdd, ...existing]);
+    console.log(`Poker Wildlife: seeded ${toAdd.length} draft species.`);
+  } catch (err) {
+    console.error('Poker Wildlife seed failed (non-fatal):', err.message);
+  }
+}
+
+function publishedSpeciesSorted(list) {
+  return list
+    .filter((s) => s.status === 'published')
+    .sort((a, b) => (a.display_order - b.display_order) || (new Date(a.published_at || a.created_at) - new Date(b.published_at || b.created_at)));
+}
+
 const PLAYER_BADGES = ['Final Table Hero', 'Bad Beat Champion', 'River Victim', 'Poker Storyteller', 'Bubble Survivor', 'ATMNOPIN Legend', 'Fellow Fish', 'Poker Jesus Approved', 'WSOP Warrior', 'Cash Game Character', 'Railbird Favorite'];
 
 const STORY_TYPES = ['Bad Beat', 'Funny Dealer Story', 'Tournament Run', 'Cash Game Story', 'WSOP Moment', 'Vegas Adventure'];
@@ -3575,14 +3761,15 @@ function renderVideoEmbed(videoUrl) {
   return `<p class="body-text">Video URL: <a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a></p>`;
 }
 
-function renderLayout(title, body) {
+function renderLayout(title, body, head = '') {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(title)}</title>
-  <meta name="description" content="ATMNOPIN™ Poker blog and admin publishing system for table stories, updates, and bad beats." />
+  ${head || ''}
+  ${head ? '' : '<meta name="description" content="ATMNOPIN™ Poker blog and admin publishing system for table stories, updates, and bad beats." />'}
   <style>
     :root { --black:#0a0a0a; --green:#00c853; --green-dim:#007a33; --gold:#c9a84c; --offwhite:#f0ece0; --gray:#999; }
     * { box-sizing:border-box; margin:0; padding:0; }
@@ -3663,6 +3850,12 @@ function renderBlogListPage(posts) {
       <p class="eyebrow">Latest from the ATM</p>
       <h1>Table Stories &amp; Bad Beats</h1>
       <p class="body-text" style="max-width:60ch;">A simple admin-friendly blog for tournament updates, Foxwoods sessions, funny hands, and the stories that make the ATMNOPIN™ brand feel like a real poker entertainment table.</p>
+    </section>
+    <section class="card" style="margin-top:1rem;border-color:#1e3a28;background:#0c1a10;">
+      <p class="eyebrow" style="color:var(--gold);">// ATM Field Guide</p>
+      <h2 style="margin:.25rem 0;">Poker Wildlife</h2>
+      <p class="body-text">Every poker table is an ecosystem. Meet the fictional species that inhabit it — sharks, whales, tanking turtles and the howler monkey demanding an investigation.</p>
+      <a href="/stories/poker-wildlife" class="pill" style="margin-top:.5rem;">Meet the species →</a>
     </section>
     <section class="posts">${cards || '<div class="notice">No published posts yet. Create one in the admin area.</div>'}</section>`);
 }
@@ -3770,6 +3963,7 @@ function renderAdminPage(submissions = []) {
     <div class="admin-tabs">
       <button class="admin-tab active" data-panel="blogPanel">Blog Posts</button>
       <button class="admin-tab" data-panel="chronPanel">Chronicles</button>
+      <button class="admin-tab" data-panel="wildlifePanel">Poker Wildlife</button>
       <button class="admin-tab" data-panel="communityPanel">Community</button>
       <button class="admin-tab" data-panel="visitorsPanel">Visitors</button>
       <button class="admin-tab" data-panel="consentPanel">Consent Log</button>
@@ -4032,6 +4226,177 @@ function renderAdminPage(submissions = []) {
       cLoadList();
     </script>
     </div><!-- end chronPanel -->
+    <div id="wildlifePanel" style="display:none;">
+    <section class="grid">
+      <article class="card">
+        <h2>Create / Edit Species</h2>
+        <div class="form-grid">
+          <div class="notice">Poker Wildlife is fictional satire. Do not enter real names, casinos, locations, or identifying details. Required: Name, Slug, Animal, Tagline, Status.</div>
+          <label>Species Name *<input id="wName" type="text" placeholder="The Howler Monkey" /></label>
+          <label>Slug *<input id="wSlug" type="text" placeholder="howler-monkey" /></label>
+          <label>Animal *<input id="wAnimal" type="text" placeholder="Howler Monkey" /></label>
+          <label>Classification (optional, humorous)<input id="wClassification" type="text" placeholder="Primates blameus maximus" /></label>
+          <label>Tagline *<input id="wTagline" type="text" placeholder="Every pot he wins is skill. Every pot he loses requires an investigation." /></label>
+          <label>Short Description<textarea id="wShortDesc" placeholder="Used on cards, homepage teaser, and social previews."></textarea></label>
+          <label>Full Story (Markdown, optional)<textarea id="wContent" style="min-height:180px;" placeholder="Long-form field-guide entry. Leave blank at launch if not ready."></textarea></label>
+          <label>Species Image — upload new<input id="wImageFile" type="file" accept="image/png,image/jpeg,image/webp" /></label>
+          <label>Image URL (upload fills this; paste an existing URL to reuse)<input id="wImageUrl" type="text" placeholder="https://res.cloudinary.com/..." /></label>
+          <label>Image Alt Text<input id="wImageAlt" type="text" placeholder="Descriptive alt text (no baked-in words needed)" /></label>
+          <label>Status *<select id="wStatus"><option value="draft">Draft</option><option value="published">Published</option></select></label>
+          <label><input id="wFeatured" type="checkbox" style="width:auto;margin-right:.4rem;" /> Featured (eligible for homepage teaser)</label>
+          <label>Display Order<input id="wOrder" type="number" step="10" value="100" /></label>
+          <label>SEO Title (optional override)<input id="wSeoTitle" type="text" placeholder="The Howler Monkey | Poker Wildlife" /></label>
+          <label>SEO Description (optional override)<textarea id="wSeoDesc" placeholder="Meta description for search and social."></textarea></label>
+          <div class="row">
+            <button id="wSaveBtn" type="button">Save Species</button>
+            <button id="wPreviewBtn" class="secondary" type="button">Preview</button>
+            <button id="wNewBtn" class="secondary" type="button">New Species</button>
+          </div>
+          <div class="notice" id="wStatusBox">Ready.</div>
+        </div>
+      </article>
+      <aside class="card">
+        <h2>Existing Species</h2>
+        <div id="wEnvNote" class="small" style="margin-bottom:.5rem;color:#888;"></div>
+        <div id="wList" class="form-grid"></div>
+      </aside>
+    </section>
+    <script>
+      var wState = { id: null, slug: null };
+      var wStatusBox = document.getElementById('wStatusBox');
+      function wSet(msg, tone) { wStatusBox.textContent = msg; wStatusBox.style.borderColor = tone === 'ok' ? '#1f5c31' : tone === 'bad' ? '#5c1f1f' : '#1e1e1e'; }
+      function wSlugify(s) { return String(s || '').toLowerCase().replace(/^the\\s+/, '').trim().replace(/[^a-z0-9\\s-]/g, '').replace(/\\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''); }
+      window.wLoadList = async function() {
+        try {
+          var res = await fetch('/api/admin/wildlife');
+          var data = await res.json();
+          var items = data.species || [];
+          var envNote = document.getElementById('wEnvNote');
+          if (data.env) {
+            envNote.textContent = data.env.production
+              ? (data.env.cloudinary ? 'Production + Cloudinary configured — images upload to persistent storage.' : 'PRODUCTION without Cloudinary — local /uploads images cannot be published.')
+              : 'Local/dev environment — local uploads allowed.';
+          }
+          var list = document.getElementById('wList');
+          list.innerHTML = items.map(function(s) {
+            var thumb = s.image_url
+              ? '<img src="' + s.image_url + '" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid #2a2a2a;flex-shrink:0;">'
+              : '<div style="width:44px;height:44px;border-radius:8px;border:1px solid #2a2a2a;background:#0d2e1a;flex-shrink:0;"></div>';
+            return '<div class="card"><div style="display:flex;gap:.6rem;align-items:flex-start;">' + thumb +
+              '<div style="flex:1;min-width:0;"><strong>' + (s.name || '(untitled)') + '</strong>' +
+              '<p class="small">' + (s.status || 'draft') + (s.featured ? ' · ★ featured' : '') + ' · order ' + (s.display_order != null ? s.display_order : '—') + ' · ' + s.slug + '</p>' +
+              '<p class="small" style="color:#666;">' + (s.published_at ? 'pub ' + new Date(s.published_at).toLocaleDateString() : 'not published') + ' · upd ' + (s.updated_at ? new Date(s.updated_at).toLocaleDateString() : '—') + '</p>' +
+              '<div class="row" style="margin-top:.4rem;"><button class="secondary" data-waction="edit" data-wid="' + s.id + '">Edit</button>' +
+              '<button class="secondary" data-waction="preview" data-wslug="' + s.slug + '">Preview</button>' +
+              '<button class="secondary" data-waction="delete" data-wid="' + s.id + '">Delete</button></div></div></div></div>';
+          }).join('') || '<div class="notice">No species yet.</div>';
+        } catch (e) { wSet('Failed to load species: ' + e.message, 'bad'); }
+      };
+      async function wUpload(file) {
+        var form = new FormData(); form.append('file', file); form.append('kind', 'featured');
+        var res = await fetch('/api/admin/upload', { method: 'POST', body: form });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Upload failed');
+        return data;
+      }
+      function wCollect() {
+        var name = document.getElementById('wName').value.trim();
+        return {
+          id: wState.id,
+          name: name,
+          slug: document.getElementById('wSlug').value.trim() || wSlugify(name),
+          animal: document.getElementById('wAnimal').value.trim(),
+          classification: document.getElementById('wClassification').value.trim(),
+          tagline: document.getElementById('wTagline').value.trim(),
+          short_description: document.getElementById('wShortDesc').value.trim(),
+          content: document.getElementById('wContent').value.trim(),
+          image_url: document.getElementById('wImageUrl').value.trim(),
+          image_alt: document.getElementById('wImageAlt').value.trim(),
+          status: document.getElementById('wStatus').value,
+          featured: document.getElementById('wFeatured').checked,
+          display_order: parseInt(document.getElementById('wOrder').value, 10) || 100,
+          seo_title: document.getElementById('wSeoTitle').value.trim(),
+          seo_description: document.getElementById('wSeoDesc').value.trim()
+        };
+      }
+      async function wSave() {
+        try {
+          wSet('Saving…');
+          var file = document.getElementById('wImageFile').files[0];
+          if (file) {
+            var up = await wUpload(file);
+            document.getElementById('wImageUrl').value = up.url;
+          }
+          var payload = wCollect();
+          if (!payload.name || !payload.slug || !payload.animal || !payload.tagline) { wSet('Fill in Name, Slug, Animal, and Tagline.', 'bad'); return; }
+          var res = await fetch('/api/admin/wildlife' + (wState.id ? '/' + wState.id : ''), { method: wState.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          var data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Save failed');
+          wState.id = data.id; wState.slug = data.slug;
+          document.getElementById('wImageFile').value = '';
+          await window.wLoadList();
+          wSet('Saved: ' + data.name + ' (' + data.status + ').', 'ok');
+        } catch (e) { wSet(e.message, 'bad'); }
+      }
+      function wFill(s) {
+        wState.id = s.id; wState.slug = s.slug;
+        document.getElementById('wName').value = s.name || '';
+        document.getElementById('wSlug').value = s.slug || '';
+        document.getElementById('wAnimal').value = s.animal || '';
+        document.getElementById('wClassification').value = s.classification || '';
+        document.getElementById('wTagline').value = s.tagline || '';
+        document.getElementById('wShortDesc').value = s.short_description || '';
+        document.getElementById('wContent').value = s.content || '';
+        document.getElementById('wImageUrl').value = s.image_url || '';
+        document.getElementById('wImageAlt').value = s.image_alt || '';
+        document.getElementById('wStatus').value = s.status || 'draft';
+        document.getElementById('wFeatured').checked = !!s.featured;
+        document.getElementById('wOrder').value = s.display_order != null ? s.display_order : 100;
+        document.getElementById('wSeoTitle').value = s.seo_title || '';
+        document.getElementById('wSeoDesc').value = s.seo_description || '';
+      }
+      function wReset() {
+        wState.id = null; wState.slug = null;
+        ['wName','wSlug','wAnimal','wClassification','wTagline','wShortDesc','wContent','wImageUrl','wImageAlt','wSeoTitle','wSeoDesc'].forEach(function(id) { document.getElementById(id).value = ''; });
+        document.getElementById('wImageFile').value = '';
+        document.getElementById('wStatus').value = 'draft';
+        document.getElementById('wFeatured').checked = false;
+        document.getElementById('wOrder').value = 100;
+        wSet('New species form ready.');
+      }
+      document.getElementById('wSaveBtn').addEventListener('click', wSave);
+      document.getElementById('wNewBtn').addEventListener('click', wReset);
+      document.getElementById('wPreviewBtn').addEventListener('click', function() {
+        var slug = document.getElementById('wSlug').value.trim() || wSlugify(document.getElementById('wName').value);
+        if (!slug) { wSet('Enter a slug first, then Save, then Preview.', 'bad'); return; }
+        if (!wState.id) { wSet('Save the species once before previewing.', 'bad'); return; }
+        window.open('/stories/poker-wildlife/' + slug + '?preview=1', '_blank');
+      });
+      document.getElementById('wName').addEventListener('blur', function() {
+        var slugEl = document.getElementById('wSlug');
+        if (!slugEl.value.trim()) slugEl.value = wSlugify(this.value);
+      });
+      document.getElementById('wList').addEventListener('click', async function(ev) {
+        var btn = ev.target.closest('button'); if (!btn) return;
+        var action = btn.getAttribute('data-waction');
+        if (action === 'preview') { window.open('/stories/poker-wildlife/' + btn.getAttribute('data-wslug') + '?preview=1', '_blank'); return; }
+        var id = btn.getAttribute('data-wid');
+        if (action === 'delete') {
+          if (!confirm('Delete this species? The uploaded image file is not removed.')) return;
+          var dr = await fetch('/api/admin/wildlife/' + id, { method: 'DELETE' });
+          var dd = await dr.json(); if (!dr.ok) { wSet(dd.error || 'Delete failed', 'bad'); return; }
+          if (wState.id === id) wReset();
+          await window.wLoadList(); wSet('Species deleted.', 'ok'); return;
+        }
+        var er = await fetch('/api/admin/wildlife/' + id);
+        var s = await er.json();
+        if (!er.ok) { wSet(s.error || 'Load failed', 'bad'); return; }
+        wFill(s);
+        wSet('Loaded "' + s.name + '" for editing.', 'ok');
+      });
+      window.wLoadList();
+    </script>
+    </div><!-- end wildlifePanel -->
     <div id="communityPanel" style="display:none;">
     <section class="grid">
       <article class="card" style="grid-column:1/-1;">
@@ -4419,6 +4784,8 @@ function renderAdminPage(submissions = []) {
           btn.classList.add('active');
           document.getElementById('blogPanel').style.display = btn.dataset.panel === 'blogPanel' ? '' : 'none';
           document.getElementById('chronPanel').style.display = btn.dataset.panel === 'chronPanel' ? '' : 'none';
+          document.getElementById('wildlifePanel').style.display = btn.dataset.panel === 'wildlifePanel' ? '' : 'none';
+          if (btn.dataset.panel === 'wildlifePanel' && window.wLoadList) window.wLoadList();
           document.getElementById('communityPanel').style.display = btn.dataset.panel === 'communityPanel' ? '' : 'none';
           document.getElementById('visitorsPanel').style.display = btn.dataset.panel === 'visitorsPanel' ? '' : 'none';
           document.getElementById('consentPanel').style.display = btn.dataset.panel === 'consentPanel' ? '' : 'none';
@@ -5588,6 +5955,7 @@ function renderChroniclesListPage(chronicles) {
       <p class="eyebrow">Foxwoods · Horseshoe · WSOP · The Table</p>
       <h1>Chronicles</h1>
       <p class="body-text" style="max-width:60ch;">Stories from the ATMNOPIN poker universe — tournament runs, cash game chaos, player spotlights, dealer legends, floor staff heroes, bad beats, Vegas adventures, and the people who make poker worth playing.</p>
+      <p class="body-text" style="max-width:60ch;margin-top:.5rem;">Looking for the fictional archetypes instead? Visit <a href="/stories/poker-wildlife" style="color:var(--green);">Poker Wildlife</a> — the ATM field guide.</p>
     </section>
     <div class="chron-controls">
       <input type="search" id="chronSearch" class="chron-search" placeholder="Search by name, nickname, poker room, specialty…" />
@@ -5738,6 +6106,188 @@ function renderChroniclePage(chronicle, allChronicles) {
         ${relatedHtml ? `<div class="rel-section"><h2>More ${escapeHtml(chronicle.category || 'Stories')}</h2><div style="margin-top:.75rem;">${relatedHtml}</div></div>` : ''}
       </aside>` : ''}
     </section>`);
+}
+
+// ─── POKER WILDLIFE RENDER ──────────────────────────────────────────────────
+
+const WILDLIFE_ORIGIN = 'https://atmwithnopin.com';
+const WILDLIFE_BASE_PATH = '/stories/poker-wildlife';
+
+function renderWildlifeMeta(species, canonicalPath) {
+  const title = (species && (species.seo_title || (species.name ? `${species.name} | Poker Wildlife` : ''))) || 'Poker Wildlife | ATMwithNoPIN';
+  const desc = (species && (species.seo_description || species.short_description || species.tagline)) ||
+    "Meet the creatures that inhabit poker tables everywhere. Poker Wildlife is ATMwithNoPIN's field guide to the personalities, habits and beautiful absurdity of poker culture.";
+  const url = WILDLIFE_ORIGIN + canonicalPath;
+  const img = species && species.image_url ? (/^https?:\/\//i.test(species.image_url) ? species.image_url : WILDLIFE_ORIGIN + species.image_url) : `${WILDLIFE_ORIGIN}/logo.png`;
+  return `
+  <meta name="description" content="${escapeHtml(desc.slice(0, 300))}" />
+  <link rel="canonical" href="${escapeHtml(url)}" />
+  <meta property="og:type" content="${species ? 'article' : 'website'}" />
+  <meta property="og:site_name" content="ATMwithNoPIN" />
+  <meta property="og:title" content="${escapeHtml(title)}" />
+  <meta property="og:description" content="${escapeHtml(desc.slice(0, 300))}" />
+  <meta property="og:url" content="${escapeHtml(url)}" />
+  <meta property="og:image" content="${escapeHtml(img)}" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeHtml(title)}" />
+  <meta name="twitter:description" content="${escapeHtml(desc.slice(0, 300))}" />
+  <meta name="twitter:image" content="${escapeHtml(img)}" />`;
+}
+
+function renderWildlifeDisclaimer(compact = false) {
+  return `<p class="pw-disclaimer${compact ? ' pw-disclaimer-compact' : ''}">${escapeHtml(WILDLIFE_DISCLAIMER)}</p>`;
+}
+
+const WILDLIFE_CSS = `
+  .pw-eyebrow{font-size:.62rem;letter-spacing:.28em;text-transform:uppercase;color:var(--green);margin-bottom:.6rem;}
+  .pw-lede{max-width:60ch;color:var(--gray);font-size:.92rem;line-height:1.8;}
+  .pw-lede strong{color:var(--offwhite);}
+  .pw-count{display:inline-block;margin-top:1.1rem;border:1px solid rgba(0,200,83,.35);background:rgba(0,200,83,.07);color:var(--green);border-radius:999px;padding:.35rem .9rem;font-size:.66rem;text-transform:uppercase;letter-spacing:.16em;}
+  .pw-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1.75rem;}
+  @media(min-width:600px) and (max-width:980px){.pw-grid{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:600px){.pw-grid{grid-template-columns:1fr;}}
+  .pw-card{border:1px solid #1e1e1e;background:#101010;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .2s,transform .2s;}
+  .pw-card:hover{border-color:rgba(0,200,83,.4);transform:translateY(-2px);}
+  .pw-card-imgwrap{aspect-ratio:16/10;background:linear-gradient(135deg,#0d2e1a 0%,#0a1a0f 100%);overflow:hidden;}
+  .pw-card-imgwrap img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;}
+  .pw-card-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--green-dim);font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:.2em;text-transform:uppercase;}
+  .pw-card-body{padding:1rem;display:flex;flex-direction:column;gap:.45rem;flex:1;}
+  .pw-card-animal{font-size:.58rem;text-transform:uppercase;letter-spacing:.15em;color:var(--gold);}
+  .pw-card-name{font-family:'DM Serif Display',serif;font-size:1.15rem;line-height:1.25;margin:0;}
+  .pw-card-name a{color:var(--offwhite);text-decoration:none;}
+  .pw-card-name a:hover{color:var(--green);}
+  .pw-card-tagline{color:#b0a898;font-size:.82rem;line-height:1.6;font-style:italic;}
+  .pw-card-desc{color:var(--gray);font-size:.78rem;line-height:1.6;flex:1;}
+  .pw-card-cta{color:var(--green);font-size:.68rem;text-transform:uppercase;letter-spacing:.14em;text-decoration:none;margin-top:.3rem;}
+  .pw-card-cta:hover{color:#00ff6a;}
+  .pw-disclaimer{margin-top:2.5rem;padding:1rem 1.15rem;border:1px solid #1c1c1c;background:#0b0b0b;border-radius:12px;color:#7a7a7a;font-size:.72rem;line-height:1.7;max-width:75ch;}
+  .pw-disclaimer-compact{margin-top:1.25rem;font-size:.68rem;}
+  .pw-preview-ribbon{margin-bottom:1rem;padding:.6rem .9rem;border:1px solid var(--gold);background:rgba(201,168,76,.1);color:var(--gold);border-radius:10px;font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;}
+  .pw-hero-img{width:100%;max-height:440px;object-fit:cover;border-radius:14px;border:1px solid #1e1e1e;display:block;margin-bottom:1.25rem;}
+  .pw-hero-ph{aspect-ratio:16/9;background:linear-gradient(135deg,#0d2e1a 0%,#0a1a0f 100%);border-radius:14px;border:1px solid #1e1e1e;display:flex;align-items:center;justify-content:center;color:var(--green-dim);font-family:'Bebas Neue',sans-serif;letter-spacing:.25em;text-transform:uppercase;margin-bottom:1.25rem;}
+  .pw-field-strip{display:grid;gap:.4rem;margin:1rem 0;padding:1rem 1.15rem;background:#0c1a10;border:1px solid #1e3a28;border-radius:12px;}
+  .pw-field-row{display:flex;gap:.75rem;align-items:baseline;font-size:.82rem;}
+  .pw-field-lbl{color:var(--gray);font-size:.6rem;text-transform:uppercase;letter-spacing:.14em;min-width:110px;flex-shrink:0;}
+  .pw-field-val{color:var(--offwhite);}
+  .pw-field-val.pw-classification{font-style:italic;color:var(--gold);}
+  .pw-tagline-lede{font-family:'DM Serif Display',serif;font-size:1.35rem;line-height:1.4;color:var(--offwhite);font-style:italic;margin:.5rem 0 1rem;}
+  .pw-body-content{margin-top:1rem;}
+  .pw-share-row{margin-top:1.5rem;padding-top:1rem;border-top:1px solid #1e1e1e;}
+  .pw-share-btns{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.4rem;}
+  .pw-share-btn{border:1px solid #242424;background:#111;color:var(--offwhite);border-radius:8px;padding:.4rem .8rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;text-decoration:none;display:inline-block;}
+  .pw-share-btn:hover{border-color:var(--green);color:var(--green);}
+  .pw-pgnav{display:flex;justify-content:space-between;gap:1rem;margin-top:2rem;padding-top:1rem;border-top:1px solid #1e1e1e;flex-wrap:wrap;}
+  .pw-pgnav a{border:1px solid #242424;background:#111;border-radius:10px;padding:.6rem .9rem;text-decoration:none;color:var(--offwhite);font-size:.73rem;max-width:46%;transition:border-color .2s;}
+  .pw-pgnav a:hover{border-color:var(--green);}
+  .pw-pgnav .nav-lbl{font-size:.56rem;text-transform:uppercase;letter-spacing:.16em;color:var(--gray);display:block;margin-bottom:.15rem;}
+  .pw-related{margin-top:1.5rem;}
+  .pw-related h2{font-size:1.1rem;}
+  .pw-rel-card{border:1px solid #1e1e1e;background:#0c0c0c;border-radius:12px;padding:.85rem;margin-bottom:.6rem;}
+  .pw-rel-card h4{font-family:'DM Serif Display',serif;font-size:.95rem;margin:.15rem 0;}
+  .pw-rel-card h4 a{color:var(--offwhite);text-decoration:none;}
+  .pw-rel-card h4 a:hover{color:var(--green);}
+  .pw-back-cta{display:inline-block;margin-top:1.75rem;color:var(--green);font-size:.72rem;text-transform:uppercase;letter-spacing:.14em;text-decoration:none;}
+`;
+
+function renderSpeciesCard(s) {
+  const href = `${WILDLIFE_BASE_PATH}/${escapeHtml(s.slug)}`;
+  const img = s.image_url
+    ? `<div class="pw-card-imgwrap"><img src="${escapeHtml(s.image_url)}" alt="${escapeHtml(s.image_alt || s.name)}" loading="lazy" /></div>`
+    : `<div class="pw-card-imgwrap"><div class="pw-card-ph">${escapeHtml(s.animal || 'Species')}</div></div>`;
+  return `<article class="pw-card">
+    ${img}
+    <div class="pw-card-body">
+      ${s.animal ? `<span class="pw-card-animal">${escapeHtml(s.animal)}</span>` : ''}
+      <h3 class="pw-card-name"><a href="${href}">${escapeHtml(s.name)}</a></h3>
+      ${s.tagline ? `<p class="pw-card-tagline">${escapeHtml(s.tagline)}</p>` : ''}
+      ${s.short_description ? `<p class="pw-card-desc">${escapeHtml(s.short_description)}</p>` : ''}
+      <a class="pw-card-cta" href="${href}">View Species →</a>
+    </div>
+  </article>`;
+}
+
+function renderWildlifeLandingPage(speciesList) {
+  const published = publishedSpeciesSorted(speciesList);
+  const cards = published.map(renderSpeciesCard).join('');
+  const body = `
+    <style>${WILDLIFE_CSS}</style>
+    <section class="hero">
+      <p class="pw-eyebrow">// ATM Field Guide</p>
+      <h1>Poker Wildlife</h1>
+      <p class="pw-lede" style="margin-top:1rem;">
+        <strong>Every poker table is an ecosystem.</strong><br />
+        Sharks hunt. Whales create action. Turtles tank. Parrots talk.
+        And somewhere at the table, a Howler Monkey is demanding an investigation.<br />
+        You've played with them. You may even be one of them.
+        <strong> Meet the species.</strong>
+      </p>
+      ${published.length ? `<span class="pw-count">Species Discovered: ${published.length}</span>` : ''}
+    </section>
+    ${published.length
+      ? `<section class="pw-grid">${cards}</section>`
+      : `<section class="notice" style="margin-top:1.5rem;">No species have been published yet. Check back soon.</section>`}
+    ${renderWildlifeDisclaimer()}
+  `;
+  const head = renderWildlifeMeta(null, WILDLIFE_BASE_PATH);
+  return renderLayout('Poker Wildlife | ATMwithNoPIN', body, head);
+}
+
+function renderSpeciesPage(species, allSpecies, opts = {}) {
+  const isPreview = !!opts.preview;
+  const published = publishedSpeciesSorted(allSpecies);
+  const idx = published.findIndex((s) => s.id === species.id);
+  const prev = idx > 0 ? published[idx - 1] : null;
+  const next = idx >= 0 && idx < published.length - 1 ? published[idx + 1] : null;
+  const related = published.filter((s) => s.id !== species.id).slice(0, 3);
+  const canonicalPath = `${WILDLIFE_BASE_PATH}/${species.slug}`;
+  const shareUrl = WILDLIFE_ORIGIN + canonicalPath;
+  const dateStr = species.published_at
+    ? new Date(species.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : '';
+  const heroImg = species.image_url
+    ? `<img class="pw-hero-img" src="${escapeHtml(species.image_url)}" alt="${escapeHtml(species.image_alt || species.name)}" />`
+    : `<div class="pw-hero-ph">${escapeHtml(species.animal || 'Poker Wildlife')}</div>`;
+  const relatedHtml = related.map((s) =>
+    `<article class="pw-rel-card"><span class="pw-card-animal">${escapeHtml(s.animal || '')}</span><h4><a href="${WILDLIFE_BASE_PATH}/${escapeHtml(s.slug)}">${escapeHtml(s.name)}</a></h4><p class="small" style="color:#888;margin-top:.2rem;">${escapeHtml((s.tagline || s.short_description || '').slice(0, 110))}</p></article>`
+  ).join('');
+  const body = `
+    <style>${WILDLIFE_CSS}</style>
+    ${isPreview ? `<div class="pw-preview-ribbon">Preview — status: ${escapeHtml(species.status || 'draft')} — not publicly visible</div>` : ''}
+    <section class="hero">
+      <p class="pw-eyebrow"><a href="${WILDLIFE_BASE_PATH}" style="color:var(--green);">// ATM Field Guide</a> › Poker Wildlife</p>
+      <h1>${escapeHtml(species.name)}</h1>
+      ${species.tagline ? `<p class="pw-tagline-lede">"${escapeHtml(species.tagline)}"</p>` : ''}
+      ${dateStr ? `<p class="meta">${escapeHtml(dateStr)}</p>` : ''}
+    </section>
+    <section class="grid" style="margin-top:1rem;">
+      <article class="card">
+        ${heroImg}
+        <div class="pw-field-strip">
+          ${species.animal ? `<div class="pw-field-row"><span class="pw-field-lbl">Animal</span><span class="pw-field-val">${escapeHtml(species.animal)}</span></div>` : ''}
+          ${species.classification ? `<div class="pw-field-row"><span class="pw-field-lbl">Classification</span><span class="pw-field-val pw-classification">${escapeHtml(species.classification)}</span></div>` : ''}
+        </div>
+        ${species.short_description ? `<p class="body-text">${escapeHtml(species.short_description)}</p>` : ''}
+        ${species.content ? `<div class="pw-body-content">${renderMarkdown(species.content)}</div>` : ''}
+        <div class="pw-share-row">
+          <p class="meta">Share this species</p>
+          <div class="pw-share-btns">
+            <a class="pw-share-btn" href="https://twitter.com/intent/tweet?text=${encodeURIComponent(species.name + ' — Poker Wildlife | ATMwithNoPIN')}&url=${encodeURIComponent(shareUrl)}" target="_blank" rel="noopener">𝕏 Share</a>
+            <button class="pw-share-btn" onclick="navigator.clipboard.writeText('${shareUrl}').then(function(){var b=this;this.textContent='Copied!';setTimeout(function(){b.textContent='Copy Link';},2000);}.bind(this))">Copy Link</button>
+          </div>
+        </div>
+        ${(prev || next) ? `<nav class="pw-pgnav">
+          ${prev ? `<a href="${WILDLIFE_BASE_PATH}/${escapeHtml(prev.slug)}"><span class="nav-lbl">← Previous Species</span>${escapeHtml(prev.name)}</a>` : '<span></span>'}
+          ${next ? `<a href="${WILDLIFE_BASE_PATH}/${escapeHtml(next.slug)}" style="text-align:right;margin-left:auto;"><span class="nav-lbl">Next Species →</span>${escapeHtml(next.name)}</a>` : ''}
+        </nav>` : ''}
+        ${renderWildlifeDisclaimer(true)}
+        <a class="pw-back-cta" href="${WILDLIFE_BASE_PATH}">Explore All Species →</a>
+      </article>
+      ${relatedHtml ? `<aside class="card pw-related"><h2>More Wildlife</h2><div style="margin-top:.75rem;">${relatedHtml}</div></aside>` : ''}
+    </section>
+  `;
+  const head = renderWildlifeMeta(species, canonicalPath);
+  const titleStr = species.seo_title || `${species.name} | Poker Wildlife | ATMwithNoPIN`;
+  return renderLayout(titleStr, body, head);
 }
 
 // ─── THE RAIL ENGINE ────────────────────────────────────────────────────────
@@ -8000,6 +8550,36 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ─── POKER WILDLIFE PUBLIC ROUTES ────────────────────────────────────────
+  if (pathname === '/stories/poker-wildlife') {
+    const all = await loadSpecies();
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderWildlifeLandingPage(all));
+    logPageVisit(req, pathname);
+    return;
+  }
+
+  if (pathname.startsWith('/stories/poker-wildlife/')) {
+    const slug = pathname.split('/').filter(Boolean).slice(2).join('/');
+    const wantsPreview = parsed.searchParams.get('preview') === '1';
+    const all = await loadSpecies();
+    let species = all.find((s) => s.slug === slug && s.status === 'published');
+    let isPreview = false;
+    if (!species && wantsPreview && verifyAdmin(req)) {
+      species = all.find((s) => s.slug === slug);
+      isPreview = !!species;
+    }
+    if (!species) {
+      res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(renderLayout('Species not found', `<section class="card"><h1>Species not found</h1><p class="body-text">That species is not available yet, or the slug is wrong.</p><p style="margin-top:.75rem;"><a href="/stories/poker-wildlife">← Back to Poker Wildlife</a></p></section>`));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': isPreview ? 'no-store' : 'public, max-age=60' });
+    res.end(renderSpeciesPage(species, all, { preview: isPreview }));
+    if (!isPreview) logPageVisit(req, pathname);
+    return;
+  }
+
   if (pathname === '/player-cards') {
     const all = await loadChronicles();
     const cards = buildPlayerCards(all);
@@ -8227,6 +8807,90 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
       const filtered = all.filter((x) => x.id !== id);
       if (filtered.length === all.length) throw new Error('Chronicle not found.');
       await saveChronicles(filtered);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (error) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  // ─── POKER WILDLIFE ADMIN API (behind /api/admin/ auth gate) ──────────────
+  if (pathname === '/api/admin/wildlife' && req.method === 'GET') {
+    const all = await loadSpecies();
+    all.sort((a, b) => (a.display_order - b.display_order) || (new Date(b.updated_at || 0) - new Date(a.updated_at || 0)));
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ species: all, env: { production: isProductionEnv(), cloudinary: cloudinaryConfigured() } }));
+    return;
+  }
+
+  if (pathname === '/api/admin/wildlife' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody(req);
+      const all = await loadSpecies();
+      const species = normalizeSpecies(body);
+      if (!species.name) throw new Error('Species name is required.');
+      if (!species.slug) throw new Error('Slug is required.');
+      if (all.some((s) => s.slug === species.slug)) throw new Error('That slug is already in use by another species.');
+      if (species.status === 'published') {
+        const reason = speciesPublishBlockReason(species);
+        if (reason) throw new Error(reason);
+      }
+      all.push(species);
+      await saveSpecies(all);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(species));
+    } catch (error) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  if (pathname.startsWith('/api/admin/wildlife/') && req.method === 'GET') {
+    const id = pathname.split('/').pop();
+    const all = await loadSpecies();
+    const species = all.find((s) => s.id === id);
+    if (!species) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Species not found.' })); return; }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(species));
+    return;
+  }
+
+  if (pathname.startsWith('/api/admin/wildlife/') && req.method === 'PUT') {
+    try {
+      const id = pathname.split('/').pop();
+      const body = await parseJsonBody(req);
+      const all = await loadSpecies();
+      const index = all.findIndex((s) => s.id === id);
+      if (index === -1) throw new Error('Species not found.');
+      const updated = normalizeSpecies(body, all[index]);
+      if (!updated.name) throw new Error('Species name is required.');
+      if (!updated.slug) throw new Error('Slug is required.');
+      if (all.some((s) => s.slug === updated.slug && s.id !== id)) throw new Error('That slug is already in use by another species.');
+      if (updated.status === 'published') {
+        const reason = speciesPublishBlockReason(updated);
+        if (reason) throw new Error(reason);
+      }
+      all[index] = updated;
+      await saveSpecies(all);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(updated));
+    } catch (error) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  if (pathname.startsWith('/api/admin/wildlife/') && req.method === 'DELETE') {
+    try {
+      const id = pathname.split('/').pop();
+      const all = await loadSpecies();
+      const filtered = all.filter((s) => s.id !== id);
+      if (filtered.length === all.length) throw new Error('Species not found.');
+      await saveSpecies(filtered);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
     } catch (error) {
@@ -9043,7 +9707,7 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
   }
 
   if (pathname === '/' || pathname === '/index.html') {
-    const [allPosts, allChron, allSubs] = await Promise.all([loadPosts(), loadChronicles(), loadSubmissions()]);
+    const [allPosts, allChron, allSubs, allWildlife] = await Promise.all([loadPosts(), loadChronicles(), loadSubmissions(), loadSpecies()]);
     const pubPosts = allPosts
       .filter((post) => post.status === 'published')
       .sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
@@ -9052,6 +9716,8 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
       .filter((c) => c.status === 'published')
       .sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
     const featChron = pubChron.slice(0, 4);
+    const pubWildlife = publishedSpeciesSorted(allWildlife);
+    const featWildlife = (pubWildlife.filter((s) => s.featured).length ? pubWildlife.filter((s) => s.featured) : pubWildlife).slice(0, 4);
     fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, data) => {
       if (err) {
         res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -9143,11 +9809,45 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
           <a href="/ai-profile-generator" style="display:inline-block;color:var(--gold);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">Get Featured →</a>
         </div>
       </section>`;
+      const wildlifeCard = (s) => `
+          <article class="pw-hp-card">
+            <div class="pw-hp-img">${s.image_url
+              ? `<img src="${escapeHtml(s.image_url)}" alt="${escapeHtml(s.image_alt || s.name)}" loading="lazy">`
+              : `<span>${escapeHtml(s.animal || 'Species')}</span>`}</div>
+            <div class="pw-hp-body">
+              <div class="pw-hp-animal">${escapeHtml(s.animal || 'Poker Wildlife')}</div>
+              <h3><a href="/stories/poker-wildlife/${escapeHtml(s.slug)}">${escapeHtml(s.name)}</a></h3>
+              ${s.tagline ? `<p>${escapeHtml(s.tagline.slice(0, 120))}${s.tagline.length > 120 ? '…' : ''}</p>` : ''}
+            </div>
+          </article>`;
+      const wildlifeSection = featWildlife.length ? `<section class="schedule" id="poker-wildlife-preview" style="border-top:1px solid #1a1a1a;">
+        <style>
+          .pw-hp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-top:1rem;}
+          @media(max-width:900px){.pw-hp-grid{grid-template-columns:repeat(2,1fr);}}
+          @media(max-width:520px){.pw-hp-grid{grid-template-columns:1fr;}}
+          .pw-hp-card{border:1px solid #1e1e1e;background:#0c0c0c;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;}
+          .pw-hp-img{aspect-ratio:16/10;background:linear-gradient(135deg,#0d2e1a,#0a1a0f);overflow:hidden;display:flex;align-items:center;justify-content:center;}
+          .pw-hp-img img{width:100%;height:100%;object-fit:cover;display:block;}
+          .pw-hp-img span{color:var(--green-dim);font-family:'Bebas Neue',sans-serif;letter-spacing:.18em;text-transform:uppercase;font-size:.9rem;}
+          .pw-hp-body{padding:.9rem;display:flex;flex-direction:column;gap:.35rem;}
+          .pw-hp-animal{font-size:.56rem;text-transform:uppercase;letter-spacing:.15em;color:var(--gold);}
+          .pw-hp-body h3{font-family:'DM Serif Display',serif;font-size:1rem;line-height:1.25;margin:0;}
+          .pw-hp-body h3 a{color:var(--offwhite);text-decoration:none;}
+          .pw-hp-body h3 a:hover{color:var(--green);}
+          .pw-hp-body p{color:#888;font-size:.76rem;line-height:1.5;font-style:italic;}
+        </style>
+        <p class="section-label">// ATM Field Guide</p>
+        <h2>Poker Wildlife</h2>
+        <p class="body-text" style="max-width:60ch;">Every poker table has its wildlife. You've played with them. You may even be one of them.</p>
+        <div class="pw-hp-grid">${featWildlife.map(wildlifeCard).join('')}</div>
+        <div style="margin-top:1.5rem;"><a href="/stories/poker-wildlife" style="display:inline-block;color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">Enter the Wildlife →</a></div>
+      </section>` : '';
       const html = data
         .replace('<!-- HERO_CAROUSEL -->', renderHeroCarousel())
         .replace('<!-- BLOG_PREVIEW -->', `<div class="section-divider"><div class="hp-section" id="stories"><p class="section-label">// Latest from the ATM</p><h2>Latest Stories</h2>${featuredHtml}<div class="section-cta-row"><a href="/blog" class="section-cta-link">View all stories →</a></div></div></div>`)
         .replace('<!-- RECENT_POSTS -->', '')
         .replace('<!-- CHRONICLES_PREVIEW -->', chronSection)
+        .replace('<!-- POKER_WILDLIFE_PREVIEW -->', wildlifeSection)
         .replace('<!-- TOURNAMENT_JOURNEY -->', renderTournamentSection())
         .replace('<!-- COMMUNITY_PREVIEW -->', communitySection)
         .replace(/ATM With No PIN — Dhezz/g, 'ATMNOPIN™ Poker | Official Site')
@@ -9207,6 +9907,7 @@ async function start() {
   await migrateLegacyPosts();
   await seedDefaultPosts();
   await seedDefaultChronicles();
+  await seedWildlifeSpecies();
   await seedDefaultSubmissions();
   server.listen(PORT, () => {
     console.log(`ATM is open on port ${PORT} 🏧`);

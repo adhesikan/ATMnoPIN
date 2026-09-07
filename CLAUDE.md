@@ -24,6 +24,8 @@ A poker entertainment brand site for Dhezz (`@ATMwithNoPIN`). The site is a Node
 | `/admin` | server-rendered | Password-gated CMS; login form at `/admin` when unauthenticated |
 | `/chat.html` | `chat.html` | Firebase real-time chat |
 | `/shop.html` | `shop.html` | Merchandise page |
+| `/stories/poker-wildlife` | server-rendered | Poker Wildlife landing (published species only) |
+| `/stories/poker-wildlife/:slug` | server-rendered | Individual species page; `?preview=1` + admin session shows drafts |
 | `/uploads/*` | `uploads/` dir | Locally uploaded images |
 
 ## Design System
@@ -118,6 +120,22 @@ Custom, minimal — supports: `# h1`, `## h2`, `### h3`, `- / *` unordered lists
 2. Server tries Cloudinary first (if env vars are set).
 3. Falls back to writing to `uploads/` and returning a `/uploads/<filename>` URL.
 4. Only JPG, PNG, WEBP accepted. Max 5MB.
+
+## Poker Wildlife
+
+An editorial series of **fictional / composite** poker-table archetypes (The Shark, The Whale, etc.). It is its **own content type** — deliberately not a Chronicles category — but reuses the Chronicles engine patterns.
+
+- **Storage**: `wildlife_species` table, same `(id, data JSONB/TEXT, created_at)` shape as `chronicles`. `loadSpecies()` / `saveSpecies()` mirror `loadChronicles()` / `saveChronicles()` (transactional DELETE + re-INSERT).
+- **Seed**: `WILDLIFE_SEED` (10 species) + `seedWildlifeSpecies()`, run from `start()`. **Idempotent by slug** — inserts a species only if its slug is absent, never updates/overwrites an existing row. Seeds are metadata-only drafts (name, slug, animal, tagline, display_order).
+- **Model fields**: `name, slug, animal, classification (optional), tagline, short_description, content (markdown), image_url, image_alt, status (draft|published), featured, display_order, published_at, seo_title, seo_description, created_at, updated_at`.
+- **Images**: reuse `POST /api/admin/upload`; the record stores only `image_url` (string). Deleting a species never deletes the file.
+- **Production image guard**: `speciesPublishBlockReason()` — in production (`isProductionEnv()`), publishing a species whose `image_url` starts with `/uploads/` is rejected (ephemeral Railway storage). Cloudinary HTTPS URLs always allowed; local dev allows `/uploads/`.
+- **Admin**: "Poker Wildlife" tab in `/admin` (`renderAdminPage`). API: `GET/POST /api/admin/wildlife`, `GET/PUT/DELETE /api/admin/wildlife/:id` (behind the `/api/admin/` auth gate).
+- **Public**: `renderWildlifeLandingPage()` (`/stories/poker-wildlife`), `renderSpeciesPage()` (`/stories/poker-wildlife/:slug`, published only). Draft preview: `?preview=1` + valid admin session (`verifyAdmin`).
+- **Homepage**: `<!-- POKER_WILDLIFE_PREVIEW -->` placeholder in `index.html`, between Chronicles and Tournament Journey. Populated from `featured` + `display_order`; omitted entirely when nothing qualifies.
+- **SEO**: `renderLayout(title, body, head='')` now takes an optional third arg for per-page `<head>` markup (canonical + OG + Twitter). Existing 2-arg calls are unchanged; when `head` is passed, the generic fallback `<meta name="description">` is suppressed.
+- Every species page shows a fixed satire disclaimer (`WILDLIFE_DISCLAIMER`). No fields exist for real names / casinos / locations — this is intentional.
+- Smoke test: `node scripts/smoke-wildlife.js` (self-contained, spawns its own server against a temp SQLite DB).
 
 ## Firebase Configuration
 

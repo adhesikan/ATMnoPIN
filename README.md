@@ -23,8 +23,16 @@
 - If `CLOUDINARY_CLOUD_NAME` and `CLOUDINARY_UPLOAD_PRESET` are provided, image uploads go to Cloudinary instead.
 - Only safe image types are accepted: jpg, jpeg, png, webp.
 
+## Poker Wildlife
+- Editorial series of fictional poker-table archetypes at `/stories/poker-wildlife`.
+- Managed from the **Poker Wildlife** tab in `/admin` (create/edit/publish/feature/order/delete).
+- Species images reuse the same upload flow as the blog. In production, a species using a local `/uploads/...` image cannot be published — upload it to Cloudinary first.
+- Individual species: `/stories/poker-wildlife/<slug>`. Drafts are private; admins can preview with `?preview=1`.
+- Smoke test: `node scripts/smoke-wildlife.js`.
+
 ## Environment variables
 See `.env.example` for the required variables.
+Optional: `SQLITE_DB_FILE` overrides the local SQLite path (used by the smoke test).
 
 ## Deployment notes
 - The local upload path is fine for development.
