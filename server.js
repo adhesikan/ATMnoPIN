@@ -9714,7 +9714,7 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
   }
 
   if (pathname === '/' || pathname === '/index.html') {
-    const [allPosts, allChron, allSubs, allWildlife] = await Promise.all([loadPosts(), loadChronicles(), loadSubmissions(), loadSpecies()]);
+    const [allPosts, allChron, allWildlife] = await Promise.all([loadPosts(), loadChronicles(), loadSpecies()]);
     const pubPosts = allPosts
       .filter((post) => post.status === 'published')
       .sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
@@ -9724,7 +9724,8 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
       .sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
     const featChron = pubChron.slice(0, 4);
     const pubWildlife = publishedSpeciesSorted(allWildlife);
-    const featWildlife = (pubWildlife.filter((s) => s.featured).length ? pubWildlife.filter((s) => s.featured) : pubWildlife).slice(0, 4);
+    // Homepage feature grid: published AND featured only, by display_order, max 4.
+    const featWildlife = pubWildlife.filter((s) => s.featured).slice(0, 4);
     fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, data) => {
       if (err) {
         res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -9778,85 +9779,81 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
         <div class="hof-preview-grid">${chronPreviewHtml}</div>
         <div style="margin-top:1.5rem;"><a href="/chronicles" style="display:inline-block;color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View All Chronicles →</a></div>
       </section>`;
-      const allApprovedPlayers = allSubs
-        .filter((s) => s.status === 'approved')
-        .sort((a, b) => (b.featured_on_home ? 1 : 0) - (a.featured_on_home ? 1 : 0));
-      const communityCard = (p) => {
-        const initials = ((p.name || 'P').split(' ').map((w) => w[0]).join('').slice(0, 2)).toUpperCase();
-        const badgeHtml = p.badge ? `<span style="display:inline-block;padding:.2rem .5rem;border-radius:20px;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;background:var(--green);color:#000;margin-bottom:.4rem;">${escapeHtml(p.badge)}</span>` : '';
-        const photoHtml = p.photo_url
-          ? `<img src="${escapeHtml(p.photo_url)}" alt="${escapeHtml(p.name)}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--green);margin-right:.75rem;">`
-          : `<div style="width:56px;height:56px;border-radius:50%;background:var(--felt);display:flex;align-items:center;justify-content:center;color:var(--green);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;border:2px solid var(--green-dim);margin-right:.75rem;">${escapeHtml(initials)}</div>`;
-        return `<article class="cw-card">
-          <div style="display:flex;align-items:center;margin-bottom:.75rem;">${photoHtml}<div><div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--offwhite);">${escapeHtml(p.name)}${p.nickname ? ` <span style="color:var(--green);font-size:.85rem;">"${escapeHtml(p.nickname)}"</span>` : ''}</div>${p.city ? `<div style="color:var(--gray);font-size:.72rem;">${escapeHtml(p.city)}</div>` : ''}</div></div>
-          ${badgeHtml}
-          ${p.accomplishment ? `<p style="color:#888;font-size:.78rem;line-height:1.5;margin-bottom:.5rem;">${escapeHtml(p.accomplishment.slice(0, 100))}${p.accomplishment.length > 100 ? '…' : ''}</p>` : ''}
-          <a href="/players/${escapeHtml(p.slug)}" style="color:var(--green);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;text-decoration:none;">View Profile →</a>
-        </article>`;
+      // ── POKER WILDLIFE homepage feature (replaces the former Community Wall promo block) ──
+      const wildlifeCard = (s) => {
+        const href = '/stories/poker-wildlife/' + escapeHtml(s.slug);
+        const alt = escapeHtml(s.image_alt || (s.name + ' — Poker Wildlife'));
+        const aria = escapeHtml(s.name + (s.tagline ? ' — ' + s.tagline : '') + '. View species page.');
+        return `<a class="pw-hp-card" href="${href}" aria-label="${aria}">
+            <span class="pw-hp-img">${s.image_url
+              ? `<img src="${escapeHtml(s.image_url)}" alt="${alt}" loading="lazy">`
+              : `<span class="pw-hp-ph" aria-hidden="true">${escapeHtml(s.animal || 'Species')}</span>`}</span>
+            <span class="pw-hp-body">
+              <span class="pw-hp-animal">${escapeHtml(s.animal || 'Poker Wildlife')}</span>
+              <span class="pw-hp-name">${escapeHtml(s.name)}</span>
+              ${s.tagline ? `<span class="pw-hp-tagline">${escapeHtml(s.tagline)}</span>` : ''}
+              <span class="pw-hp-more">View species <span class="pw-hp-arrow" aria-hidden="true">→</span></span>
+            </span>
+          </a>`;
       };
-      const cwDuration = Math.max(24, allApprovedPlayers.length * 5);
-      const communityWallHtml = allApprovedPlayers.length
-        ? `<style>
-            .cw-viewport{overflow:hidden;margin-top:1rem;-webkit-mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);}
-            .cw-track{display:flex;gap:1rem;width:max-content;animation:cwScroll ${cwDuration}s linear infinite;}
-            .cw-viewport:hover .cw-track{animation-play-state:paused;}
-            .cw-card{flex:0 0 240px;border:1px solid #1e1e1e;background:#0c0c0c;border-radius:14px;padding:1rem;}
-            @keyframes cwScroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
-            @media(prefers-reduced-motion:reduce){.cw-track{animation:none;}}
-          </style>
-          <div class="cw-viewport"><div class="cw-track">${allApprovedPlayers.map(communityCard).join('')}${allApprovedPlayers.map(communityCard).join('')}</div></div>`
-        : '<div style="color:var(--gray);font-size:.9rem;margin-top:1rem;">No community profiles yet. <a href="/ai-profile-generator" style="color:var(--green);">Be the first →</a></div>';
-      const communitySection = `<section class="schedule" id="community-preview" style="border-top:1px solid #1a1a1a;">
-        <p class="section-label">// ATMNOPIN Community</p>
-        <h2>Community Wall</h2>
-        <p class="body-text" style="max-width:60ch;">Poker players from the ATMNOPIN universe — their stories, bad beats, and moments of glory.</p>
-        ${communityWallHtml}
-        <div style="margin-top:1.5rem;display:flex;gap:1rem;flex-wrap:wrap;">
-          <a href="/community-wall" style="display:inline-block;color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">View Community Wall →</a>
-          <a href="/ai-profile-generator" style="display:inline-block;color:var(--gold);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">Get Featured →</a>
-        </div>
-      </section>`;
-      const wildlifeCard = (s) => `
-          <article class="pw-hp-card">
-            <div class="pw-hp-img">${s.image_url
-              ? `<img src="${escapeHtml(s.image_url)}" alt="${escapeHtml(s.image_alt || s.name)}" loading="lazy">`
-              : `<span>${escapeHtml(s.animal || 'Species')}</span>`}</div>
-            <div class="pw-hp-body">
-              <div class="pw-hp-animal">${escapeHtml(s.animal || 'Poker Wildlife')}</div>
-              <h3><a href="/stories/poker-wildlife/${escapeHtml(s.slug)}">${escapeHtml(s.name)}</a></h3>
-              ${s.tagline ? `<p>${escapeHtml(s.tagline.slice(0, 120))}${s.tagline.length > 120 ? '…' : ''}</p>` : ''}
-            </div>
-          </article>`;
-      const wildlifeSection = featWildlife.length ? `<section class="schedule" id="poker-wildlife-preview" style="border-top:1px solid #1a1a1a;">
+      const wildlifeGrid = featWildlife.length
+        ? `<div class="pw-hp-grid">${featWildlife.map(wildlifeCard).join('')}</div>`
+        : '';
+      const wildlifeExplore = pubWildlife.length
+        ? `EXPLORE ALL ${pubWildlife.length} SPECIES <span class="pw-hp-arrow" aria-hidden="true">→</span>`
+        : `EXPLORE ALL SPECIES <span class="pw-hp-arrow" aria-hidden="true">→</span>`;
+      const wildlifeSection = `<section class="schedule section-divider" id="poker-wildlife" aria-labelledby="pw-hp-heading">
         <style>
-          .pw-hp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-top:1rem;}
-          @media(max-width:900px){.pw-hp-grid{grid-template-columns:repeat(2,1fr);}}
-          @media(max-width:520px){.pw-hp-grid{grid-template-columns:1fr;}}
-          .pw-hp-card{border:1px solid #1e1e1e;background:#0c0c0c;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;}
-          .pw-hp-img{aspect-ratio:16/10;background:linear-gradient(135deg,#0d2e1a,#0a1a0f);overflow:hidden;display:flex;align-items:center;justify-content:center;}
-          .pw-hp-img img{width:100%;height:100%;object-fit:cover;display:block;}
-          .pw-hp-img span{color:var(--green-dim);font-family:'Bebas Neue',sans-serif;letter-spacing:.18em;text-transform:uppercase;font-size:.9rem;}
-          .pw-hp-body{padding:.9rem;display:flex;flex-direction:column;gap:.35rem;}
-          .pw-hp-animal{font-size:.56rem;text-transform:uppercase;letter-spacing:.15em;color:var(--gold);}
-          .pw-hp-body h3{font-family:'DM Serif Display',serif;font-size:1rem;line-height:1.25;margin:0;}
-          .pw-hp-body h3 a{color:var(--offwhite);text-decoration:none;}
-          .pw-hp-body h3 a:hover{color:var(--green);}
-          .pw-hp-body p{color:#888;font-size:.76rem;line-height:1.5;font-style:italic;}
+          #poker-wildlife .pw-hp-badge{display:inline-block;margin-bottom:1rem;padding:.3rem .75rem;border:1px solid var(--gold);color:var(--gold);font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;border-radius:999px;}
+          #poker-wildlife .pw-hp-heading{font-family:'DM Serif Display',serif;font-size:clamp(2.4rem,6vw,4rem);line-height:1;letter-spacing:.02em;text-transform:uppercase;color:var(--offwhite);margin:0 0 .75rem;}
+          #poker-wildlife .pw-hp-primary{font-family:'DM Serif Display',serif;font-size:clamp(1.1rem,2.4vw,1.6rem);color:var(--green);text-transform:uppercase;letter-spacing:.04em;margin:0 0 1rem;}
+          #poker-wildlife .pw-hp-lede{font-size:.82rem;line-height:1.9;color:var(--text-secondary);max-width:58ch;margin:0 0 .6rem;}
+          #poker-wildlife .pw-hp-cta-row{margin:1.75rem 0 0;}
+          #poker-wildlife .pw-hp-primary-cta{display:inline-block;padding:.8rem 1.4rem;border:1px solid var(--green);border-radius:8px;color:var(--green);font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;transition:background .2s,color .2s;}
+          #poker-wildlife .pw-hp-primary-cta:hover,#poker-wildlife .pw-hp-primary-cta:focus-visible{background:var(--green);color:#000;}
+          #poker-wildlife .pw-hp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.25rem;margin-top:2.5rem;}
+          #poker-wildlife .pw-hp-card{display:flex;flex-direction:column;border:1px solid #1c1c1c;background:#0b0b0b;border-radius:14px;overflow:hidden;text-decoration:none;transition:border-color .25s,box-shadow .25s,transform .25s;}
+          #poker-wildlife .pw-hp-card:hover,#poker-wildlife .pw-hp-card:focus-visible{border-color:rgba(0,200,83,.5);box-shadow:0 0 0 1px rgba(0,200,83,.15),0 18px 40px -20px rgba(0,200,83,.35);transform:translateY(-3px);outline:none;}
+          #poker-wildlife .pw-hp-img{position:relative;aspect-ratio:4/5;background:linear-gradient(150deg,#0d2e1a,#070b08);overflow:hidden;display:block;}
+          #poker-wildlife .pw-hp-img img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;transition:transform .35s ease;}
+          #poker-wildlife .pw-hp-card:hover .pw-hp-img img,#poker-wildlife .pw-hp-card:focus-visible .pw-hp-img img{transform:scale(1.04);}
+          #poker-wildlife .pw-hp-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--green-dim);font-family:'Bebas Neue',sans-serif;letter-spacing:.2em;text-transform:uppercase;font-size:1rem;}
+          #poker-wildlife .pw-hp-body{padding:1rem 1.05rem 1.15rem;display:flex;flex-direction:column;gap:.4rem;flex:1;}
+          #poker-wildlife .pw-hp-animal{font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);}
+          #poker-wildlife .pw-hp-name{font-family:'DM Serif Display',serif;font-size:1.15rem;line-height:1.2;color:var(--offwhite);}
+          #poker-wildlife .pw-hp-tagline{font-size:.78rem;line-height:1.55;color:var(--text-secondary);flex:1;}
+          #poker-wildlife .pw-hp-more{margin-top:.35rem;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--green);}
+          #poker-wildlife .pw-hp-arrow{display:inline-block;transition:transform .2s ease;}
+          #poker-wildlife .pw-hp-card:hover .pw-hp-arrow,#poker-wildlife a:hover .pw-hp-arrow,#poker-wildlife a:focus-visible .pw-hp-arrow{transform:translateX(4px);}
+          #poker-wildlife .pw-hp-bottom{margin-top:2.5rem;padding-top:1.75rem;border-top:1px solid #1a1a1a;}
+          #poker-wildlife .pw-hp-explore{display:inline-block;color:var(--green);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;}
+          #poker-wildlife .pw-hp-explore:hover,#poker-wildlife .pw-hp-explore:focus-visible{color:var(--offwhite);}
+          #poker-wildlife .pw-hp-teaser{margin-top:1rem;font-size:.72rem;line-height:1.7;color:var(--gray);}
+          #poker-wildlife .pw-hp-teaser-q{color:var(--gold);}
+          @media(max-width:900px){#poker-wildlife .pw-hp-grid{grid-template-columns:repeat(2,1fr);gap:1rem;}}
+          @media(max-width:520px){#poker-wildlife .pw-hp-grid{grid-template-columns:1fr;}#poker-wildlife .pw-hp-img{aspect-ratio:16/10;}}
+          @media(prefers-reduced-motion:reduce){#poker-wildlife .pw-hp-card,#poker-wildlife .pw-hp-img img,#poker-wildlife .pw-hp-arrow{transition:none;}#poker-wildlife .pw-hp-card:hover{transform:none;}#poker-wildlife .pw-hp-card:hover .pw-hp-img img{transform:none;}}
         </style>
         <p class="section-label">// ATM Field Guide</p>
-        <h2>Poker Wildlife</h2>
-        <p class="body-text" style="max-width:60ch;">Every poker table has its wildlife. You've played with them. You may even be one of them.</p>
-        <div class="pw-hp-grid">${featWildlife.map(wildlifeCard).join('')}</div>
-        <div style="margin-top:1.5rem;"><a href="/stories/poker-wildlife" style="display:inline-block;color:var(--green);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;">Enter the Wildlife →</a></div>
-      </section>` : '';
+        <p class="pw-hp-badge">New • Poker Wildlife</p>
+        <h2 id="pw-hp-heading" class="pw-hp-heading">POKER WILDLIFE</h2>
+        <p class="pw-hp-primary">EVERY POKER TABLE HAS ITS WILDLIFE.</p>
+        <p class="pw-hp-lede">Sharks hunt. Whales create action. Howler Monkeys demand investigations. Turtles are still thinking.</p>
+        <p class="pw-hp-lede">You've played with them. You may even be one of them.</p>
+        <div class="pw-hp-cta-row"><a class="pw-hp-primary-cta" href="/stories/poker-wildlife">MEET THE SPECIES <span class="pw-hp-arrow" aria-hidden="true">→</span></a></div>
+        ${wildlifeGrid}
+        <div class="pw-hp-bottom">
+          <a class="pw-hp-explore" href="/stories/poker-wildlife">${wildlifeExplore}</a>
+          <p class="pw-hp-teaser"><span class="pw-hp-teaser-q">Which Poker Wildlife species are you?</span> Field identification test coming soon.</p>
+        </div>
+      </section>`;
       const html = data
         .replace('<!-- HERO_CAROUSEL -->', renderHeroCarousel())
         .replace('<!-- BLOG_PREVIEW -->', `<div class="section-divider"><div class="hp-section" id="stories"><p class="section-label">// Latest from the ATM</p><h2>Latest Stories</h2>${featuredHtml}<div class="section-cta-row"><a href="/blog" class="section-cta-link">View all stories →</a></div></div></div>`)
         .replace('<!-- RECENT_POSTS -->', '')
         .replace('<!-- CHRONICLES_PREVIEW -->', chronSection)
-        .replace('<!-- POKER_WILDLIFE_PREVIEW -->', wildlifeSection)
         .replace('<!-- TOURNAMENT_JOURNEY -->', renderTournamentSection())
-        .replace('<!-- COMMUNITY_PREVIEW -->', communitySection)
+        .replace('<!-- COMMUNITY_PREVIEW -->', wildlifeSection)
         .replace(/ATM With No PIN — Dhezz/g, 'ATMNOPIN™ Poker | Official Site')
         .replace(/<title>ATM With No PIN — Dhezz<\/title>/, '<title>ATMNOPIN™ Poker | Official Site</title>');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });

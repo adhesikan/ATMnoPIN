@@ -135,24 +135,46 @@ async function main() {
     } });
     check('publish Shark with Cloudinary image succeeds', pub.status === 200, pub.text);
 
-    // Publish the Whale with a local /uploads image (allowed in dev)
+    // Publish the Whale — PUBLISHED but NOT featured (must not appear in the homepage grid)
     const whale = bySlug['whale'];
     let pubLocal = await request('PUT', '/api/admin/wildlife/' + whale.id, { cookie, body: {
-      ...whale, status: 'published', display_order: 20, image_url: '/uploads/whale-123.png', image_alt: 'A whale',
+      ...whale, status: 'published', featured: false, display_order: 20, image_url: '/uploads/whale-123.png', image_alt: 'A whale',
     } });
     check('publish with local /uploads image allowed in dev', pubLocal.status === 200, pubLocal.text);
 
+    // Publish the Howler Monkey — published + featured (second homepage card)
+    const howler = bySlug['howler-monkey'];
+    const pubHowler = await request('PUT', '/api/admin/wildlife/' + howler.id, { cookie, body: {
+      ...howler, status: 'published', featured: true, display_order: 30,
+      image_url: 'https://res.cloudinary.com/demo/image/upload/howler.webp', image_alt: 'A howler monkey',
+    } });
+    check('publish Howler Monkey (published + featured) succeeds', pubHowler.status === 200, pubHowler.text);
+
     const landing2 = await request('GET', '/stories/poker-wildlife');
     check('published Shark now on landing', landing2.text.includes('/stories/poker-wildlife/shark"'));
-    check('species count = 2', /Species Discovered:\s*2/.test(landing2.text));
+    check('species count = 3', /Species Discovered:\s*3/.test(landing2.text));
     const sharkPage = await request('GET', '/stories/poker-wildlife/shark');
     check('published species page 200 + OG tags', sharkPage.status === 200 && /property="og:title"/.test(sharkPage.text) && /rel="canonical"/.test(sharkPage.text));
     check('published species page carries exact satire disclaimer', sharkPage.text.includes(EXACT_DISCLAIMER) && /Satire Disclaimer/.test(sharkPage.text));
     check('disclaimer renders before the Explore All Species CTA', sharkPage.text.indexOf(EXACT_DISCLAIMER) < sharkPage.text.indexOf('Explore All Species'));
 
-    // Homepage teaser
+    // ── Homepage Poker Wildlife feature section (replaces former Community Wall promo) ──
     const home = await request('GET', '/');
-    check('homepage teaser renders (featured Shark)', /poker-wildlife-preview/.test(home.text) && /Poker Wildlife/.test(home.text));
+    check('homepage returns 200', home.status === 200, String(home.status));
+    check('homepage contains "POKER WILDLIFE"', home.text.includes('POKER WILDLIFE'));
+    check('homepage contains "EVERY POKER TABLE HAS ITS WILDLIFE."', home.text.includes('EVERY POKER TABLE HAS ITS WILDLIFE.'));
+    check('homepage links to /stories/poker-wildlife', home.text.includes('href="/stories/poker-wildlife"'));
+    check('homepage has the Poker Wildlife feature section', /id="poker-wildlife"/.test(home.text));
+    check('homepage has MEET THE SPECIES CTA', /MEET THE SPECIES/.test(home.text));
+    check('homepage bottom CTA shows dynamic species count', /EXPLORE ALL 3 SPECIES/.test(home.text));
+    check('homepage teaser: "Which Poker Wildlife species are you?"', home.text.includes('Which Poker Wildlife species are you?') && /Field identification test coming soon/.test(home.text));
+    check('teaser is NOT a link', !/<a[^>]*>\s*Which Poker Wildlife species are you\?/.test(home.text));
+    check('featured+published Shark card on homepage', home.text.includes('href="/stories/poker-wildlife/shark"'));
+    check('featured+published Howler Monkey card on homepage', home.text.includes('href="/stories/poker-wildlife/howler-monkey"'));
+    check('published-but-NOT-featured Whale absent from homepage grid', !home.text.includes('href="/stories/poker-wildlife/whale"'));
+    check('draft species absent from homepage', !['tanking-turtle', 'parrot', 'peacock', 'chipmunk', 'fox', 'elephant', 'slow-roll-sloth'].some((s) => home.text.includes('/stories/poker-wildlife/' + s + '"')));
+    check('old "Get on the Community Wall" promo section removed', !/id="community-preview"/.test(home.text) && !/their stories, bad beats, and moments of glory/.test(home.text) && !/class="cw-track"/.test(home.text));
+    check('homepage did not break: hero + follow still present', /id="home"/.test(home.text) && /id="follow"/.test(home.text));
 
     // Create species #11 entirely via API
     const create11 = await request('POST', '/api/admin/wildlife', { cookie, body: {
@@ -163,7 +185,7 @@ async function main() {
     const elevenSlug = JSON.parse(create11.text).slug;
     check('species #11 slug normalized to "the-rock" stays as given', elevenSlug === 'the-rock', elevenSlug);
     const landing3 = await request('GET', '/stories/poker-wildlife');
-    check('species count = 3 after #11', /Species Discovered:\s*3/.test(landing3.text));
+    check('species count = 4 after #11', /Species Discovered:\s*4/.test(landing3.text));
 
     // Unpublish #11
     const eleven = JSON.parse(create11.text);
@@ -177,10 +199,21 @@ async function main() {
     await request('PUT', '/api/admin/wildlife/' + parrot.id, { cookie, body: { ...parrot, tagline: 'EDITED BY SMOKE TEST' } });
 
     // Regression: other content types still serve
-    for (const [name, p] of [['blog', '/blog'], ['chronicles', '/chronicles'], ['rail', '/rail'], ['community wall', '/community-wall'], ['admin login', '/admin'], ['player cards', '/player-cards']]) {
+    for (const [name, p] of [['blog', '/blog'], ['chronicles', '/chronicles'], ['rail', '/rail'], ['community wall', '/community-wall'], ['get featured', '/ai-profile-generator'], ['admin', '/admin'], ['player cards', '/player-cards']]) {
       const r = await request('GET', p);
       check(`${name} still 200`, r.status === 200, `${p} -> ${r.status}`);
     }
+
+    // Regression: Community Wall functionality untouched
+    const cwPage = await request('GET', '/community-wall');
+    check('Community Wall public page still renders players', cwPage.status === 200 && /community/i.test(cwPage.text));
+    const subsApi = await request('GET', '/api/admin/submissions', { cookie });
+    check('Community submissions admin API still 200 + array', subsApi.status === 200 && Array.isArray(JSON.parse(subsApi.text)));
+    const adminPage = await request('GET', '/admin', { cookie });
+    check('Community admin tab still present', /data-panel="communityPanel"/.test(adminPage.text));
+    check('Poker Wildlife admin tab also present', /data-panel="wildlifePanel"/.test(adminPage.text));
+    const homeNav = await request('GET', '/');
+    check('homepage nav keeps Community + Get Featured links', homeNav.text.includes('href="/community-wall"') && homeNav.text.includes('>Get Featured<'));
 
     await stop(child);
 
