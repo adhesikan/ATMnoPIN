@@ -3751,6 +3751,23 @@ function renderLayout(title, body, head = '') {
     nav { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:1rem 0; border-bottom:1px solid #1e1e1e; }
     .nav-links { display:flex; gap:1rem; list-style:none; flex-wrap:wrap; }
     .nav-links a { color: #c6c6c6; font-size: .75rem; text-transform: uppercase; letter-spacing: .12em; }
+    .site-nav { position:relative; z-index:50; }
+    .site-nav .nav-links { align-items:center; }
+    .site-nav .nav-links a:hover { color: var(--offwhite); }
+    .site-nav .nav-cta { background: var(--green); color: var(--black); padding:.35rem .8rem; }
+    .site-nav .nav-links a.nav-cta:hover { color: var(--black); }
+    .site-nav .nav-toggle { display:none; background:none; border:1px solid #2a2a2a; border-radius:0; color: var(--offwhite); font-size:1.1rem; padding:.35rem .65rem; line-height:1; letter-spacing:0; text-transform:none; }
+    .nav-more { position:relative; }
+    .site-nav .nav-more-btn { background:none; border:none; border-radius:0; padding:0; color:#c6c6c6; font-size:.75rem; text-transform:uppercase; letter-spacing:.12em; display:inline-flex; align-items:center; gap:.35rem; }
+    .site-nav .nav-more-btn:hover, .site-nav .nav-more-btn[aria-expanded="true"] { color: var(--offwhite); }
+    .site-nav .nav-more-btn:focus-visible, .nav-more-menu a:focus-visible { outline:1px solid var(--green); outline-offset:3px; }
+    .nav-more-caret { font-size:.6rem; transition: transform .2s; }
+    .nav-more-btn[aria-expanded="true"] .nav-more-caret { transform: rotate(180deg); }
+    .nav-more-label { display:none; }
+    .nav-more-menu { display:none; flex-direction:column; position:absolute; top:calc(100% + .9rem); right:0; min-width:200px; list-style:none; background: var(--black); border:1px solid rgba(255,255,255,.08); border-top:2px solid var(--green); padding:.4rem 0; z-index:60; }
+    .nav-more-menu.open { display:flex; }
+    .nav-more-menu a { display:block; padding:.6rem 1.1rem; }
+    .nav-more-menu a:hover, .nav-more-menu a:focus-visible { color: var(--offwhite); background: rgba(0,200,83,.06); }
     .pill { display:inline-block; padding: .35rem .65rem; border:1px solid #2a2a2a; border-radius:999px; color: var(--green); font-size:.68rem; text-transform:uppercase; letter-spacing:.12em; }
     .hero { padding: 2rem 0 1rem; }
     .eyebrow { text-transform:uppercase; letter-spacing:.25em; color: var(--green); font-size:.68rem; }
@@ -3779,25 +3796,76 @@ function renderLayout(title, body, head = '') {
     .preview { border:1px dashed #2e2e2e; background:#0b0b0b; padding:1rem; border-radius:12px; color: var(--gray); }
     .footer { border-top:1px solid #1e1e1e; padding:1rem 0; color:#777; font-size:.7rem; text-transform:uppercase; letter-spacing:.12em; }
     @media (max-width: 980px) { .grid { grid-template-columns:1fr; } .gallery { grid-template-columns:1fr; } }
+    @media (max-width: 980px) {
+      .site-nav .nav-toggle { display:block; }
+      .site-nav .nav-links { display:none; flex-direction:column; align-items:flex-start; flex-wrap:nowrap; position:absolute; top:100%; left:0; right:0; background: var(--black); border:1px solid rgba(255,255,255,.08); padding:.5rem 1.5rem .75rem; gap:0; z-index:49; }
+      .site-nav .nav-links.open { display:flex; }
+      .site-nav .nav-links > li > a { display:flex; align-items:center; min-height:32px; line-height:1.2; }
+      .site-nav .nav-links > li > a.nav-cta { display:inline-flex; min-height:34px; padding:0 .8rem; margin:.3rem 0; }
+      .nav-more { order:1; }
+      .site-nav .nav-more-btn { display:none; }
+      .nav-more-label { display:block; color: var(--gold); font-size:.6rem; letter-spacing:.2em; text-transform:uppercase; border-top:1px solid rgba(255,255,255,.08); line-height:1.2; margin-top:.45rem; padding-top:.55rem; }
+      .nav-more-menu { display:flex; position:static; min-width:0; background:none; border:none; padding:.2rem 0 0 .9rem; gap:0; }
+      .nav-more-menu a { display:flex; align-items:center; min-height:30px; line-height:1.2; padding:0; }
+      .nav-more-menu a:hover { background:none; }
+    }
   </style>
 </head>
 <body>
   <div class="shell">
-    <nav>
+    <nav class="site-nav">
       <a href="/" style="color:var(--green); font-weight:700; text-transform:uppercase; letter-spacing:.18em;">ATMNOPIN™</a>
-      <ul class="nav-links">
+      <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle menu" aria-expanded="false" aria-controls="navLinks">☰</button>
+      <ul class="nav-links" id="navLinks">
         <li><a href="/blog">Stories</a></li>
-        <li><a href="/chronicles">Chronicles</a></li>
-        <li><a href="/player-cards">Cards</a></li>
-        <li><a href="/rail">The Rail</a></li>
+        <li><a href="/stories/poker-wildlife">Poker Wildlife</a></li>
         <li><a href="/community-wall">Community</a></li>
-        <li><a href="/inside-the-atm">Inside the ATM</a></li>
-        <li><a href="/">Home</a></li>
+        <li><a href="/shop.html">Shop</a></li>
+        <li class="nav-more">
+          <button class="nav-more-btn" id="navMoreBtn" type="button" aria-expanded="false" aria-controls="navMoreMenu">More <span class="nav-more-caret" aria-hidden="true">▾</span></button>
+          <span class="nav-more-label">More</span>
+          <ul class="nav-more-menu" id="navMoreMenu">
+            <li><a href="/chronicles">Chronicles</a></li>
+            <li><a href="/player-cards">Player Cards</a></li>
+            <li><a href="/rail">The Rail</a></li>
+            <li><a href="/inside-the-atm">Inside the ATM</a></li>
+          </ul>
+        </li>
+        <li><a href="/ai-profile-generator" class="nav-cta">Get Featured</a></li>
       </ul>
     </nav>
     ${body}
     <div class="footer">ATMNOPIN™ poker entertainment brand operated by Sunfish Technologies LLC. All rights reserved.</div>
   </div>
+  <script>
+    (function() {
+      var toggle = document.getElementById('navToggle');
+      var links = document.getElementById('navLinks');
+      var moreBtn = document.getElementById('navMoreBtn');
+      var moreMenu = document.getElementById('navMoreMenu');
+      if (!toggle || !links || !moreBtn || !moreMenu) return;
+      var moreWrap = moreBtn.parentNode;
+      function setNav(open) { links.classList.toggle('open', open); toggle.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+      function setMore(open) { moreMenu.classList.toggle('open', open); moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+      toggle.addEventListener('click', function() { setNav(!links.classList.contains('open')); });
+      moreBtn.addEventListener('click', function() { setMore(moreBtn.getAttribute('aria-expanded') !== 'true'); });
+      links.addEventListener('click', function(e) { if (e.target.closest('a')) { setMore(false); setNav(false); } });
+      document.addEventListener('click', function(e) {
+        if (!moreWrap.contains(e.target)) setMore(false);
+        if (links.classList.contains('open') && !links.contains(e.target) && !toggle.contains(e.target)) setNav(false);
+      });
+      moreWrap.addEventListener('focusout', function(e) { if (e.relatedTarget && !moreWrap.contains(e.relatedTarget)) setMore(false); });
+      document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        if (moreBtn.getAttribute('aria-expanded') === 'true') { setMore(false); moreBtn.focus(); }
+        else if (links.classList.contains('open')) { setNav(false); toggle.focus(); }
+      });
+      var mq = window.matchMedia('(max-width: 980px)');
+      function onBreakpoint() { setMore(false); if (!mq.matches) setNav(false); }
+      if (mq.addEventListener) mq.addEventListener('change', onBreakpoint);
+      else if (mq.addListener) mq.addListener(onBreakpoint);
+    })();
+  </script>
 </body>
 </html>`;
 }
