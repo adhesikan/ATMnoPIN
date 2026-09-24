@@ -232,45 +232,6 @@
     .btn-ghost { background: transparent; color: var(--offwhite); border: 1px solid #2a2a2a; }
     .btn-ghost:hover { border-color: var(--offwhite); }
 
-    /* ─── RAIL TEASER ─── */
-    .rail-teaser {
-      margin-bottom: 1.75rem;
-      border-bottom: 1px solid #1e1e1e;
-      padding-bottom: 1.25rem;
-      opacity: 0;
-      animation: fadeUp 0.7s ease forwards 0.2s;
-    }
-    .rail-teaser-badge {
-      display: inline-block;
-      font-size: 0.52rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--gold);
-      border: 1px solid rgba(201,168,76,0.3);
-      padding: 0.12rem 0.5rem;
-      margin-bottom: 0.65rem;
-    }
-    .rail-teaser-text {
-      font-size: 0.8rem;
-      color: #a0988a;
-      line-height: 1.75;
-      margin-bottom: 0.9rem;
-    }
-    .rail-teaser-text strong { color: var(--offwhite); }
-    .rail-teaser-text em { color: var(--gold); font-style: normal; }
-    .rail-teaser-cta {
-      display: inline-block;
-      font-size: 0.68rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--gold);
-      border: 1px solid rgba(201,168,76,0.35);
-      padding: 0.45rem 1rem;
-      text-decoration: none;
-      transition: all 0.2s;
-    }
-    .rail-teaser-cta:hover { background: rgba(201,168,76,0.08); border-color: var(--gold); }
-
     /* ─── HERO RIGHT — COMMUNITY CAROUSEL ─── */
     .hero-right {
       display: flex;
@@ -482,18 +443,6 @@
     .hc-cta-btn:hover { background: #00ff6a; }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* ─── STATS BAR ─── */
-    .stats-bar {
-      border-top: 1px solid #1a1a1a;
-      border-bottom: 1px solid #1a1a1a;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-    }
-    .stat { padding: 2rem; border-right: 1px solid #1a1a1a; text-align: center; }
-    .stat:last-child { border-right: none; }
-    .stat-num { font-family: 'Bebas Neue', sans-serif; font-size: 2.8rem; color: var(--green); letter-spacing: 0.05em; line-height: 1; }
-    .stat-label { font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gray); margin-top: 0.4rem; }
-
     /* ─── SHARED SECTION UTILITIES ─── */
     /* Used by server-injected sections (chronicles, community, blog) */
     .schedule { padding: 5rem 2.5rem; max-width: var(--max-w); margin: 0 auto; }
@@ -645,72 +594,15 @@
       animation: fadeUp 0.7s ease forwards 0.62s;
     }
 
-    /* ─── AI FEATURES SECTION ─── */
-    .ai-section {
-      padding: 5rem 2.5rem;
-      max-width: var(--max-w);
-      margin: 0 auto;
-    }
-    .ai-section-header { max-width: 52ch; margin-bottom: 2.5rem; }
-    .ai-feat-grid {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 0.75rem;
-      margin-bottom: 2.5rem;
-    }
-    .ai-feat-card {
-      background: #0c0c0c;
-      border: 1px solid #1c1c1c;
-      border-radius: 12px;
-      padding: 1.25rem 1rem;
-      transition: border-color 0.2s, background 0.2s;
-    }
-    .ai-feat-card:hover { border-color: rgba(0,200,83,.3); background: #0f0f0f; }
-    .ai-feat-icon { font-size: 1.3rem; margin-bottom: 0.6rem; }
-    .ai-feat-name { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--offwhite); margin-bottom: 0.35rem; font-weight: 500; }
-    .ai-feat-desc { font-size: 0.64rem; color: var(--gray); line-height: 1.6; }
-
-    .ai-engine-strip {
-      background: linear-gradient(135deg, #0a1a0f 0%, #061209 100%);
-      border: 1px solid rgba(0,200,83,.12);
-      border-radius: 14px;
-      padding: 1.5rem 2rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1.5rem;
-      flex-wrap: wrap;
-      margin-top: 0.5rem;
-    }
-    .ai-engine-label { font-size: 0.58rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--green); margin-bottom: 0.25rem; }
-    .ai-engine-copy { font-family: 'DM Serif Display', serif; font-size: clamp(1rem, 2vw, 1.3rem); color: var(--offwhite); line-height: 1.35; max-width: 48ch; }
-    .ai-engine-copy em { color: var(--gold); font-style: italic; }
-
     /* ─── JOIN THE CREW SECTION ─── */
     .join-section { background: var(--felt); border-top: 1px solid #0f2a18; border-bottom: 1px solid #0f2a18; }
-    .join-inner { max-width: var(--max-w); margin: 0 auto; padding: 5.5rem 2.5rem; }
-    .join-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; }
+    .join-inner { max-width: var(--max-w); margin: 0 auto; padding: 4rem 2.5rem; }
     .join-label { font-size: .62rem; letter-spacing: .25em; text-transform: uppercase; color: var(--green); margin-bottom: 1.25rem; }
     .join-headline { font-family: 'DM Serif Display', serif; font-size: clamp(2.2rem, 4vw, 3.2rem); line-height: 1.1; color: var(--offwhite); margin-bottom: 1rem; }
     .join-headline em { color: var(--gold); font-style: italic; }
     .join-copy { font-size: .82rem; line-height: 1.9; color: var(--text-secondary); margin-bottom: 1.75rem; max-width: 50ch; }
-    .join-perks { list-style: none; display: grid; gap: .85rem; margin-bottom: 2.25rem; }
-    .join-perks li { font-size: .78rem; color: var(--text-secondary); display: flex; gap: .85rem; align-items: baseline; line-height: 1.6; }
-    .join-perk-suit { color: var(--green); flex-shrink: 0; }
-    .join-perk-label { color: var(--offwhite); font-weight: 500; }
     .join-cta-row { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
-    .join-proof { padding: 1.75rem; background: rgba(0,0,0,.3); border: 1px solid rgba(0,200,83,.14); border-radius: 14px; }
-    .join-proof-eyebrow { font-size: .58rem; letter-spacing: .2em; text-transform: uppercase; color: var(--green); margin-bottom: .75rem; }
-    .join-proof-quote { font-family: 'DM Serif Display', serif; font-size: 1.15rem; color: var(--gold); font-style: italic; margin-bottom: 1.1rem; line-height: 1.35; }
-    .join-proof-tags { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.25rem; }
-    .join-proof-tag { font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; padding: .22rem .55rem; border: 1px solid rgba(0,200,83,.2); border-radius: 999px; color: var(--green); background: rgba(0,200,83,.06); text-decoration: none; transition: background .15s; }
-    .join-proof-tag:hover { background: rgba(0,200,83,.15); color: #00ff6a; }
-    .join-proof-tag.dealer { border-color: rgba(201,168,76,.25); color: var(--gold); background: rgba(201,168,76,.06); }
-    .join-proof-tag.dealer:hover { background: rgba(201,168,76,.14); }
-    .join-proof-tag.floor { border-color: rgba(200,200,200,.15); color: #b0a898; background: rgba(200,200,200,.04); }
-    .join-proof-tag.floor:hover { background: rgba(200,200,200,.1); color: var(--offwhite); }
-    .join-proof-note { font-size: .7rem; color: var(--gray); border-top: 1px solid #1a3a22; padding-top: .85rem; margin-top: .25rem; }
-    .join-proof-note strong { color: var(--green); }
+    .join-proof-line { margin-top: 1.5rem; font-size: .62rem; letter-spacing: .18em; text-transform: uppercase; color: var(--gray); }
 
     /* ─── RESPONSIVE ─── */
     @media (max-width: 980px) {
@@ -763,8 +655,6 @@
       .hc-cta-bar { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
       .hc-cta-text { max-width: 100%; }
       h1 { font-size: clamp(3rem, 12vw, 5rem); }
-      .stats-bar { grid-template-columns: repeat(2, 1fr); }
-      .stat:nth-child(2) { border-right: none; }
       .hp-section, .schedule { padding: 3.5rem 1.5rem; }
       .featured-story-card { grid-template-columns: 1fr; }
       .fs-image { min-height: 220px; }
@@ -773,11 +663,8 @@
       .follow-section { grid-template-columns: 1fr; gap: 2rem; padding: 3rem 1.5rem; }
       footer { flex-direction: column; gap: 0.5rem; text-align: center; padding: 1.5rem; }
       .ticker-wrap { font-size: 0.62rem; }
-      .ai-feat-grid { grid-template-columns: repeat(2, 1fr); }
-      .ai-section { padding: 3rem 1.5rem; }
-      .ai-engine-strip { padding: 1.25rem 1.25rem; }
-      .join-grid { grid-template-columns: 1fr; gap: 2.5rem; }
-      .join-inner { padding: 3.5rem 1.5rem; }
+      .join-inner { padding: 3rem 1.5rem; }
+      .hero-cta .btn, .join-cta-row .btn { flex: 1 1 auto; text-align: center; }
     }
   </style>
 </head>
@@ -875,18 +762,6 @@
   <!-- HERO -->
   <section class="hero" id="home">
     <div class="hero-left">
-      <div class="rail-teaser">
-        <span class="rail-teaser-badge">&#x2756; New &mdash; The Rail</span>
-        <p class="rail-teaser-text">
-          Got a bad beat that broke your spirit? A bluff so disgusting it deserves a monument?
-          <strong>Post it to The Rail</strong> &mdash; the live community feed where poker stories
-          go to live forever. Our <em>ATM AI</em> will rewrite your story to sound
-          even more dramatic than it actually was.
-          <br><span style="font-size:.72rem;color:#666;">(The river card will still haunt you. We just make it read better.)</span>
-        </p>
-        <a href="/rail" class="rail-teaser-cta">&#x2665; Post to The Rail &rarr;</a>
-      </div>
-
       <div class="ai-badge">✦ AI-Powered Player Profiles</div>
       <p class="eyebrow">Official poker entertainment brand of Dhezz</p>
       <div class="brand-mark">ATMwith<span>No</span>PIN™</div>
@@ -896,11 +771,11 @@
         <span class="italic">A Story.</span><br>
         <span class="accent">AI</span> Helps Tell Yours.
       </h1>
-      <p class="hero-sub">Share a few details about your game, your habits, and your biggest poker moments. ATMwithNoPIN AI creates your unique poker profile, funny nickname, player Chronicle, table reputation, and Community Wall feature.</p>
+      <p class="hero-sub">Share a few details about your game, your habits, and your biggest poker moments. ATMwithNoPIN AI turns them into your poker profile, funny nickname, and player Chronicle.</p>
       <p class="hero-warning">⚠ Warning: AI may reveal that you are actually the fish.</p>
       <div class="hero-cta">
         <a href="/ai-profile-generator" class="btn btn-primary">Generate My Poker Profile</a>
-        <a href="/community-wall" class="btn btn-ghost">Meet the Crew →</a>
+        <a href="/stories/poker-wildlife" class="btn btn-ghost">Explore Poker Wildlife</a>
         <a href="/blog" class="btn btn-ghost">Read Stories</a>
       </div>
     </div>
@@ -909,169 +784,27 @@
     </div>
   </section>
 
-  <!-- JOIN THE CREW -->
-  <div class="join-section">
-    <div class="join-inner">
-      <div class="join-grid">
-
-        <div>
-          <p class="join-label">// The Open Seat</p>
-          <h2 class="join-headline">Your Table.<br>Your Story.<br><em>Your Seat.</em></h2>
-          <p class="join-copy">Doesn&rsquo;t matter if you play $1/$2 in a home game or grind the WSOP Main Event. Every poker player has a table identity, a signature move, and at least one bad beat story nobody else believes. This is where those stories live.</p>
-          <ul class="join-perks">
-            <li>
-              <span class="join-perk-suit">♠</span>
-              <span><span class="join-perk-label">Your own profile page</span> on the ATMNOPIN™ Community Wall — live, linkable, and yours to share</span>
-            </li>
-            <li>
-              <span class="join-perk-suit">♦</span>
-              <span><span class="join-perk-label">A funny AI nickname and chronicle</span> written in your voice, from whatever room you call home</span>
-            </li>
-            <li>
-              <span class="join-perk-suit">♣</span>
-              <span><span class="join-perk-label">Vegas, Foxwoods, Horseshoe, Commerce, home game —</span> if there&rsquo;s a felt and chips, your story belongs here</span>
-            </li>
-            <li>
-              <span class="join-perk-suit">♥</span>
-              <span><span class="join-perk-label">No spin. No LinkedIn energy.</span> Just your poker story, told the right way.</span>
-            </li>
-          </ul>
-          <div class="join-cta-row">
-            <a href="/ai-profile-generator" class="btn btn-primary">Claim Your Seat &rarr;</a>
-            <a href="/community-wall" class="btn btn-ghost">See Who&rsquo;s In &rarr;</a>
-          </div>
-        </div>
-
-        <div>
-          <div class="join-proof">
-            <p class="join-proof-eyebrow">// Already at the table</p>
-            <p class="join-proof-quote">&ldquo;Fifteen real people. Every card room welcome.&rdquo;</p>
-            <div class="join-proof-tags">
-              <a href="/chronicles/player-spotlight-manny-the-machine" class="join-proof-tag">♠ Manny &ldquo;The Machine&rdquo;</a>
-              <a href="/chronicles/player-spotlight-jamie-the-tuna" class="join-proof-tag">♠ Jamie &ldquo;The Tuna&rdquo;</a>
-              <a href="/chronicles/player-spotlight-jay-ducky-jay" class="join-proof-tag">♠ Jay &ldquo;Ducky Jay&rdquo;</a>
-              <a href="/chronicles/player-spotlight-eric-the-sugar-stacker" class="join-proof-tag">♠ Eric &ldquo;The Sugar Stacker&rdquo;</a>
-              <a href="/chronicles/player-spotlight-lucky-horseshoe-luke" class="join-proof-tag">♠ Luke &ldquo;Lucky Horseshoe Luke&rdquo;</a>
-              <a href="/chronicles/dealer-spotlight-terrell-my-biggest-fan-at-the-wsop" class="join-proof-tag dealer">♦ Terrell &ldquo;The Railbird&rdquo;</a>
-              <a href="/chronicles/dealer-spotlight-poker-jesus-dominicks-tournament-blessings" class="join-proof-tag dealer">♦ Dominick &ldquo;Poker Jesus&rdquo;</a>
-              <a href="/chronicles/dealer-spotlight-crazy-mike-the-river-card-is-always-his-fault" class="join-proof-tag dealer">♦ Crazy Mike</a>
-              <a href="/chronicles/dealer-spotlight-felix-the-setup-artist" class="join-proof-tag dealer">♦ Felix &ldquo;The Setup Artist&rdquo;</a>
-              <a href="/chronicles/dealer-spotlight-ray-master-of-timing" class="join-proof-tag dealer">♦ Ray &ldquo;Master of Timing&rdquo;</a>
-              <a href="/chronicles/dealer-spotlight-jenny-queen-of-the-rotation" class="join-proof-tag dealer">♦ Jenny &ldquo;Queen of the Rotation&rdquo;</a>
-              <a href="/chronicles/floor-spotlight-frank-the-man-who-keeps-the-poker-room-running" class="join-proof-tag floor">♣ Frank</a>
-              <a href="/chronicles/floor-spotlight-bhavin-the-connector" class="join-proof-tag floor">♣ Bhavin &ldquo;The Connector&rdquo;</a>
-              <a href="/chronicles/floor-spotlight-charlie-still-standing" class="join-proof-tag floor">♣ Charlie &ldquo;Still Standing&rdquo;</a>
-              <a href="/chronicles/floor-spotlight-steve-birthday-variance" class="join-proof-tag floor">♣ Steve &ldquo;Birthday Variance&rdquo;</a>
-            </div>
-            <p class="join-proof-note"><strong>Your name goes next.</strong> Takes three minutes. Any room, any stakes — just a story worth telling.</p>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </div>
-
-  <!-- STATS -->
-  <div class="stats-bar">
-    <div class="stat">
-      <div class="stat-num">$2/$5</div>
-      <div class="stat-label">Stakes of Choice</div>
-    </div>
-    <div class="stat">
-      <div class="stat-num">∞</div>
-      <div class="stat-label">Withdrawal Limit</div>
-    </div>
-    <div class="stat">
-      <div class="stat-num">0</div>
-      <div class="stat-label">PIN Required</div>
-    </div>
-    <div class="stat">
-      <div class="stat-num">100%</div>
-      <div class="stat-label">Good Vibes Guaranteed</div>
-    </div>
-  </div>
-
-  <!-- AI FEATURES SECTION -->
-  <div class="section-divider">
-    <div class="ai-section">
-      <div class="ai-section-header">
-        <p class="section-label">// AI Poker Identity Engine</p>
-        <h2>What ATMwithNoPIN <em>AI</em> Creates</h2>
-        <p class="body-text">Turn your poker habits, bad beats, table stories, and suspicious river calls into a shareable poker identity.</p>
-      </div>
-      <div class="ai-feat-grid">
-        <div class="ai-feat-card">
-          <div class="ai-feat-icon">🎭</div>
-          <div class="ai-feat-name">Funny Nickname</div>
-          <div class="ai-feat-desc">Table-earned. AI-certified. Finally official.</div>
-        </div>
-        <div class="ai-feat-card">
-          <div class="ai-feat-icon">📖</div>
-          <div class="ai-feat-name">Personalized Chronicle</div>
-          <div class="ai-feat-desc">Your poker story, rewritten in 5 dramatic styles. Pick your favorite.</div>
-        </div>
-        <div class="ai-feat-card">
-          <div class="ai-feat-icon">🧠</div>
-          <div class="ai-feat-name">Poker Personality</div>
-          <div class="ai-feat-desc">A full psychological workup powered by your bad beats and table habits.</div>
-        </div>
-        <div class="ai-feat-card">
-          <div class="ai-feat-icon">🎯</div>
-          <div class="ai-feat-name">Playing Style Analysis</div>
-          <div class="ai-feat-desc">Tight-aggressive or just scared money? AI will be honest.</div>
-        </div>
-        <div class="ai-feat-card">
-          <div class="ai-feat-icon">🗣️</div>
-          <div class="ai-feat-name">Table Reputation</div>
-          <div class="ai-feat-desc">What the table whispers when you sit down and order a water.</div>
-        </div>
-        <div class="ai-feat-card">
-          <div class="ai-feat-icon">🏛️</div>
-          <div class="ai-feat-name">Community Wall Profile</div>
-          <div class="ai-feat-desc">Your permanent seat in the ATMNOPIN™ universe. Welcome.</div>
-        </div>
-        <div class="ai-feat-card">
-          <div class="ai-feat-icon">👁️</div>
-          <div class="ai-feat-name">Signature Tell</div>
-          <div class="ai-feat-desc">AI spots what you're giving away. So does everyone else at the table.</div>
-        </div>
-        <div class="ai-feat-card">
-          <div class="ai-feat-icon">⚠️</div>
-          <div class="ai-feat-name">Threat Level</div>
-          <div class="ai-feat-desc">How dangerous you actually are. Rated 1-10. Spoiler: probably a 4.</div>
-        </div>
-        <div class="ai-feat-card">
-          <div class="ai-feat-icon">🏆</div>
-          <div class="ai-feat-name">Hall of Fame Potential</div>
-          <div class="ai-feat-desc">Bracelet contender or permanent fish? Only one way to find out.</div>
-        </div>
-        <div class="ai-feat-card">
-          <div class="ai-feat-icon">💬</div>
-          <div class="ai-feat-name">Best Table Quote</div>
-          <div class="ai-feat-desc">The one thing you always say at exactly the wrong moment.</div>
-        </div>
-      </div>
-      <div class="ai-engine-strip">
-        <div>
-          <div class="ai-engine-label">✦ AI Poker Identity Engine</div>
-          <p class="ai-engine-copy">Turn your poker habits, bad beats, and suspicious river calls into a <em>shareable poker identity.</em> Free. Funny. Probably accurate.</p>
-        </div>
-        <div style="display:flex;gap:.75rem;flex-wrap:wrap;flex-shrink:0;">
-          <a href="/ai-profile-generator" class="btn btn-primary" style="white-space:nowrap;">Generate My Poker Profile →</a>
-          <a href="/community-wall" class="btn btn-ghost" style="white-space:nowrap;">See Community Wall</a>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- POKER_WILDLIFE_FEATURE -->
 
   <!-- BLOG_PREVIEW -->
+
+  <!-- THE OPEN SEAT -->
+  <div class="join-section">
+    <div class="join-inner">
+      <p class="join-label">// The Open Seat</p>
+      <h2 class="join-headline">Your Table.<br>Your Story.<br><em>Your Seat.</em></h2>
+      <p class="join-copy">Every poker player has a table identity and a story worth telling. Create your ATMwithNoPIN poker profile or meet the players already at the table.</p>
+      <div class="join-cta-row">
+        <a href="/ai-profile-generator" class="btn btn-primary">Create My Poker Profile</a>
+        <a href="/community-wall" class="btn btn-ghost">Meet the Community</a>
+      </div>
+      <p class="join-proof-line">Real players. Real poker rooms. Stories worth telling.</p>
+    </div>
+  </div>
 
   <!-- CHRONICLES_PREVIEW -->
 
   <!-- TOURNAMENT_JOURNEY -->
-
-  <!-- POKER_WILDLIFE_FEATURE (server-injected; replaces the former Community Wall homepage promo) -->
-  <!-- COMMUNITY_PREVIEW -->
 
   <!-- FOLLOW -->
   <div class="section-divider" id="follow">

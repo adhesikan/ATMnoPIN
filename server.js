@@ -9946,11 +9946,11 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
       </section>`;
       const html = data
         .replace('<!-- HERO_CAROUSEL -->', renderHeroCarousel(pubWildlife))
+        .replace('<!-- POKER_WILDLIFE_FEATURE -->', wildlifeSection)
         .replace('<!-- BLOG_PREVIEW -->', `<div class="section-divider"><div class="hp-section" id="stories"><p class="section-label">// Latest from the ATM</p><h2>Latest Stories</h2>${featuredHtml}<div class="section-cta-row"><a href="/blog" class="section-cta-link">View all stories →</a></div></div></div>`)
         .replace('<!-- RECENT_POSTS -->', '')
         .replace('<!-- CHRONICLES_PREVIEW -->', chronSection)
         .replace('<!-- TOURNAMENT_JOURNEY -->', renderTournamentSection())
-        .replace('<!-- COMMUNITY_PREVIEW -->', wildlifeSection)
         .replace(/ATM With No PIN — Dhezz/g, 'ATMNOPIN™ Poker | Official Site')
         .replace(/<title>ATM With No PIN — Dhezz<\/title>/, '<title>ATMNOPIN™ Poker | Official Site</title>');
       // The homepage is composed fresh from live DB content on every request
