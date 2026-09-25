@@ -130,14 +130,14 @@ async function main() {
   let r = await request('GET', '/community');
   check('GET /community → 200', r.status === 200, String(r.status));
   check('page is no-store HTML', r.headers['cache-control'] === 'no-store' && /text\/html/.test(r.headers['content-type']));
-  check('header + subhead render', r.text.includes('<h1>Community</h1>') && r.text.includes("What's happening at the table?"));
-  check('logged out: invitation instead of composer', r.text.includes('Join the conversation.') && r.text.includes('Create My ATM') && r.text.includes('/login?next=%2Fcommunity') && !r.text.includes('<textarea') && !r.text.includes('data-cm-form="'));
+  check('Fish Tank header + tagline + subhead render', r.text.includes('<h1>The Fish Tank</h1>') && r.text.includes('Table Talk from ATMwithNoPIN.') && r.text.includes("What's happening at the table?"));
+  check('logged out: invitation instead of composer', r.text.includes('Join The Fish Tank') && r.text.includes('Create My ATM') && r.text.includes('/login?next=%2Fcommunity') && !r.text.includes('<textarea') && !r.text.includes('data-cm-form="'));
   check('channel tabs render (ALL + 5)', ['>All<', '>General Poker<', '>Cash Games<', '>Tournaments<', '>Hand Talk<', '>Poker Wildlife<'].every((t) => r.text.includes(t)) && r.text.includes('href="/community?channel=cash-games"'));
   check('ALL tab is current by default', /href="\/community" aria-current="page">All</.test(r.text));
   check('tabs scroll horizontally, not the page', /\.cm-tabs \{[^}]*overflow-x: auto/.test(r.text));
   check('empty feed renders safely', r.text.includes('No posts yet. Start the conversation.'));
   check('Community Guidelines link present', r.text.includes('href="/community-guidelines"'));
-  check('shared nav Community → /community', r.text.includes('<li><a href="/community">Community</a></li>') && !r.text.includes('<li><a href="/community-wall">Community</a></li>'));
+  check('shared nav Fish Tank → /community', r.text.includes('<li><a href="/community">Fish Tank</a></li>') && !r.text.includes('<li><a href="/community">Community</a></li>') && !r.text.includes('<li><a href="/community-wall">Community</a></li>'));
   r = await request('GET', '/community?channel=tournaments');
   check('channel filter page renders with tab current', r.status === 200 && /href="\/community\?channel=tournaments" aria-current="page"/.test(r.text) && r.text.includes('No posts in Tournaments yet.'));
   r = await request('GET', '/community?channel=nope');
@@ -160,7 +160,7 @@ async function main() {
   const banned = await makeUser('ban@example.com', { username: 'ban_player', status: 'banned' });
 
   r = await request('GET', '/community', { cookie: alice.cookie });
-  check('verified @username user sees composer', r.text.includes('data-cm-form="/api/community/posts"') && r.text.includes('placeholder="What\'s happening at the table?"') && r.text.includes('0/500') && r.text.includes('>Post</button>') && !r.text.includes('Join the conversation.'));
+  check('verified @username user sees composer', r.text.includes('data-cm-form="/api/community/posts"') && r.text.includes('placeholder="What\'s happening at the table?"') && r.text.includes('0/500') && r.text.includes('>Post</button>') && !r.text.includes('<p class="cm-invite-title">Join The Fish Tank</p>'));
   check('composer shows handle + guidelines link', r.text.includes('Posting as @AceAlice') && r.text.includes('href="/community-guidelines"'));
   r = await request('GET', '/community', { cookie: noName.cookie });
   check('verified w/o username sees Finish Account Setup', r.text.includes('Finish Account Setup') && r.text.includes('/account/setup?next=%2Fcommunity') && !r.text.includes('<textarea'));
@@ -275,7 +275,7 @@ async function main() {
   check('replies oldest-first', r.status === 200 && r.json.replies.map((x) => x.id).join() === `${r1.id},${r2.id}` && r.json.post.reply_count === 2);
   r = await request('GET', `/community/post/${p1.id}`);
   check('post page renders post + replies in order', r.status === 200 && r.text.indexOf('Nice hand!') < r.text.indexOf('rivered quads') && r.text.includes('id="replies"'));
-  check('logged-out post page: invite, no reply composer', r.text.includes('Join the conversation.') && !r.text.includes('<textarea') && r.text.includes('/login?next=%2Fcommunity%2Fpost%2F'));
+  check('logged-out post page: invite, no reply composer', r.text.includes('Join The Fish Tank') && !r.text.includes('<textarea') && r.text.includes('/login?next=%2Fcommunity%2Fpost%2F'));
   r = await request('GET', `/community/post/${p1.id}`, { cookie: bob.cookie });
   check('signed-in post page has reply composer', r.text.includes(`data-cm-form="/api/community/posts/${p1.id}/replies"`) && r.text.includes('Post your reply'));
   r = await request('GET', '/community');
@@ -563,8 +563,8 @@ async function main() {
   check('unknown community API → 404 JSON', r.status === 404 && r.json && r.json.error);
   const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const shop = fs.readFileSync(path.join(__dirname, '..', 'shop.html'), 'utf8');
-  check('index.html nav Community → /community', idx.includes('<li><a href="/community">Community</a></li>') && !idx.includes('<li><a href="/community-wall">Community</a></li>'));
-  check('shop.html nav Community → /community', shop.includes('<li><a href="/community">Community</a></li>') && !shop.includes('<li><a href="/community-wall">Community</a></li>'));
+  check('index.html nav Fish Tank → /community', idx.includes('<li><a href="/community">Fish Tank</a></li>') && !idx.includes('<li><a href="/community-wall">Community</a></li>'));
+  check('shop.html nav Fish Tank → /community', shop.includes('<li><a href="/community">Fish Tank</a></li>') && !shop.includes('<li><a href="/community-wall">Community</a></li>'));
   check('index.html keeps player-directory link to /community-wall', idx.includes('href="/community-wall"'));
   r = await request('GET', '/api/auth/me', { cookie: alice.cookie });
   check('/api/auth/me unaffected', r.status === 200 && r.json.authenticated === true);

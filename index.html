@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <!-- Theme (Sprint 1C.3): dark by default; light only when localStorage.atm_theme === 'light'. Runs before first paint. -->
+  <script>try{if(localStorage.getItem('atm_theme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(_){}</script>
   <meta name="description" content="ATMNOPIN™ — official poker entertainment brand of Dhezz. Table stories, tournament results, and the occasional suspicious river call." />
   <title>ATMNOPIN™ Poker | Official Site</title>
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -25,12 +27,45 @@
       --text-secondary: #c8c0b0;
       --text-muted: #9a9080;
       --text-faint: #7a7268;
+      /* theme tokens (dark values = current appearance) */
+      --page-bg: #0a0a0a;
+      --surface: #0c0c0c;
+      --surface-2: #111;
+      --border: #1e1e1e;
+      --border-strong: #2a2a2a;
+      --border-green: #0f2a18;
+      --menu-border: rgba(255,255,255,0.08);
+      --on-green: #0a0a0a;
+      --green-hover: #00ff6a;
+      color-scheme: dark;
+    }
+    /* Light theme: warm ivory; --black stays ink-dark, text/accent roles re-tuned for contrast. */
+    :root[data-theme="light"] {
+      --green: #007f37;
+      --green-dim: #3b8f5c;
+      --felt: #e2ede4;
+      --gold: #7a5c12;
+      --offwhite: #151515;
+      --gray: #666;
+      --text-secondary: #555;
+      --text-muted: #666;
+      --text-faint: #707070;
+      --page-bg: #f4f1e8;
+      --surface: #fff;
+      --surface-2: #ebe7dc;
+      --border: rgba(0,0,0,0.12);
+      --border-strong: rgba(0,0,0,0.22);
+      --border-green: rgba(0,127,55,0.28);
+      --menu-border: rgba(0,0,0,0.12);
+      --on-green: #fff;
+      --green-hover: #006b2d;
+      color-scheme: light;
     }
 
     html { scroll-behavior: smooth; }
 
     body {
-      background: var(--black);
+      background: var(--page-bg);
       color: var(--offwhite);
       font-family: 'DM Mono', monospace;
       overflow-x: hidden;
@@ -133,8 +168,8 @@
       right: 0;
       min-width: 200px;
       list-style: none;
-      background: var(--black);
-      border: 1px solid rgba(255,255,255,0.08);
+      background: var(--page-bg);
+      border: 1px solid var(--menu-border);
       border-top: 2px solid var(--green);
       padding: 0.4rem 0;
       z-index: 60;
@@ -145,13 +180,38 @@
     .nav-toggle {
       display: none;
       background: none;
-      border: 1px solid #2a2a2a;
+      border: 1px solid var(--border-strong);
       color: var(--offwhite);
       font-size: 1.1rem;
       cursor: pointer;
       padding: 0.35rem 0.65rem;
       line-height: 1;
     }
+    .nav-links { margin-left: auto; order: 1; }
+    .theme-toggle {
+      order: 2;
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 34px;
+      min-height: 34px;
+      margin-left: 1.25rem;
+      background: none;
+      border: 1px solid var(--border-strong);
+      color: var(--gray);
+      font-family: inherit;
+      font-size: 0.95rem;
+      line-height: 1;
+      padding: 0.3rem 0.5rem;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .theme-toggle:hover { color: var(--offwhite); border-color: var(--green-dim); }
+    .theme-toggle:focus-visible, .nav-toggle:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+    .theme-icon-moon { display: none; }
+    [data-theme="light"] .theme-icon-sun { display: none; }
+    [data-theme="light"] .theme-icon-moon { display: inline; }
 
     /* ─── HERO ─── */
     .hero {
@@ -228,7 +288,7 @@
     }
     .btn-primary { background: var(--green); color: var(--black); font-weight: 500; }
     .btn-primary:hover { background: #00ff6a; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,200,83,0.25); }
-    .btn-ghost { background: transparent; color: var(--offwhite); border: 1px solid #2a2a2a; }
+    .btn-ghost { background: transparent; color: var(--offwhite); border: 1px solid var(--border-strong); }
     .btn-ghost:hover { border-color: var(--offwhite); }
 
     /* ─── HERO RIGHT — COMMUNITY CAROUSEL ─── */
@@ -449,7 +509,7 @@
     h2 { font-family: 'DM Serif Display', serif; font-size: clamp(1.9rem, 3.5vw, 2.8rem); line-height: 1.15; color: var(--offwhite); margin-bottom: 0.75rem; }
     h2 em { color: var(--gold); font-style: italic; }
     .body-text { font-size: 0.82rem; line-height: 1.9; color: var(--text-secondary); max-width: 56ch; }
-    .notice { border: 1px solid #1e1e1e; background: #111; padding: 0.8rem; color: var(--offwhite); border-radius: 12px; font-size: 0.82rem; }
+    .notice { border: 1px solid var(--border); background: var(--surface-2); padding: 0.8rem; color: var(--offwhite); border-radius: 12px; font-size: 0.82rem; }
 
     /* ─── HP SECTION (homepage content sections) ─── */
     .hp-section { padding: 5rem 2.5rem; max-width: var(--max-w); margin: 0 auto; }
@@ -459,10 +519,10 @@
     .featured-story-card {
       display: grid;
       grid-template-columns: 1.2fr 0.8fr;
-      border: 1px solid #1e1e1e;
+      border: 1px solid var(--border);
       border-radius: 16px;
       overflow: hidden;
-      background: #0c0c0c;
+      background: var(--surface);
       margin-top: 2rem;
     }
     .fs-image { position: relative; background: var(--felt); overflow: hidden; min-height: 280px; }
@@ -492,8 +552,8 @@
       border-radius: 0 0 16px 16px;
       overflow: hidden;
     }
-    .compact-story { background: #0c0c0c; padding: 1.25rem 1.5rem; transition: background 0.2s; }
-    .compact-story:hover { background: #111; }
+    .compact-story { background: var(--surface); padding: 1.25rem 1.5rem; transition: background 0.2s; }
+    .compact-story:hover { background: var(--surface-2); }
     .cs-date { font-size: 0.58rem; color: var(--green); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.5rem; }
     .cs-title { font-family: 'DM Serif Display', serif; font-size: 0.9rem; line-height: 1.3; color: var(--offwhite); margin-bottom: 0.6rem; }
     .cs-title a { color: inherit; text-decoration: none; }
@@ -510,7 +570,7 @@
       gap: 1rem;
       margin-top: 2rem;
     }
-    .t-card { border: 1px solid #1e1e1e; background: #0c0c0c; border-radius: 14px; padding: 1.75rem; transition: border-color 0.2s; }
+    .t-card { border: 1px solid var(--border); background: var(--surface); border-radius: 14px; padding: 1.75rem; transition: border-color 0.2s; }
     .t-card:hover { border-color: var(--green-dim); }
     .t-label { font-size: 0.58rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green); margin-bottom: 0.75rem; }
     .t-num { font-family: 'Bebas Neue', sans-serif; font-size: 2.4rem; color: var(--offwhite); letter-spacing: 0.05em; line-height: 1; margin-bottom: 0.4rem; }
@@ -532,7 +592,7 @@
     .social-link {
       display: flex; align-items: center; gap: 1rem;
       padding: 1rem 1.5rem;
-      border: 1px solid #1e1e1e;
+      border: 1px solid var(--border);
       text-decoration: none; color: var(--offwhite);
       font-size: 0.78rem; letter-spacing: 0.08em;
       transition: all 0.2s;
@@ -540,7 +600,7 @@
     .social-link:hover { border-color: var(--green); color: var(--green); transform: translateX(5px); }
     .social-icon { font-size: 1rem; width: 22px; }
     .social-handle { margin-left: auto; color: var(--gray); font-size: 0.68rem; }
-    .tagline-block { padding: 2.5rem; border: 1px solid #1e1e1e; position: relative; }
+    .tagline-block { padding: 2.5rem; border: 1px solid var(--border); position: relative; }
     .tagline-block::before {
       content: '"';
       position: absolute; top: -1.25rem; left: 1.5rem;
@@ -594,7 +654,7 @@
     }
 
     /* ─── JOIN THE CREW SECTION ─── */
-    .join-section { background: var(--felt); border-top: 1px solid #0f2a18; border-bottom: 1px solid #0f2a18; }
+    .join-section { background: var(--felt); border-top: 1px solid var(--border-green); border-bottom: 1px solid var(--border-green); }
     .join-inner { max-width: var(--max-w); margin: 0 auto; padding: 4rem 2.5rem; }
     .join-label { font-size: .62rem; letter-spacing: .25em; text-transform: uppercase; color: var(--green); margin-bottom: 1.25rem; }
     .join-headline { font-family: 'DM Serif Display', serif; font-size: clamp(2.2rem, 4vw, 3.2rem); line-height: 1.1; color: var(--offwhite); margin-bottom: 1rem; }
@@ -607,6 +667,7 @@
     @media (max-width: 980px) {
       nav { padding: 1rem 1.5rem; }
       .nav-toggle { display: block; }
+      .theme-toggle { order: 0; margin-left: auto; margin-right: 0.6rem; }
       .nav-links {
         display: none;
         flex-direction: column;
@@ -630,7 +691,7 @@
         font-size: 0.6rem;
         letter-spacing: 0.2em;
         text-transform: uppercase;
-        border-top: 1px solid rgba(255,255,255,0.08);
+        border-top: 1px solid var(--menu-border);
         line-height: 1.2;
         margin-top: 0.45rem;
         padding-top: 0.55rem;
@@ -664,6 +725,31 @@
       .ticker-wrap { font-size: 0.62rem; }
       .join-inner { padding: 3rem 1.5rem; }
       .hero-cta .btn, .join-cta-row .btn { flex: 1 1 auto; text-align: center; }
+    }
+
+    /* ─── LIGHT THEME OVERRIDES (Sprint 1C.3) ───
+       Dark rules above are unchanged. These cover remaining hard-coded dark values here
+       and in the server-injected homepage sections (#poker-wildlife, #chronicles-preview). */
+    [data-theme="light"] .ticker-wrap, [data-theme="light"] .ticker-track a { color: var(--on-green); }
+    [data-theme="light"] .nav-outer, [data-theme="light"] .section-divider, [data-theme="light"] .footer-outer { border-color: var(--border); }
+    [data-theme="light"] .nav-cta { color: var(--on-green) !important; }
+    [data-theme="light"] .nav-cta:hover { background: var(--green-hover) !important; }
+    [data-theme="light"] .btn-primary, [data-theme="light"] .fs-cta, [data-theme="light"] .hc-cta-btn { color: var(--on-green); }
+    [data-theme="light"] .btn-primary:hover, [data-theme="light"] .fs-cta:hover, [data-theme="light"] .hc-cta-btn:hover { background: var(--green-hover); }
+    [data-theme="light"] .btn-primary:hover { box-shadow: 0 8px 24px rgba(0,127,55,0.22); }
+    [data-theme="light"] .compact-stories { background: var(--border); }
+    [data-theme="light"] .featured-story-card, [data-theme="light"] .t-card { box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    [data-theme="light"] [style*="border:1px solid #1e1e1e"], [data-theme="light"] [style*="border-top:1px solid #1a1a1a"] { border-color: var(--border) !important; }
+    [data-theme="light"] [style*="background:#0c0c0c"] { background: var(--surface) !important; }
+    [data-theme="light"] .hof-preview-card { border-color: var(--border); background: var(--surface); }
+    [data-theme="light"] .hof-preview-card p { color: var(--text-muted); }
+    [data-theme="light"] #poker-wildlife .pw-hp-card { border-color: var(--border); background: var(--surface); }
+    [data-theme="light"] #poker-wildlife .pw-hp-card:hover, [data-theme="light"] #poker-wildlife .pw-hp-card:focus-visible { border-color: rgba(0,127,55,0.5); box-shadow: 0 0 0 1px rgba(0,127,55,0.12), 0 18px 40px -22px rgba(0,0,0,0.25); }
+    [data-theme="light"] #poker-wildlife .pw-hp-img { background: linear-gradient(150deg, var(--felt), var(--surface-2)); }
+    [data-theme="light"] #poker-wildlife .pw-hp-primary-cta:hover, [data-theme="light"] #poker-wildlife .pw-hp-primary-cta:focus-visible { color: var(--on-green); }
+    [data-theme="light"] #poker-wildlife .pw-hp-bottom { border-top-color: var(--border); }
+    @media (max-width: 980px) {
+      [data-theme="light"] .nav-links { background: var(--page-bg); border-bottom-color: var(--border); }
     }
   </style>
 </head>
@@ -737,11 +823,12 @@
       <a href="/" class="nav-logo">
         <img src="/logo.png" alt="ATM With No PIN" class="site-logo">
       </a>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Use light theme" title="Use light theme"><span class="theme-icon-sun" aria-hidden="true">☀</span><span class="theme-icon-moon" aria-hidden="true">🌙</span></button>
       <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle menu" aria-expanded="false" aria-controls="navLinks">☰</button>
       <ul class="nav-links" id="navLinks">
         <li><a href="/blog">Stories</a></li>
         <li><a href="/stories/poker-wildlife">Poker Wildlife</a></li>
-        <li><a href="/community">Community</a></li>
+        <li><a href="/community">Fish Tank</a></li>
         <li><a href="/shop.html">Shop</a></li>
         <li class="nav-more">
           <button class="nav-more-btn" id="navMoreBtn" type="button" aria-expanded="false" aria-controls="navMoreMenu">More <span class="nav-more-caret" aria-hidden="true">▾</span></button>
@@ -900,6 +987,25 @@
       function onBreakpoint() { setMore(false); if (!mq.matches) setNav(false); }
       if (mq.addEventListener) mq.addEventListener('change', onBreakpoint);
       else if (mq.addListener) mq.addListener(onBreakpoint);
+    })();
+
+    /* ─── THEME TOGGLE (same behaviour as server-rendered pages) ─── */
+    (function() {
+      var root = document.documentElement;
+      var buttons = document.querySelectorAll('[data-theme-toggle]');
+      function current() { return root.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
+      function sync() {
+        var label = current() === 'light' ? 'Use dark theme' : 'Use light theme';
+        for (var i = 0; i < buttons.length; i++) { buttons[i].setAttribute('aria-label', label); buttons[i].setAttribute('title', label); }
+      }
+      function toggle() {
+        var next = current() === 'light' ? 'dark' : 'light';
+        root.setAttribute('data-theme', next);
+        try { localStorage.setItem('atm_theme', next); } catch (_) {}
+        sync();
+      }
+      for (var i = 0; i < buttons.length; i++) buttons[i].addEventListener('click', toggle);
+      sync();
     })();
 
     /* ─── COMMUNITY CAROUSEL ─── */

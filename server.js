@@ -1218,6 +1218,231 @@ async function toggleCommunityLike({ userId, postId } = {}) {
   return { liked: !removed, like_count: Number(countRow && countRow.n) || 0 };
 }
 
+// ── ATM Account administration + Fish Tank moderation (Sprint 1C.3) ─────────
+// Admin-only helpers behind the existing /api/admin/ gate. Targeted,
+// parameterized queries only; HTTP responses are built from explicit safe
+// shapes (never SELECT * rows): no *_normalized, token/code hashes, session
+// ids or edit_tokens. Nothing here physically deletes users, sessions, posts,
+// replies or likes — moderation sets deleted_at, suspension sets status.
+// Each mutating helper returns a structured result so audit logging can hook
+// in later.
+
+const ADMIN_USERS_DEFAULT_LIMIT = 50;
+const ADMIN_USERS_MAX_LIMIT = 100;
+const ADMIN_USER_RECENT_LIMIT = 10;
+// Allowed admin status transitions (restrictive → revokes all sessions).
+const ADMIN_USER_STATUS_TRANSITIONS = {
+  active: ['suspended', 'banned'],
+  suspended: ['active', 'banned'],
+  banned: ['active'],
+};
+
+function adminLikePattern(value) {
+  return `%${value.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+}
+
+// Per-user admin columns; expects alias u (users) and ps (linked profile, may be NULL).
+function adminUserSelect(nowParamSql) {
+  const common = `u.id, u.email, u.username, u.display_name, u.email_verified_at, u.status, u.trust_level,
+    u.created_at, u.updated_at, u.last_login_at, u.avatar_type, u.avatar_wildlife_slug,
+    upl.player_submission_id AS linked_profile_id,
+    (SELECT COUNT(*) FROM community_posts p WHERE p.user_id = u.id AND p.deleted_at IS NULL) AS post_count,
+    (SELECT COUNT(*) FROM community_replies r WHERE r.user_id = u.id AND r.deleted_at IS NULL) AS reply_count,
+    (SELECT COUNT(*) FROM community_likes l WHERE l.user_id = u.id) AS like_count,
+    (SELECT COUNT(*) FROM user_sessions s WHERE s.user_id = u.id AND s.revoked_at IS NULL AND s.expires_at > ${nowParamSql}) AS active_session_count`;
+  const pg = `${common},
+    ps.data->>'name' AS profile_name, ps.data->>'nickname' AS profile_nickname, ps.data->>'slug' AS profile_slug,
+    ps.data->>'status' AS profile_status, ps.data->>'photo_url' AS profile_photo_url`;
+  const sqlite = `${common},
+    json_extract(ps.data, '$.name') AS profile_name, json_extract(ps.data, '$.nickname') AS profile_nickname, json_extract(ps.data, '$.slug') AS profile_slug,
+    json_extract(ps.data, '$.status') AS profile_status, json_extract(ps.data, '$.photo_url') AS profile_photo_url`;
+  return { pg, sqlite };
+}
+const ADMIN_USER_JOINS = `FROM users u
+  LEFT JOIN user_profile_links upl ON upl.user_id = u.id
+  LEFT JOIN player_submissions ps ON ps.id = upl.player_submission_id`;
+
+function adminSafeUser(row) {
+  const slug = typeof row.profile_slug === 'string' && /^[a-z0-9][a-z0-9-]{0,120}$/i.test(row.profile_slug) ? row.profile_slug : '';
+  const linked = row.linked_profile_id ? {
+    name: row.profile_name || '',
+    nickname: row.profile_nickname || '',
+    slug: slug || null,
+    status: row.profile_status || 'pending',
+    has_photo: !!safeAvatarImageUrl(row.profile_photo_url),
+    public_url: slug && row.profile_status === 'approved' ? `/players/${slug}` : null,
+  } : null;
+  return {
+    id: row.id,
+    email: row.email,
+    username: row.username || null,
+    display_name: row.display_name || '',
+    email_verified_at: row.email_verified_at || null,
+    status: row.status,
+    trust_level: row.trust_level,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    last_login_at: row.last_login_at || null,
+    avatar_type: AVATAR_TYPES.includes(row.avatar_type) ? row.avatar_type : 'default',
+    avatar_wildlife_slug: row.avatar_wildlife_slug || null,
+    linked_profile: linked,
+    post_count: Number(row.post_count) || 0,
+    reply_count: Number(row.reply_count) || 0,
+    like_count: Number(row.like_count) || 0,
+    active_session_count: Number(row.active_session_count) || 0,
+  };
+}
+
+// Search (username / display name / email) + filters, newest first, bounded.
+async function listAdminUsers({ q = '', status = '', verified = '', limit = ADMIN_USERS_DEFAULT_LIMIT, offset = 0 } = {}) {
+  const n = Math.min(Math.max(parseInt(limit, 10) || ADMIN_USERS_DEFAULT_LIMIT, 1), ADMIN_USERS_MAX_LIMIT);
+  const skip = Math.min(Math.max(parseInt(offset, 10) || 0, 0), 1000000);
+  const where = [];
+  const params = [];
+  const term = String(q || '').trim().replace(/^@/, '').toLowerCase().slice(0, 100);
+  if (term) {
+    const like = adminLikePattern(term);
+    where.push("(u.username_normalized LIKE ? ESCAPE '\\' OR LOWER(u.display_name) LIKE ? ESCAPE '\\' OR u.email_normalized LIKE ? ESCAPE '\\')");
+    params.push(like, like, like);
+  }
+  if (status) {
+    if (!USER_STATUSES.includes(status)) throw identityError('INVALID_FILTER', 'Invalid status filter');
+    where.push('u.status = ?');
+    params.push(status);
+  }
+  if (verified === 'yes') where.push('u.email_verified_at IS NOT NULL');
+  else if (verified === 'no') where.push('u.email_verified_at IS NULL');
+  else if (verified) throw identityError('INVALID_FILTER', 'Invalid verified filter');
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const cols = adminUserSelect('?');
+  const listSql = (c) => `SELECT ${c} ${ADMIN_USER_JOINS} ${whereSql} ORDER BY u.created_at DESC, u.id DESC LIMIT ? OFFSET ?`;
+  const nowIso = new Date().toISOString();
+  const rows = await identityAll(...communitySql(listSql(cols.pg), listSql(cols.sqlite)), [nowIso, ...params, n, skip]);
+  const totalSql = `SELECT COUNT(*) AS n FROM users u ${whereSql}`;
+  const totalRow = await identityGet(...communitySql(totalSql, totalSql), params);
+  return { users: rows.map(adminSafeUser), total: Number(totalRow && totalRow.n) || 0, limit: n, offset: skip };
+}
+
+async function getAdminUserSummary() {
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const sql = `SELECT COUNT(*) AS total,
+    SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active,
+    SUM(CASE WHEN status = 'suspended' THEN 1 ELSE 0 END) AS suspended,
+    SUM(CASE WHEN status = 'banned' THEN 1 ELSE 0 END) AS banned,
+    SUM(CASE WHEN email_verified_at IS NOT NULL THEN 1 ELSE 0 END) AS verified,
+    SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS new_last_7_days
+    FROM users`;
+  const row = (await identityGet(...communitySql(sql, sql), [since])) || {};
+  const out = {};
+  for (const k of ['total', 'active', 'suspended', 'banned', 'verified', 'new_last_7_days']) out[k] = Number(row[k]) || 0;
+  return out;
+}
+
+// One account with activity + session summary, or null. Never returns session
+// ids / token hashes — only counts and the latest activity timestamp.
+async function getAdminUserDetail(userId) {
+  if (!COMMUNITY_ID_RE.test(String(userId || ''))) return null;
+  const cols = adminUserSelect('?');
+  const nowIso = new Date().toISOString();
+  const row = await identityGet(...communitySql(
+    `SELECT ${cols.pg} ${ADMIN_USER_JOINS} WHERE u.id = ?`,
+    `SELECT ${cols.sqlite} ${ADMIN_USER_JOINS} WHERE u.id = ?`
+  ), [nowIso, String(userId)]);
+  if (!row) return null;
+  const user = adminSafeUser(row);
+  const sessionSql = `SELECT MAX(COALESCE(last_seen_at, created_at)) AS last_activity FROM user_sessions WHERE user_id = ?`;
+  const sessionRow = await identityGet(...communitySql(sessionSql, sessionSql), [user.id]);
+  const postsSql = (active) => `SELECT x.id, x.body, x.created_at, c.slug AS channel_slug, c.name AS channel_name, c.is_active = ${active} AS channel_active,
+      (SELECT COUNT(*) FROM community_likes l WHERE l.post_id = x.id) AS like_count,
+      (SELECT COUNT(*) FROM community_replies r WHERE r.post_id = x.id AND r.deleted_at IS NULL) AS reply_count
+    FROM community_posts x LEFT JOIN community_channels c ON c.id = x.channel_id
+    WHERE x.user_id = ? AND x.deleted_at IS NULL ORDER BY x.created_at DESC, x.id DESC LIMIT ?`;
+  const posts = await identityAll(...communitySql(postsSql('TRUE'), postsSql('1')), [user.id, ADMIN_USER_RECENT_LIMIT]);
+  const repliesSql = `SELECT x.id, x.post_id, x.body, x.created_at, (p.id IS NOT NULL AND p.deleted_at IS NULL) AS post_visible
+    FROM community_replies x LEFT JOIN community_posts p ON p.id = x.post_id
+    WHERE x.user_id = ? AND x.deleted_at IS NULL ORDER BY x.created_at DESC, x.id DESC LIMIT ?`;
+  const replies = await identityAll(...communitySql(repliesSql, repliesSql), [user.id, ADMIN_USER_RECENT_LIMIT]);
+  const truthy = (v) => v === true || Number(v) === 1;
+  return {
+    user,
+    security: {
+      active_session_count: user.active_session_count,
+      last_session_activity_at: (sessionRow && sessionRow.last_activity) || null,
+    },
+    recent_posts: posts.map((p) => ({
+      id: p.id,
+      body: p.body,
+      created_at: p.created_at,
+      channel: { slug: p.channel_slug || null, name: p.channel_name || '' },
+      like_count: Number(p.like_count) || 0,
+      reply_count: Number(p.reply_count) || 0,
+      public_url: truthy(p.channel_active) ? `/community/post/${p.id}` : null,
+    })),
+    recent_replies: replies.map((r) => ({
+      id: r.id,
+      post_id: r.post_id,
+      body: r.body,
+      created_at: r.created_at,
+      public_url: truthy(r.post_visible) ? `/community/post/${r.post_id}#replies` : null,
+    })),
+  };
+}
+
+// Revokes every not-yet-revoked session for the user (rows are kept).
+// Returns the number of sessions newly revoked.
+async function revokeAllUserSessions(userId) {
+  return identityRun(
+    'UPDATE user_sessions SET revoked_at = $1 WHERE user_id = $2 AND revoked_at IS NULL',
+    'UPDATE user_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL',
+    [new Date().toISOString(), String(userId)]
+  );
+}
+
+// active | suspended | banned only, per ADMIN_USER_STATUS_TRANSITIONS.
+// suspended / banned also revoke all sessions (getCurrentUser already rejects
+// non-active users; revocation makes the sign-out explicit and durable).
+async function setUserStatus(userId, status) {
+  if (!USER_STATUSES.includes(status)) throw identityError('INVALID_STATUS', 'Invalid user status');
+  if (!COMMUNITY_ID_RE.test(String(userId || ''))) throw identityError('USER_NOT_FOUND', 'Account not found');
+  const user = await getUserById(userId);
+  if (!user) throw identityError('USER_NOT_FOUND', 'Account not found');
+  const previous = user.status;
+  if (previous === status) throw identityError('STATUS_UNCHANGED', `Account is already ${status}`);
+  if (!(ADMIN_USER_STATUS_TRANSITIONS[previous] || []).includes(status)) throw identityError('INVALID_TRANSITION', `Cannot change ${previous} to ${status}`);
+  const now = new Date().toISOString();
+  const changed = await identityRun(
+    'UPDATE users SET status = $1, updated_at = $2 WHERE id = $3 AND status = $4',
+    'UPDATE users SET status = ?, updated_at = ? WHERE id = ? AND status = ?',
+    [status, now, String(userId), previous]
+  );
+  if (!changed) throw identityError('STATUS_CONFLICT', 'Account status changed concurrently; reload and try again');
+  const sessionsRevoked = status === 'active' ? 0 : await revokeAllUserSessions(userId);
+  return { user_id: String(userId), previous_status: previous, status, updated_at: now, sessions_revoked: sessionsRevoked };
+}
+
+// Soft delete only: sets deleted_at, keeps the row, its replies and likes.
+async function adminSoftDeleteCommunityPost(postId) {
+  return adminSoftDeleteCommunityRow('community_posts', postId, 'COMMUNITY_POST_NOT_FOUND', 'Post not found.');
+}
+
+// Soft delete only: hides this reply; the parent post is untouched.
+async function adminSoftDeleteCommunityReply(replyId) {
+  return adminSoftDeleteCommunityRow('community_replies', replyId, 'COMMUNITY_REPLY_NOT_FOUND', 'Reply not found.');
+}
+
+async function adminSoftDeleteCommunityRow(table, id, notFoundCode, notFoundMessage) {
+  if (!COMMUNITY_ID_RE.test(String(id || ''))) throw identityError(notFoundCode, notFoundMessage);
+  const now = new Date().toISOString();
+  const changed = await identityRun(...communitySql(
+    `UPDATE ${table} SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`,
+    `UPDATE ${table} SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`
+  ), [now, String(id)]);
+  if (changed) return { id: String(id), removed: true, already_removed: false, deleted_at: now };
+  const existing = await identityGet(...communitySql(`SELECT deleted_at FROM ${table} WHERE id = ?`, `SELECT deleted_at FROM ${table} WHERE id = ?`), [String(id)]);
+  if (!existing) throw identityError(notFoundCode, notFoundMessage);
+  return { id: String(id), removed: true, already_removed: true, deleted_at: existing.deleted_at };
+}
+
 const SEED_POSTS = [
   {
     id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
@@ -4739,49 +4964,89 @@ function renderVideoEmbed(videoUrl) {
   return `<p class="body-text">Video URL: <a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a></p>`;
 }
 
-function renderLayout(title, body, head = '') {
+// Site-wide Dark / Light theme (Sprint 1C.3). Dark is the default; light applies only
+// when localStorage.atm_theme is exactly 'light'. Client-side only — no cookie, API or DB.
+// --black stays #0a0a0a in both themes (it doubles as ink on green buttons); --offwhite /
+// --gray / --green / --gold are the text + accent roles and are re-tuned for light.
+const THEME_DARK_TOKENS = '--black:#0a0a0a; --green:#00c853; --green-dim:#007a33; --gold:#c9a84c; --offwhite:#f0ece0; --gray:#999; --page-bg:#0a0a0a; --surface:#0c0c0c; --surface-2:#111; --input-bg:#121212; --border:#1e1e1e; --border-strong:#2a2a2a; --border-green:#1e3a28; --menu-border:rgba(255,255,255,.08); --felt-surface:#0d2e1a; --felt-surface-2:#0a1a0f; --text:#f0ece0; --text-secondary:#b0a898; --text-muted:#999; --nav-text:#c6c6c6; --green-hover:#00ff6a; --on-green:#0a0a0a; color-scheme:dark;';
+const THEME_LIGHT_TOKENS = '--green:#007f37; --green-dim:#3b8f5c; --gold:#7a5c12; --offwhite:#151515; --gray:#666; --page-bg:#f4f1e8; --surface:#fff; --surface-2:#ebe7dc; --input-bg:#fff; --border:rgba(0,0,0,.12); --border-strong:rgba(0,0,0,.22); --border-green:rgba(0,127,55,.28); --menu-border:rgba(0,0,0,.12); --felt-surface:#e2ede4; --felt-surface-2:#edf3ec; --text:#151515; --text-secondary:#555; --text-muted:#666; --nav-text:#333; --green-hover:#006b2d; --on-green:#fff; color-scheme:light;';
+// Runs in <head> before first paint. Only the exact stored value 'light' is honoured.
+const THEME_EARLY_SCRIPT = `<script>try{if(localStorage.getItem('atm_theme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(_){}</script>`;
+// Icons are swapped by CSS (no flash); the label always describes the action.
+const THEME_TOGGLE_BUTTON = '<button class="theme-toggle" type="button" data-theme-toggle aria-label="Use light theme" title="Use light theme"><span class="theme-icon-sun" aria-hidden="true">☀</span><span class="theme-icon-moon" aria-hidden="true">🌙</span></button>';
+const THEME_TOGGLE_SCRIPT = `<script>
+  (function() {
+    var root = document.documentElement;
+    var buttons = document.querySelectorAll('[data-theme-toggle]');
+    function current() { return root.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
+    function sync() {
+      var label = current() === 'light' ? 'Use dark theme' : 'Use light theme';
+      for (var i = 0; i < buttons.length; i++) { buttons[i].setAttribute('aria-label', label); buttons[i].setAttribute('title', label); }
+    }
+    function toggle() {
+      var next = current() === 'light' ? 'dark' : 'light';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('atm_theme', next); } catch (_) {}
+      sync();
+    }
+    for (var i = 0; i < buttons.length; i++) buttons[i].addEventListener('click', toggle);
+    sync();
+  })();
+  </script>`;
+
+// opts.darkOnly: admin pages stay dark (no early script, no toggle).
+function renderLayout(title, body, head = '', opts = {}) {
+  const darkOnly = !!opts.darkOnly;
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en"${darkOnly ? ' data-theme="dark"' : ''}>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  ${darkOnly ? '' : THEME_EARLY_SCRIPT}
   <title>${escapeHtml(title)}</title>
   ${head || ''}
   ${head ? '' : '<meta name="description" content="ATMNOPIN™ Poker blog and admin publishing system for table stories, updates, and bad beats." />'}
   <style>
-    :root { --black:#0a0a0a; --green:#00c853; --green-dim:#007a33; --gold:#c9a84c; --offwhite:#f0ece0; --gray:#999; }
+    :root { ${THEME_DARK_TOKENS} }
+    :root[data-theme="light"] { ${THEME_LIGHT_TOKENS} }
     * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family: 'DM Mono', monospace; background: var(--black); color: var(--offwhite); line-height:1.7; }
+    body { font-family: 'DM Mono', monospace; background: var(--page-bg); color: var(--offwhite); line-height:1.7; }
     a { color: var(--green); text-decoration: none; }
     .shell { max-width: 1200px; margin: 0 auto; padding: 0 1rem 3rem; }
-    nav { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:1rem 0; border-bottom:1px solid #1e1e1e; }
+    nav { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:1rem 0; border-bottom:1px solid var(--border); }
     .nav-links { display:flex; gap:1rem; list-style:none; flex-wrap:wrap; }
-    .nav-links a { color: #c6c6c6; font-size: .75rem; text-transform: uppercase; letter-spacing: .12em; }
+    .nav-links a { color: var(--nav-text); font-size: .75rem; text-transform: uppercase; letter-spacing: .12em; }
     .site-nav { position:relative; z-index:50; }
-    .site-nav .nav-links { align-items:center; }
+    .site-nav .nav-links { align-items:center; margin-left:auto; order:1; }
     .site-nav .nav-links a:hover { color: var(--offwhite); }
-    .site-nav .nav-cta { background: var(--green); color: var(--black); padding:.35rem .8rem; }
-    .site-nav .nav-links a.nav-cta:hover { color: var(--black); }
-    .site-nav .nav-toggle { display:none; background:none; border:1px solid #2a2a2a; border-radius:0; color: var(--offwhite); font-size:1.1rem; padding:.35rem .65rem; line-height:1; letter-spacing:0; text-transform:none; }
+    .site-nav .nav-cta { background: var(--green); color: var(--on-green); padding:.35rem .8rem; }
+    .site-nav .nav-links a.nav-cta:hover { color: var(--on-green); }
+    .site-nav .nav-toggle { display:none; background:none; border:1px solid var(--border-strong); border-radius:0; color: var(--offwhite); font-size:1.1rem; padding:.35rem .65rem; line-height:1; letter-spacing:0; text-transform:none; }
+    .site-nav .theme-toggle { order:2; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; min-width:34px; min-height:34px; background:none; border:1px solid var(--border-strong); border-radius:0; color: var(--nav-text); font-size:.95rem; padding:.3rem .5rem; line-height:1; letter-spacing:0; text-transform:none; }
+    .site-nav .theme-toggle:hover { color: var(--offwhite); border-color: var(--green-dim); }
+    .site-nav .theme-toggle:focus-visible, .site-nav .nav-toggle:focus-visible { outline:2px solid var(--green); outline-offset:2px; }
+    .theme-icon-moon { display:none; }
+    [data-theme="light"] .theme-icon-sun { display:none; }
+    [data-theme="light"] .theme-icon-moon { display:inline; }
     .nav-more { position:relative; }
-    .site-nav .nav-more-btn { background:none; border:none; border-radius:0; padding:0; color:#c6c6c6; font-size:.75rem; text-transform:uppercase; letter-spacing:.12em; display:inline-flex; align-items:center; gap:.35rem; }
+    .site-nav .nav-more-btn { background:none; border:none; border-radius:0; padding:0; color: var(--nav-text); font-size:.75rem; text-transform:uppercase; letter-spacing:.12em; display:inline-flex; align-items:center; gap:.35rem; }
     .site-nav .nav-more-btn:hover, .site-nav .nav-more-btn[aria-expanded="true"] { color: var(--offwhite); }
     .site-nav .nav-more-btn:focus-visible, .nav-more-menu a:focus-visible { outline:1px solid var(--green); outline-offset:3px; }
     .nav-more-caret { font-size:.6rem; transition: transform .2s; }
     .nav-more-btn[aria-expanded="true"] .nav-more-caret { transform: rotate(180deg); }
     .nav-more-label { display:none; }
-    .nav-more-menu { display:none; flex-direction:column; position:absolute; top:calc(100% + .9rem); right:0; min-width:200px; list-style:none; background: var(--black); border:1px solid rgba(255,255,255,.08); border-top:2px solid var(--green); padding:.4rem 0; z-index:60; }
+    .nav-more-menu { display:none; flex-direction:column; position:absolute; top:calc(100% + .9rem); right:0; min-width:200px; list-style:none; background: var(--page-bg); border:1px solid var(--menu-border); border-top:2px solid var(--green); padding:.4rem 0; z-index:60; }
     .nav-more-menu.open { display:flex; }
     .nav-more-menu a { display:block; padding:.6rem 1.1rem; }
     .nav-more-menu a:hover, .nav-more-menu a:focus-visible { color: var(--offwhite); background: rgba(0,200,83,.06); }
-    .pill { display:inline-block; padding: .35rem .65rem; border:1px solid #2a2a2a; border-radius:999px; color: var(--green); font-size:.68rem; text-transform:uppercase; letter-spacing:.12em; }
+    .pill { display:inline-block; padding: .35rem .65rem; border:1px solid var(--border-strong); border-radius:999px; color: var(--green); font-size:.68rem; text-transform:uppercase; letter-spacing:.12em; }
     .hero { padding: 2rem 0 1rem; }
     .eyebrow { text-transform:uppercase; letter-spacing:.25em; color: var(--green); font-size:.68rem; }
     h1, h2, h3 { font-family: 'DM Serif Display', serif; color: var(--offwhite); }
     h1 { font-size: clamp(2.6rem, 6vw, 4.8rem); line-height:1; margin-top:.5rem; }
     h2 { font-size: clamp(1.6rem, 4vw, 2.2rem); margin: 1rem 0; }
     .grid { display:grid; grid-template-columns:1.2fr .8fr; gap:1rem; }
-    .card { border:1px solid #1e1e1e; background:#0c0c0c; padding:1rem; border-radius:14px; }
+    .card { border:1px solid var(--border); background: var(--surface); padding:1rem; border-radius:14px; }
     .card p, .body-text { color: var(--gray); font-size:.88rem; }
     .tag { display:inline-block; background: rgba(0,200,83,.12); color: var(--green); border:1px solid rgba(0,200,83,.18); border-radius:999px; padding:.25rem .5rem; font-size:.65rem; text-transform:uppercase; letter-spacing:.12em; margin-right:.35rem; }
     .posts { display:grid; gap:1rem; margin-top:1rem; }
@@ -4793,39 +5058,56 @@ function renderLayout(title, body, head = '') {
     .gallery { display:grid; grid-template-columns:repeat(2,1fr); gap:.75rem; }
     .form-grid { display:grid; gap:.75rem; }
     label { display:grid; gap:.35rem; font-size:.78rem; color: var(--gray); text-transform:uppercase; letter-spacing:.12em; }
-    input, textarea, select { width:100%; border:1px solid #242424; background:#121212; color: var(--offwhite); padding:.8rem .9rem; border-radius:10px; font: inherit; }
+    input, textarea, select { width:100%; border:1px solid #242424; background: var(--input-bg); color: var(--offwhite); padding:.8rem .9rem; border-radius:10px; font: inherit; }
     textarea { min-height: 120px; }
     button { border:1px solid #243b2e; background: linear-gradient(180deg, #0f3a1d, #072213); color: var(--offwhite); border-radius:10px; padding:.75rem 1rem; cursor:pointer; font:inherit; text-transform:uppercase; letter-spacing:.12em; }
     button.secondary { background:#111; border-color:#242424; }
     .row { display:flex; gap:.75rem; flex-wrap:wrap; }
-    .notice { border:1px solid #1e1e1e; background:#111; padding:.8rem; color: var(--offwhite); border-radius:12px; font-size:.82rem; }
+    .notice { border:1px solid var(--border); background: var(--surface-2); padding:.8rem; color: var(--offwhite); border-radius:12px; font-size:.82rem; }
     .preview { border:1px dashed #2e2e2e; background:#0b0b0b; padding:1rem; border-radius:12px; color: var(--gray); }
-    .footer { border-top:1px solid #1e1e1e; padding:1rem 0; color:#777; font-size:.7rem; text-transform:uppercase; letter-spacing:.12em; }
+    .footer { border-top:1px solid var(--border); padding:1rem 0; color:#777; font-size:.7rem; text-transform:uppercase; letter-spacing:.12em; }
     @media (max-width: 980px) { .grid { grid-template-columns:1fr; } .gallery { grid-template-columns:1fr; } }
     @media (max-width: 980px) {
       .site-nav .nav-toggle { display:block; }
-      .site-nav .nav-links { display:none; flex-direction:column; align-items:flex-start; flex-wrap:nowrap; position:absolute; top:100%; left:0; right:0; background: var(--black); border:1px solid rgba(255,255,255,.08); padding:.5rem 1.5rem .75rem; gap:0; z-index:49; }
+      .site-nav .theme-toggle { order:0; margin-left:auto; }
+      .site-nav .nav-links { display:none; flex-direction:column; align-items:flex-start; flex-wrap:nowrap; position:absolute; top:100%; left:0; right:0; margin-left:0; background: var(--page-bg); border:1px solid var(--menu-border); padding:.5rem 1.5rem .75rem; gap:0; z-index:49; }
       .site-nav .nav-links.open { display:flex; }
       .site-nav .nav-links > li > a { display:flex; align-items:center; min-height:32px; line-height:1.2; }
       .site-nav .nav-links > li > a.nav-cta { display:inline-flex; min-height:34px; padding:0 .8rem; margin:.3rem 0; }
       .nav-more { order:1; }
       .site-nav .nav-more-btn { display:none; }
-      .nav-more-label { display:block; color: var(--gold); font-size:.6rem; letter-spacing:.2em; text-transform:uppercase; border-top:1px solid rgba(255,255,255,.08); line-height:1.2; margin-top:.45rem; padding-top:.55rem; }
+      .nav-more-label { display:block; color: var(--gold); font-size:.6rem; letter-spacing:.2em; text-transform:uppercase; border-top:1px solid var(--menu-border); line-height:1.2; margin-top:.45rem; padding-top:.55rem; }
       .nav-more-menu { display:flex; position:static; min-width:0; background:none; border:none; padding:.2rem 0 0 .9rem; gap:0; }
       .nav-more-menu a { display:flex; align-items:center; min-height:30px; line-height:1.2; padding:0; }
       .nav-more-menu a:hover { background:none; }
     }
+    /* Light theme: shared surfaces that still carry dark hex values above, plus common
+       inline dark styles in public templates. Admin pages never get data-theme="light". */
+    [data-theme="light"] .post-card { background: var(--surface); }
+    [data-theme="light"] .post-card img, [data-theme="light"] .gallery img, [data-theme="light"] .video-frame { border-color: var(--border); }
+    [data-theme="light"] input, [data-theme="light"] textarea, [data-theme="light"] select { border-color: var(--border-strong); }
+    [data-theme="light"] button { background: linear-gradient(180deg, var(--felt-surface), var(--felt-surface-2)); border-color: var(--border-green); }
+    [data-theme="light"] button.secondary { background: var(--surface-2); border-color: var(--border-strong); }
+    [data-theme="light"] .preview { background: var(--surface-2); border-color: var(--border-strong); }
+    [data-theme="light"] .footer { color: var(--text-muted); }
+    [data-theme="light"] [style*="color:#b0a898"], [data-theme="light"] [style*="color:#a0988a"] { color: var(--text-secondary) !important; }
+    [data-theme="light"] [style*="background:#0c1a10"] { background: var(--felt-surface-2) !important; }
+    [data-theme="light"] [style*="border-color:#1e3a28"] { border-color: var(--border-green) !important; }
+    [data-theme="light"] [style*="background:#0a0a0a"], [data-theme="light"] [style*="background:#0c0c0c"], [data-theme="light"] [style*="background:var(--black)"] { background: var(--surface) !important; }
+    [data-theme="light"] [style*="background:#111"] { background: var(--surface-2) !important; }
+    [data-theme="light"] [style*="solid #1a1a1a"], [data-theme="light"] [style*="solid #1e1e1e"], [data-theme="light"] [style*="solid #222"] { border-color: var(--border) !important; }
   </style>
 </head>
 <body>
   <div class="shell">
     <nav class="site-nav">
       <a href="/" style="color:var(--green); font-weight:700; text-transform:uppercase; letter-spacing:.18em;">ATMNOPIN™</a>
+      ${darkOnly ? '' : THEME_TOGGLE_BUTTON}
       <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle menu" aria-expanded="false" aria-controls="navLinks">☰</button>
       <ul class="nav-links" id="navLinks">
         <li><a href="/blog">Stories</a></li>
         <li><a href="/stories/poker-wildlife">Poker Wildlife</a></li>
-        <li><a href="/community">Community</a></li>
+        <li><a href="/community">Fish Tank</a></li>
         <li><a href="/shop.html">Shop</a></li>
         <li class="nav-more">
           <button class="nav-more-btn" id="navMoreBtn" type="button" aria-expanded="false" aria-controls="navMoreMenu">More <span class="nav-more-caret" aria-hidden="true">▾</span></button>
@@ -4873,6 +5155,7 @@ function renderLayout(title, body, head = '') {
       else if (mq.addListener) mq.addListener(onBreakpoint);
     })();
   </script>
+  ${darkOnly ? '' : THEME_TOGGLE_SCRIPT}
   <script src="/account-nav.js" defer></script>
 </body>
 </html>`;
@@ -5018,11 +5301,234 @@ function renderSubmissionCardHtml(s) {
   </div>`;
 }
 
+// ATM Accounts admin tab (Sprint 1C.3). Static markup + script: all data comes
+// from /api/admin/users* and is escaped client-side before insertion.
+function renderAdminAccountsPanel() {
+  return `<div id="accountsPanel" style="display:none;">
+      <style>
+        .aa-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.5rem;margin-bottom:1rem;}
+        .aa-tile{border:1px solid var(--felt);background:var(--black);padding:.7rem;text-align:center;}
+        .aa-tile b{display:block;font-size:1.6rem;line-height:1;color:var(--green);font-weight:400;}
+        .aa-tile span{display:block;margin-top:.3rem;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gray);}
+        .aa-bar{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem;}
+        .aa-bar input{flex:1 1 200px;min-width:0;}
+        .aa-bar select{flex:0 1 160px;}
+        .aa-card{border:1px solid var(--felt);background:var(--black);padding:.8rem;margin-bottom:.5rem;overflow-wrap:anywhere;}
+        .aa-card-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:.4rem .75rem;}
+        .aa-handle{color:var(--offwhite);font-size:.9rem;}
+        .aa-muted{color:var(--gray);font-size:.68rem;}
+        .aa-meta{display:flex;flex-wrap:wrap;gap:.25rem .9rem;margin-top:.4rem;font-size:.66rem;color:var(--gray);}
+        .aa-meta strong{color:var(--offwhite);font-weight:400;}
+        .aa-badge{display:inline-block;border:1px solid var(--green-dim);color:var(--green);font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;padding:.1rem .4rem;}
+        .aa-badge.is-suspended{border-color:var(--gold);color:var(--gold);}
+        .aa-badge.is-banned{background:var(--offwhite);border-color:var(--offwhite);color:var(--black);}
+        .aa-badge.is-muted{border-color:var(--gray);color:var(--gray);}
+        .aa-row{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.6rem;}
+        .aa-section{border-top:1px solid var(--felt);padding-top:.8rem;margin-top:1rem;overflow-wrap:anywhere;min-width:0;}
+        .aa-section h3{font-family:'Bebas Neue',sans-serif;font-weight:400;letter-spacing:.08em;font-size:1.25rem;color:var(--offwhite);margin:0 0 .5rem;}
+        .aa-item{border-left:2px solid var(--felt);padding:.35rem .6rem;margin:.45rem 0;}
+        .aa-item p{white-space:pre-wrap;font-size:.75rem;color:var(--offwhite);margin:.2rem 0;}
+        .aa-confirm{border:1px solid var(--gold);padding:.8rem;margin-top:.75rem;}
+        .aa-confirm p{font-size:.75rem;color:var(--offwhite);margin:.2rem 0;}
+        .aa-status{font-size:.72rem;color:var(--gold);min-height:1em;margin-top:.5rem;}
+        .aa-pager{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-top:.75rem;}
+      </style>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
+        <h2 style="margin:0;">ATM Accounts</h2>
+        <button id="aaRefresh" class="secondary" type="button">Refresh</button>
+      </div>
+      <div class="aa-tiles" id="aaTiles"></div>
+      <div id="aaListView">
+        <form class="aa-bar" id="aaSearchForm">
+          <input id="aaQuery" type="search" placeholder="Search @username, name or email" maxlength="100" autocomplete="off" />
+          <select id="aaFilter" aria-label="Filter accounts">
+            <option value="">All</option>
+            <option value="status:active">Active</option>
+            <option value="status:suspended">Suspended</option>
+            <option value="status:banned">Banned</option>
+            <option value="verified:yes">Verified</option>
+            <option value="verified:no">Unverified</option>
+          </select>
+          <button type="submit">Search</button>
+        </form>
+        <div id="aaList"><div class="notice">Loading accounts…</div></div>
+        <div class="aa-pager"><button id="aaPrev" class="secondary" type="button">← Newer</button><span class="aa-muted" id="aaPageInfo"></span><button id="aaNext" class="secondary" type="button">Older →</button></div>
+      </div>
+      <div id="aaDetailView" style="display:none;"></div>
+    </div>
+    <script>
+    (function () {
+      var PAGE = 25;
+      var aaState = { q: '', filter: '', offset: 0, total: 0, detailId: null };
+      var loaded = false;
+      function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+      function when(iso) { if (!iso) return 'never'; var d = new Date(iso); return isNaN(d) ? esc(iso) : d.toLocaleString(); }
+      function handle(u) { return u.username ? '@' + u.username : 'username not set'; }
+      function statusBadge(s) { return '<span class="aa-badge' + (s === 'active' ? '' : ' is-' + esc(s)) + '">' + esc(s) + '</span>'; }
+      function verifiedBadge(u) { return u.email_verified_at ? '<span class="aa-badge">verified</span>' : '<span class="aa-badge is-muted">unverified</span>'; }
+      function profileLine(p) {
+        if (!p) return 'none';
+        var label = esc(p.nickname || p.name || p.slug || 'Poker Profile') + ' (' + esc(p.status) + ')';
+        return p.public_url ? '<a href="' + esc(p.public_url) + '" target="_blank" rel="noopener">' + label + '</a>' : label;
+      }
+      function api(url, body) {
+        var opts = body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' } : { credentials: 'same-origin' };
+        return fetch(url, opts).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (d) {
+            if (!r.ok || !d || d.ok === false) throw new Error((d && d.error) || ('Request failed (' + r.status + ')'));
+            return d;
+          });
+        });
+      }
+      function renderTiles(s) {
+        var t = [['total', 'Total Accounts'], ['active', 'Active'], ['suspended', 'Suspended'], ['banned', 'Banned'], ['verified', 'Verified'], ['new_last_7_days', 'New Last 7 Days']];
+        document.getElementById('aaTiles').innerHTML = t.map(function (x) { return '<div class="aa-tile"><b>' + esc(s[x[0]]) + '</b><span>' + x[1] + '</span></div>'; }).join('');
+      }
+      function renderCard(u) {
+        return '<div class="aa-card">'
+          + '<div class="aa-card-head"><span class="aa-handle">' + esc(handle(u)) + '</span><span class="aa-muted">' + esc(u.display_name) + '</span>' + statusBadge(u.status) + verifiedBadge(u) + '</div>'
+          + '<div class="aa-meta"><span>' + esc(u.email) + '</span><span>Trust <strong>' + esc(u.trust_level) + '</strong></span><span>Joined <strong>' + when(u.created_at) + '</strong></span><span>Last login <strong>' + when(u.last_login_at) + '</strong></span><span>Avatar <strong>' + esc(u.avatar_type) + (u.avatar_wildlife_slug ? ' · ' + esc(u.avatar_wildlife_slug) : '') + '</strong></span></div>'
+          + '<div class="aa-meta"><span>Poker Profile: ' + profileLine(u.linked_profile) + '</span><span>Fish Tank posts <strong>' + u.post_count + '</strong></span><span>Replies <strong>' + u.reply_count + '</strong></span><span>Likes <strong>' + u.like_count + '</strong></span></div>'
+          + '<div class="aa-row"><button type="button" class="secondary" data-aa-open="' + esc(u.id) + '">Open</button></div>'
+          + '</div>';
+      }
+      function loadList() {
+        loaded = true;
+        var parts = aaState.filter.split(':');
+        var qs = '?limit=' + PAGE + '&offset=' + aaState.offset + '&q=' + encodeURIComponent(aaState.q);
+        if (parts[0] === 'status') qs += '&status=' + encodeURIComponent(parts[1]);
+        if (parts[0] === 'verified') qs += '&verified=' + encodeURIComponent(parts[1]);
+        var list = document.getElementById('aaList');
+        list.innerHTML = '<div class="notice">Loading accounts…</div>';
+        api('/api/admin/users' + qs).then(function (d) {
+          renderTiles(d.summary || {});
+          aaState.total = d.total;
+          list.innerHTML = d.users.length ? d.users.map(renderCard).join('') : '<div class="notice">No accounts match.</div>';
+          var end = Math.min(d.offset + d.users.length, d.total);
+          document.getElementById('aaPageInfo').textContent = d.total ? (d.offset + 1) + '–' + end + ' of ' + d.total : '';
+          document.getElementById('aaPrev').disabled = d.offset <= 0;
+          document.getElementById('aaNext').disabled = end >= d.total;
+        }).catch(function (e) { list.innerHTML = '<div class="notice">Could not load accounts: ' + esc(e.message) + '</div>'; });
+      }
+      function showList() {
+        aaState.detailId = null;
+        document.getElementById('aaDetailView').style.display = 'none';
+        document.getElementById('aaListView').style.display = '';
+        loadList();
+      }
+      function actionButtons(u) {
+        var b = [];
+        if (u.status === 'active') b.push(['suspended', 'Suspend'], ['banned', 'Ban'], ['revoke', 'Revoke Sessions']);
+        if (u.status === 'suspended') b.push(['active', 'Reactivate'], ['banned', 'Ban']);
+        if (u.status === 'banned') b.push(['active', 'Reactivate']);
+        return b.map(function (x) { return '<button type="button"' + (x[0] === 'active' ? '' : ' class="secondary"') + ' data-aa-action="' + x[0] + '">' + x[1] + '</button>'; }).join('');
+      }
+      function renderDetail(d) {
+        var u = d.user, p = u.linked_profile;
+        var posts = d.recent_posts.length ? d.recent_posts.map(function (x) {
+          return '<div class="aa-item"><div class="aa-muted">' + esc(x.channel.name) + ' · ' + when(x.created_at) + ' · ♥ ' + x.like_count + ' · 💬 ' + x.reply_count + '</div><p>' + esc(x.body) + '</p>'
+            + '<div class="aa-row">' + (x.public_url ? '<a class="secondary" href="' + esc(x.public_url) + '" target="_blank" rel="noopener">View</a>' : '<span class="aa-muted">Not publicly visible</span>')
+            + '<button type="button" class="secondary" data-aa-remove="posts" data-aa-id="' + esc(x.id) + '">Remove</button></div></div>';
+        }).join('') : '<p class="aa-muted">No visible Fish Tank posts.</p>';
+        var replies = d.recent_replies.length ? d.recent_replies.map(function (x) {
+          return '<div class="aa-item"><div class="aa-muted">' + when(x.created_at) + '</div><p>' + esc(x.body) + '</p>'
+            + '<div class="aa-row">' + (x.public_url ? '<a class="secondary" href="' + esc(x.public_url) + '" target="_blank" rel="noopener">View</a>' : '<span class="aa-muted">Parent post removed</span>')
+            + '<button type="button" class="secondary" data-aa-remove="replies" data-aa-id="' + esc(x.id) + '">Remove</button></div></div>';
+        }).join('') : '<p class="aa-muted">No visible Fish Tank replies.</p>';
+        document.getElementById('aaDetailView').innerHTML = '<button type="button" class="secondary" id="aaBack">← All accounts</button>'
+          + '<div class="aa-section"><h3>ATM Identity</h3>'
+          + '<div class="aa-card-head"><span class="aa-handle">' + esc(handle(u)) + '</span>' + statusBadge(u.status) + verifiedBadge(u) + '</div>'
+          + '<div class="aa-meta"><span>Display name <strong>' + esc(u.display_name || '—') + '</strong></span><span>Email <strong>' + esc(u.email) + '</strong></span><span>Trust <strong>' + esc(u.trust_level) + '</strong></span></div>'
+          + '<div class="aa-meta"><span>Joined <strong>' + when(u.created_at) + '</strong></span><span>Last login <strong>' + when(u.last_login_at) + '</strong></span><span>Updated <strong>' + when(u.updated_at) + '</strong></span><span>Avatar <strong>' + esc(u.avatar_type) + (u.avatar_wildlife_slug ? ' · ' + esc(u.avatar_wildlife_slug) : '') + '</strong></span></div>'
+          + '<div class="aa-row" id="aaActions">' + actionButtons(u) + '</div><div id="aaConfirm"></div><p class="aa-status" id="aaStatus" role="status"></p></div>'
+          + '<div class="aa-section"><h3>Poker Profile</h3>' + (p
+            ? '<div class="aa-meta"><span>Profile <strong>' + profileLine(p) + '</strong></span><span>Name <strong>' + esc(p.name || '—') + '</strong></span><span>Photo <strong>' + (p.has_photo ? 'yes' : 'no') + '</strong></span></div>'
+            : '<p class="aa-muted">No linked Poker Profile.</p>') + '</div>'
+          + '<div class="aa-section"><h3>Fish Tank Activity</h3><div class="aa-meta"><span>Posts <strong>' + u.post_count + '</strong></span><span>Replies <strong>' + u.reply_count + '</strong></span><span>Likes <strong>' + u.like_count + '</strong></span></div>'
+          + '<p class="aa-muted" style="margin-top:.6rem;">Recent Fish Tank posts</p>' + posts
+          + '<p class="aa-muted" style="margin-top:.6rem;">Recent Fish Tank replies</p>' + replies + '</div>'
+          + '<div class="aa-section"><h3>Security</h3><div class="aa-meta"><span>Active sessions <strong>' + d.security.active_session_count + '</strong></span><span>Latest session activity <strong>' + when(d.security.last_session_activity_at) + '</strong></span></div></div>';
+        aaState.user = u;
+      }
+      function openDetail(id, note) {
+        aaState.detailId = id;
+        document.getElementById('aaListView').style.display = 'none';
+        var view = document.getElementById('aaDetailView');
+        view.style.display = '';
+        if (!note) view.innerHTML = '<div class="notice">Loading account…</div>';
+        return api('/api/admin/users/' + encodeURIComponent(id)).then(function (d) {
+          renderDetail(d);
+          if (note) document.getElementById('aaStatus').textContent = note;
+        }).catch(function (e) { view.innerHTML = '<button type="button" class="secondary" id="aaBack">← All accounts</button><div class="notice">Could not load account: ' + esc(e.message) + '</div>'; });
+      }
+      var CONFIRM = {
+        suspended: { title: 'Suspend {h}?', body: 'This immediately signs the user out and prevents new sign-ins until the account is reactivated.', btn: 'Suspend Account' },
+        banned: { title: 'Ban {h}?', body: 'This immediately signs the user out and blocks all sign-ins until an admin reactivates the account.', btn: 'Ban Account' },
+        revoke: { title: 'Sign {h} out everywhere?', body: 'This ends all of their active sessions. The account stays active and they can sign in again.', btn: 'Revoke Sessions' },
+        posts: { title: 'Remove this Fish Tank post?', body: 'It disappears from The Fish Tank. The record, its replies and likes are kept.', btn: 'Remove Post' },
+        replies: { title: 'Remove this Fish Tank reply?', body: 'It disappears from the post. The record is kept.', btn: 'Remove Reply' }
+      };
+      function confirmBox(kind, run) {
+        var c = CONFIRM[kind];
+        var box = document.getElementById('aaConfirm');
+        box.innerHTML = '<div class="aa-confirm"><p><strong>' + esc(c.title.replace('{h}', handle(aaState.user))) + '</strong></p><p>' + esc(c.body) + '</p>'
+          + '<div class="aa-row"><button type="button" class="secondary" id="aaCancel">Cancel</button><button type="button" id="aaDoIt">' + esc(c.btn) + '</button></div></div>';
+        box.scrollIntoView({ block: 'nearest' });
+        document.getElementById('aaCancel').onclick = function () { box.innerHTML = ''; };
+        document.getElementById('aaDoIt').onclick = function () { this.disabled = true; run(); };
+      }
+      function fail(e) {
+        var s = document.getElementById('aaStatus');
+        if (s) s.textContent = 'Failed: ' + e.message;
+        var box = document.getElementById('aaConfirm');
+        if (box) box.innerHTML = '';
+      }
+      function doAction(kind) {
+        var id = aaState.detailId;
+        if (kind === 'revoke') return api('/api/admin/users/' + encodeURIComponent(id) + '/revoke-sessions', {}).then(function (d) { return openDetail(id, 'Revoked ' + d.sessions_revoked + ' active session(s).'); }).catch(fail);
+        return api('/api/admin/users/' + encodeURIComponent(id) + '/status', { status: kind }).then(function (d) {
+          return openDetail(id, 'Status ' + d.previous_status + ' → ' + d.status + (d.status === 'active' ? '.' : ' · revoked ' + d.sessions_revoked + ' session(s).'));
+        }).catch(fail);
+      }
+      document.getElementById('accountsPanel').addEventListener('click', function (e) {
+        var t = e.target.closest('button');
+        if (!t) return;
+        if (t.id === 'aaBack') { showList(); return; }
+        if (t.id === 'aaRefresh') { if (aaState.detailId) openDetail(aaState.detailId); else loadList(); return; }
+        if (t.id === 'aaPrev') { aaState.offset = Math.max(0, aaState.offset - PAGE); loadList(); return; }
+        if (t.id === 'aaNext') { aaState.offset += PAGE; loadList(); return; }
+        var open = t.getAttribute('data-aa-open');
+        if (open) { openDetail(open); return; }
+        var action = t.getAttribute('data-aa-action');
+        if (action === 'active') { t.disabled = true; doAction('active'); return; }
+        if (action) { confirmBox(action, function () { doAction(action); }); return; }
+        var rm = t.getAttribute('data-aa-remove');
+        if (rm) {
+          var cid = t.getAttribute('data-aa-id');
+          confirmBox(rm, function () {
+            api('/api/admin/community/' + rm + '/' + encodeURIComponent(cid) + '/remove', {}).then(function (d) {
+              return openDetail(aaState.detailId, (d.type === 'post' ? 'Post' : 'Reply') + (d.already_removed ? ' was already removed.' : ' removed from The Fish Tank.'));
+            }).catch(fail);
+          });
+        }
+      });
+      document.getElementById('aaSearchForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        aaState.q = document.getElementById('aaQuery').value.trim();
+        aaState.filter = document.getElementById('aaFilter').value;
+        aaState.offset = 0;
+        loadList();
+      });
+      window.aaShowAccounts = function () { if (!loaded) loadList(); };
+    })();
+    </script>`;
+}
+
 function renderAdminPage(submissions = []) {
   const chronCatOptions = CHRON_CATEGORIES.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
   return renderLayout('ATMNOPIN™ Admin', `
     <style>
-      .admin-tabs{display:flex;gap:.5rem;margin-top:1.5rem;margin-bottom:1rem;border-bottom:1px solid #1e1e1e;padding-bottom:.75rem;}
+      .admin-tabs{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.5rem;margin-bottom:1rem;border-bottom:1px solid #1e1e1e;padding-bottom:.75rem;}
       .admin-tab{border:1px solid #242424;background:#111;color:#888;border-radius:8px;padding:.4rem .9rem;font:.72rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:all .2s;}
       .admin-tab.active{background:rgba(0,200,83,.1);border-color:rgba(0,200,83,.35);color:var(--green);}
     </style>
@@ -5036,6 +5542,7 @@ function renderAdminPage(submissions = []) {
       <button class="admin-tab" data-panel="chronPanel">Chronicles</button>
       <button class="admin-tab" data-panel="wildlifePanel">Poker Wildlife</button>
       <button class="admin-tab" data-panel="communityPanel">Community</button>
+      <button class="admin-tab" data-panel="accountsPanel">ATM Accounts</button>
       <button class="admin-tab" data-panel="visitorsPanel">Visitors</button>
       <button class="admin-tab" data-panel="consentPanel">Consent Log</button>
       <button class="admin-tab" onclick="window.location='/admin/rail'">The Rail ↗</button>
@@ -5858,6 +6365,8 @@ function renderAdminPage(submissions = []) {
           document.getElementById('wildlifePanel').style.display = btn.dataset.panel === 'wildlifePanel' ? '' : 'none';
           if (btn.dataset.panel === 'wildlifePanel' && window.wLoadList) window.wLoadList();
           document.getElementById('communityPanel').style.display = btn.dataset.panel === 'communityPanel' ? '' : 'none';
+          document.getElementById('accountsPanel').style.display = btn.dataset.panel === 'accountsPanel' ? '' : 'none';
+          if (btn.dataset.panel === 'accountsPanel' && window.aaShowAccounts) window.aaShowAccounts();
           document.getElementById('visitorsPanel').style.display = btn.dataset.panel === 'visitorsPanel' ? '' : 'none';
           document.getElementById('consentPanel').style.display = btn.dataset.panel === 'consentPanel' ? '' : 'none';
           if (btn.dataset.panel === 'communityPanel') { if (allSubs.length > 0) { subFilter = 'all'; renderSubList(); } else { subsLoaded = false; loadSubList(); } }
@@ -5866,6 +6375,7 @@ function renderAdminPage(submissions = []) {
         });
       });
     </script>
+    ${renderAdminAccountsPanel()}
     <div id="visitorsPanel" style="display:none;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
         <h2 style="margin:0;">Visitor Log</h2>
@@ -6020,7 +6530,7 @@ function renderAdminPage(submissions = []) {
     document.getElementById('exportVisitors').addEventListener('click', exportVisitorsCSV);
     document.getElementById('refreshConsent').addEventListener('click', function() { consentLoaded = false; loadConsent(); });
     loadVisitors();
-    </script>`);
+    </script>`, '', { darkOnly: true });
 }
 
 const CHRON_CATEGORIES = ['Player Spotlight', 'Dealer Spotlight', 'Floor Spotlight', 'Community Story', 'Meet the Crew', 'Tournament Reports', 'Bad Beats', 'WSOP Life', 'Vegas Adventures', 'Poker Humor', 'Cash Games', 'Behind the Scenes'];
@@ -6156,6 +6666,43 @@ function renderRailPage(posts, total, page, filters, isAdmin = false) {
 .rail-cancel-btn:hover{border-color:#444;color:var(--offwhite);}
 .rail-success-msg{border:1px solid rgba(0,200,83,.3);background:rgba(0,200,83,.06);padding:1rem;font-size:.78rem;color:var(--green);margin-bottom:1rem;display:none;}
 .rail-error-msg{border:1px solid rgba(200,80,80,.3);background:rgba(200,80,80,.06);padding:.7rem;font-size:.72rem;color:#e06060;margin-top:.5rem;display:none;}
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .rail-hero{border-bottom:1px solid var(--border);}
+  [data-theme="light"] .rail-hero .eyebrow{color:var(--green);}
+  [data-theme="light"] .rail-tagline{color:var(--text-secondary);}
+  [data-theme="light"] .rail-cta-primary{background:var(--green);color:var(--on-green);}
+  [data-theme="light"] .rail-cta-primary:hover{background:var(--green-hover);color:var(--on-green);}
+  [data-theme="light"] .rail-cta-ghost{background:transparent;border:1px solid var(--border-strong);color:var(--offwhite);}
+  [data-theme="light"] .rail-cta-ghost:hover{border-color:var(--green);color:var(--green);}
+  [data-theme="light"] .rail-filter{border:1px solid var(--border);background:transparent;color:var(--text-muted);}
+  [data-theme="light"] .rail-filter:hover,[data-theme="light"] .rf-active{border-color:rgba(0,200,83,.35);background:rgba(0,200,83,.06);color:var(--green);}
+  [data-theme="light"] .rail-card{border:1px solid var(--border);background:var(--surface);}
+  [data-theme="light"] .rail-card:hover{border-color:var(--border-strong);}
+  [data-theme="light"] .rail-content{color:var(--text-secondary);}
+  [data-theme="light"] .rail-images img{background:var(--surface);border:1px solid var(--border);}
+  [data-theme="light"] .rail-images a:hover img{border-color:rgba(0,200,83,.4);}
+  [data-theme="light"] .rail-img-thumb{border:1px solid var(--border-strong);}
+  [data-theme="light"] .rail-img-thumb button{background:var(--surface-2);border:1px solid var(--border-strong);color:#e06060;}
+  [data-theme="light"] .rail-img-thumb button:hover{border-color:#e06060;}
+  [data-theme="light"] .rail-card-footer{border-top:1px solid var(--border);}
+  [data-theme="light"] .rail-like-btn,[data-theme="light"] .rail-report-btn{background:transparent;border:1px solid var(--border);color:#666;}
+  [data-theme="light"] .rail-like-btn:hover{border-color:rgba(0,200,83,.35);color:var(--green);}
+  [data-theme="light"] .rail-report-btn:hover{border-color:rgba(200,80,80,.35);color:#e06060;}
+  [data-theme="light"] .rail-empty{border:1px dashed var(--border);color:#555;}
+  [data-theme="light"] .rail-page-btn{border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text-muted);}
+  [data-theme="light"] .rail-page-btn:hover{border-color:var(--green);color:var(--green);}
+  [data-theme="light"] .rail-modal-box{background:var(--surface);border:1px solid var(--border-strong);}
+  [data-theme="light"] .rail-modal-sub{color:var(--text-muted);}
+  [data-theme="light"] .rail-age-notice{border:1px solid rgba(201,168,76,.3);background:rgba(201,168,76,.05);}
+  [data-theme="light"] .rail-age-notice p{color:var(--text-secondary);}
+  [data-theme="light"] .rail-age-notice strong{color:var(--gold);}
+  [data-theme="light"] .rail-consent-row{color:var(--text-secondary);}
+  [data-theme="light"] .rail-consent-row a{color:var(--green);}
+  [data-theme="light"] .rail-form-section{color:var(--green);border-top:1px solid var(--border);}
+  [data-theme="light"] .rail-submit-btn{background:var(--green);border:none;color:var(--on-green);}
+  [data-theme="light"] .rail-submit-btn:hover{background:var(--green-hover);}
+  [data-theme="light"] .rail-cancel-btn{background:transparent;border:1px solid var(--border-strong);color:var(--text-muted);}
+  [data-theme="light"] .rail-cancel-btn:hover{border-color:var(--border-strong);color:var(--offwhite);}
 </style>
 
 <div class="rail-hero">
@@ -6458,6 +7005,11 @@ function renderCommunityGuidelinesPage() {
 .cg-rule{display:flex;gap:.75rem;align-items:flex-start;margin-bottom:.6rem;font-size:.8rem;color:#b0a898;line-height:1.65;}
 .cg-rule-num{font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold);width:1.4rem;flex-shrink:0;}
 .cg-footer-note{border:1px solid #1a1a1a;background:#0c0c0c;padding:1rem;font-size:.72rem;color:#888;line-height:1.75;}
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .cg-hero{border-bottom:1px solid var(--border);}
+  [data-theme="light"] .cg-lead{color:var(--text-secondary);}
+  [data-theme="light"] .cg-rule{color:var(--text-secondary);}
+  [data-theme="light"] .cg-footer-note{border:1px solid var(--border);background:var(--surface);color:var(--text-muted);}
 </style>
 <div class="cg-hero">
   <p class="eyebrow">&#x2756; ATMNOPIN&#x2122; Community</p>
@@ -6496,6 +7048,10 @@ function renderTermsPage() {
 .legal-body h2{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--offwhite);margin:1.5rem 0 .5rem;}
 .legal-body p{margin-bottom:.85rem;}
 .legal-todo{border:1px solid rgba(201,168,76,.3);background:rgba(201,168,76,.05);padding:.85rem 1rem;margin-bottom:1.25rem;font-size:.72rem;color:var(--gold);}
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .legal-hero{border-bottom:1px solid var(--border);}
+  [data-theme="light"] .legal-body{color:var(--text-secondary);}
+  [data-theme="light"] .legal-body h2{color:var(--offwhite);}
 </style>
 <div class="legal-hero">
   <p class="eyebrow">&#x2756; ATMNOPIN&#x2122; Legal</p>
@@ -6535,6 +7091,10 @@ function renderPrivacyPage() {
 .legal-body h2{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--offwhite);margin:1.5rem 0 .5rem;}
 .legal-body p{margin-bottom:.85rem;}
 .legal-todo{border:1px solid rgba(201,168,76,.3);background:rgba(201,168,76,.05);padding:.85rem 1rem;margin-bottom:1.25rem;font-size:.72rem;color:var(--gold);}
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .legal-hero{border-bottom:1px solid var(--border);}
+  [data-theme="light"] .legal-body{color:var(--text-secondary);}
+  [data-theme="light"] .legal-body h2{color:var(--offwhite);}
 </style>
 <div class="legal-hero">
   <p class="eyebrow">&#x2756; ATMNOPIN&#x2122; Legal</p>
@@ -6570,6 +7130,10 @@ function renderDmcaPage() {
 .legal-body h2{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--offwhite);margin:1.5rem 0 .5rem;}
 .legal-body p{margin-bottom:.85rem;}
 .legal-todo{border:1px solid rgba(201,168,76,.3);background:rgba(201,168,76,.05);padding:.85rem 1rem;margin-bottom:1.25rem;font-size:.72rem;color:var(--gold);}
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .legal-hero{border-bottom:1px solid var(--border);}
+  [data-theme="light"] .legal-body{color:var(--text-secondary);}
+  [data-theme="light"] .legal-body h2{color:var(--offwhite);}
 </style>
 <div class="legal-hero">
   <p class="eyebrow">&#x2756; ATMNOPIN&#x2122; Legal</p>
@@ -6909,7 +7473,7 @@ document.querySelectorAll('time[data-ts]').forEach(function(el) {
   el.title = d.toLocaleString();
 });
 </script>
-`);
+`, '', { darkOnly: true });
 }
 
 function renderChronicleCard(c) {
@@ -7021,6 +7585,19 @@ function renderChroniclesListPage(chronicles) {
       .chron-load-btn{border:1px solid #242424;background:#111;color:var(--offwhite);border-radius:10px;padding:.75rem 2rem;font:.78rem 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.12em;cursor:pointer;}
       .chron-load-btn:hover{border-color:var(--green);color:var(--green);}
       .chron-no-results{grid-column:1/-1;text-align:center;padding:3rem;color:#777;font-size:.85rem;}
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .chron-search{border:1px solid var(--border-strong);background:var(--input-bg);color:var(--offwhite);}
+  [data-theme="light"] .chron-search::placeholder{color:#666;}
+  [data-theme="light"] .chron-filter-btn{border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text-muted);}
+  [data-theme="light"] .chron-filter-btn:hover,[data-theme="light"] .chron-filter-btn.active{border-color:rgba(0,200,83,.4);background:rgba(0,200,83,.08);color:var(--green);}
+  [data-theme="light"] .chron-card{border:1px solid var(--border);background:var(--surface);}
+  [data-theme="light"] .chron-card:hover{border-color:var(--border-strong);}
+  [data-theme="light"] .chron-img-ph{background:linear-gradient(135deg,var(--felt-surface) 0%,var(--felt-surface-2) 100%);border-bottom:1px solid var(--border);}
+  [data-theme="light"] .chron-excerpt{color:var(--text-secondary);}
+  [data-theme="light"] .chron-cta{color:var(--green);}
+  [data-theme="light"] .chron-cta:hover{color:var(--green-hover);}
+  [data-theme="light"] .chron-load-btn{border:1px solid var(--border-strong);background:var(--surface-2);color:var(--offwhite);}
+  [data-theme="light"] .chron-load-btn:hover{border-color:var(--green);color:var(--green);}
     </style>
     <section class="hero">
       <p class="eyebrow">Foxwoods · Horseshoe · WSOP · The Table</p>
@@ -7141,6 +7718,19 @@ function renderChroniclePage(chronicle, allChronicles) {
       .rel-card h4{font-family:'DM Serif Display',serif;font-size:.93rem;margin:.2rem 0;}
       .rel-card h4 a{color:var(--offwhite);text-decoration:none;}
       .rel-card h4 a:hover{color:var(--green);}
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .chron-hero-img{border:1px solid var(--border);}
+  [data-theme="light"] .chron-hero-ph{background:linear-gradient(135deg,var(--felt-surface) 0%,var(--felt-surface-2) 100%);border:1px solid var(--border);}
+  [data-theme="light"] .crew-profile-box{background:var(--felt-surface-2);border:1px solid var(--border-green);}
+  [data-theme="light"] .share-row{border-top:1px solid var(--border);}
+  [data-theme="light"] .share-btn{border:1px solid var(--border-strong);background:var(--surface-2);color:var(--offwhite);}
+  [data-theme="light"] .share-btn:hover{border-color:var(--green);color:var(--green);}
+  [data-theme="light"] .chron-pg-nav{border-top:1px solid var(--border);}
+  [data-theme="light"] .chron-pg-nav-link{border:1px solid var(--border-strong);background:var(--surface-2);color:var(--offwhite);}
+  [data-theme="light"] .chron-pg-nav-link:hover{border-color:var(--green);}
+  [data-theme="light"] .rel-card{border:1px solid var(--border);background:var(--surface);}
+  [data-theme="light"] .rel-card h4 a{color:var(--offwhite);}
+  [data-theme="light"] .rel-card h4 a:hover{color:var(--green);}
     </style>
     <section class="hero">
       <p class="eyebrow"><a href="/chronicles" style="color:var(--green);">Chronicles</a> › ${escapeHtml(chronicle.category || 'Story')}</p>
@@ -7271,6 +7861,31 @@ const WILDLIFE_CSS = `
   .pw-rel-card h4 a{color:var(--offwhite);text-decoration:none;}
   .pw-rel-card h4 a:hover{color:var(--green);}
   .pw-back-cta{display:inline-block;margin-top:1.75rem;color:var(--green);font-size:.72rem;text-transform:uppercase;letter-spacing:.14em;text-decoration:none;}
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .pw-rule{border:1px solid var(--border-green);border-left:3px solid var(--gold);background:var(--felt-surface-2);}
+  [data-theme="light"] .pw-rule-text{color:var(--text-secondary);}
+  [data-theme="light"] .pw-rule-text strong{color:var(--green);}
+  [data-theme="light"] .pw-card{border:1px solid var(--border);background:var(--surface);}
+  [data-theme="light"] .pw-card:hover{border-color:rgba(0,200,83,.4);}
+  [data-theme="light"] .pw-card-imgwrap{background:linear-gradient(135deg,var(--felt-surface) 0%,var(--felt-surface-2) 100%);}
+  [data-theme="light"] .pw-card-tagline{color:var(--text-secondary);}
+  [data-theme="light"] .pw-card-cta{color:var(--green);}
+  [data-theme="light"] .pw-card-cta:hover{color:var(--green-hover);}
+  [data-theme="light"] .pw-disclaimer{border:1px solid var(--border);background:var(--surface);}
+  [data-theme="light"] .pw-disclaimer-text{color:var(--text-secondary);}
+  [data-theme="light"] .pw-hero-img{border:1px solid var(--border);}
+  [data-theme="light"] .pw-hero-ph{background:linear-gradient(135deg,var(--felt-surface) 0%,var(--felt-surface-2) 100%);border:1px solid var(--border);color:var(--green-dim);}
+  [data-theme="light"] .pw-field-strip{background:var(--felt-surface-2);border:1px solid var(--border-green);}
+  [data-theme="light"] .pw-share-row{border-top:1px solid var(--border);}
+  [data-theme="light"] .pw-share-btn{border:1px solid var(--border-strong);background:var(--surface-2);color:var(--offwhite);}
+  [data-theme="light"] .pw-share-btn:hover{border-color:var(--green);color:var(--green);}
+  [data-theme="light"] .pw-pgnav{border-top:1px solid var(--border);}
+  [data-theme="light"] .pw-pgnav a{border:1px solid var(--border-strong);background:var(--surface-2);color:var(--offwhite);}
+  [data-theme="light"] .pw-pgnav a:hover{border-color:var(--green);}
+  [data-theme="light"] .pw-pgnav .nav-lbl{color:var(--gray);}
+  [data-theme="light"] .pw-rel-card{border:1px solid var(--border);background:var(--surface);}
+  [data-theme="light"] .pw-rel-card h4 a{color:var(--offwhite);}
+  [data-theme="light"] .pw-rel-card h4 a:hover{color:var(--green);}
 `;
 
 function renderSpeciesCard(s) {
@@ -7929,6 +8544,17 @@ function renderPlayerCardsPage(cards) {
 .pc-view-btn{display:block;text-align:center;padding:.28rem;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;border:1px solid;background:transparent;transition:background .18s;font-family:'DM Mono',monospace;}
 .pc-view-btn:hover{background:rgba(255,255,255,.04);}
 .pc-empty{grid-column:1/-1;text-align:center;padding:3rem;color:#444;font-size:.76rem;border:1px dashed #1a1a1a;}
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .pc-hero{border-bottom:1px solid var(--border);}
+  [data-theme="light"] .pc-hero .eyebrow{color:var(--green);}
+  [data-theme="light"] .pc-lead{color:var(--text-secondary);}
+  [data-theme="light"] .pc-search{border:1px solid var(--border-strong);background:var(--input-bg);color:var(--offwhite);outline:none;}
+  [data-theme="light"] .pc-search::placeholder{color:#444;}
+  [data-theme="light"] .pc-search:focus{border-color:rgba(0,200,83,.4);}
+  [data-theme="light"] .pc-fbtn{border:1px solid var(--border-strong);background:var(--surface);color:#666;}
+  [data-theme="light"] .pc-fbtn:hover,[data-theme="light"] .pc-factive{border-color:rgba(0,200,83,.35);background:rgba(0,200,83,.07);color:var(--green);}
+  [data-theme="light"] .pc-empty{color:#444;border:1px dashed var(--border);}
+  [data-theme="light"] .pc-card{${THEME_DARK_TOKENS} color:var(--offwhite);}
 </style>
 
 <div class="pc-hero">
@@ -8120,6 +8746,27 @@ function renderProfileSetupPage(profile) {
       .ps-submit-final-btn{width:100%;padding:.9rem;font-size:.78rem;background:var(--green);border:none;color:#000;border-radius:10px;cursor:pointer;font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-family:'DM Mono',monospace;margin-top:.25rem;}
       .ps-submit-final-btn:hover{background:#00e060;}
       .ps-submit-final-btn:disabled{opacity:.5;cursor:not-allowed;}
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .ps-progress-wrap{background:var(--felt-surface-2);border:1px solid var(--border-green);}
+  [data-theme="light"] .ps-bar-track{background:var(--felt-surface);}
+  [data-theme="light"] .ps-unlock-msg{color:var(--text-secondary);}
+  [data-theme="light"] .ps-section{border:1px solid var(--border);}
+  [data-theme="light"] .ps-section-hdr{background:var(--surface);}
+  [data-theme="light"] .ps-section-hdr:hover{background:var(--surface-2);}
+  [data-theme="light"] .ps-section-tag{border:1px solid var(--border-strong);color:var(--text-muted);}
+  [data-theme="light"] .ps-section-tag.done{border-color:rgba(0,200,83,.35);color:var(--green);background:rgba(0,200,83,.07);}
+  [data-theme="light"] .ps-section-tag.locked{border-color:var(--border-strong);color:#555;background:var(--surface);}
+  [data-theme="light"] .ps-section-body{border-top:1px solid var(--border);background:var(--surface);}
+  [data-theme="light"] .ps-form label{color:var(--gray);}
+  [data-theme="light"] .ps-form input,[data-theme="light"] .ps-form textarea,[data-theme="light"] .ps-form select{border:1px solid var(--border-strong);background:var(--input-bg);color:var(--offwhite);}
+  [data-theme="light"] .ai-box{border:1px solid var(--border-green);background:var(--felt-surface-2);}
+  [data-theme="light"] .ai-rewrite-option{border:1px solid var(--border);}
+  [data-theme="light"] .ai-rewrite-option:hover{border-color:rgba(0,200,83,.4);}
+  [data-theme="light"] .ai-rewrite-option.selected{border-color:var(--green);background:rgba(0,200,83,.06);}
+  [data-theme="light"] .ai-rewrite-text{color:var(--text-secondary);}
+  [data-theme="light"] .ps-pts-label{color:var(--text-muted);}
+  [data-theme="light"] .ps-submit-final-btn{background:var(--green);border:none;color:var(--on-green);}
+  [data-theme="light"] .ps-submit-final-btn:hover{background:#00e060;}
     </style>
     <section class="hero">
       <p class="eyebrow">ATMNOPIN™ Community</p>
@@ -8566,6 +9213,11 @@ function renderTradingCardPage(player) {
       .tc-action-btn:hover{border-color:var(--green);color:var(--green);}
       .tc-disclaimer{font-size:.6rem;color:#444;text-align:center;margin-top:.75rem;max-width:320px;}
       @media print {.tc-actions,.tc-disclaimer{display:none;}}
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] body{background:var(--page-bg);}
+  [data-theme="light"] .tc-card{${THEME_DARK_TOKENS} color:var(--offwhite);box-shadow:0 8px 30px rgba(0,0,0,.25);}
+  [data-theme="light"] .tc-action-btn{border:1px solid var(--border-strong);background:var(--surface);}
+  [data-theme="light"] .tc-disclaimer{color:var(--text-muted);}
     </style>
     <div class="tc-page">
       <div class="tc-card">
@@ -8660,6 +9312,21 @@ function renderCommunityWallPage(submissions) {
       .pw-no-results{grid-column:1/-1;text-align:center;padding:3rem;color:#777;font-size:.85rem;}
       .pw-get-featured{margin-top:2rem;padding:1.5rem;border:1px dashed #242424;border-radius:14px;text-align:center;}
       .pw-get-featured p{color:#b0a898;font-size:.82rem;margin-bottom:.75rem;}
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .pw-sort-select{background:var(--input-bg);border:1px solid var(--border-strong);color:var(--text-secondary);}
+  [data-theme="light"] .pw-filter-btn{border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text-muted);}
+  [data-theme="light"] .pw-filter-btn:hover,[data-theme="light"] .pw-filter-btn.active{border-color:rgba(0,200,83,.4);background:rgba(0,200,83,.08);color:var(--green);}
+  [data-theme="light"] .player-card{border:1px solid var(--border);background:var(--surface);}
+  [data-theme="light"] .player-card:hover{border-color:var(--border-strong);}
+  [data-theme="light"] .player-photo-ph{background:linear-gradient(135deg,var(--felt-surface),var(--felt-surface-2));color:var(--green);border-bottom:1px solid var(--border);}
+  [data-theme="light"] .player-photo-ph-open{background:linear-gradient(135deg,var(--surface-2),var(--surface-2));color:#555;}
+  [data-theme="light"] .player-card-excerpt{color:var(--text-secondary);}
+  [data-theme="light"] .player-view-cta{color:var(--green);}
+  [data-theme="light"] .player-view-cta:hover{color:var(--green-hover);}
+  [data-theme="light"] .crew-stats-mini{border-top:1px solid var(--border);}
+  [data-theme="light"] .csm-val{color:var(--text-secondary);}
+  [data-theme="light"] .pw-get-featured{border:1px dashed var(--border-strong);}
+  [data-theme="light"] .pw-get-featured p{color:var(--text-secondary);}
     </style>
     <section class="hero">
       <p class="eyebrow">ATMNOPIN™ Community</p>
@@ -8785,6 +9452,21 @@ function renderPlayerProfilePage(player, allPlayers) {
       .pp-story-type{font-size:.6rem;text-transform:uppercase;letter-spacing:.14em;color:var(--green);margin-bottom:.3rem;}
       .pp-card-link{display:inline-block;margin-top:.6rem;border:1px solid rgba(201,168,76,.4);background:rgba(201,168,76,.07);color:var(--gold);border-radius:8px;padding:.4rem .85rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;text-decoration:none;transition:all .2s;}
       .pp-card-link:hover{background:rgba(201,168,76,.15);}
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .pp-photo{border:1px solid var(--border);}
+  [data-theme="light"] .pp-photo-ph{background:linear-gradient(135deg,var(--felt-surface),var(--felt-surface-2));border:1px solid var(--border);color:var(--green);}
+  [data-theme="light"] .pp-section{border-top:1px solid var(--border);}
+  [data-theme="light"] .share-row{border-top:1px solid var(--border);}
+  [data-theme="light"] .share-btn{border:1px solid var(--border-strong);background:var(--surface-2);color:var(--offwhite);}
+  [data-theme="light"] .share-btn:hover{border-color:var(--green);color:var(--green);}
+  [data-theme="light"] .other-card{border:1px solid var(--border);background:var(--surface);}
+  [data-theme="light"] .other-card h4 a{color:var(--offwhite);}
+  [data-theme="light"] .other-card h4 a:hover{color:var(--green);}
+  [data-theme="light"] .crew-stats-table td{border-bottom:1px solid var(--border);}
+  [data-theme="light"] .crew-stats-table td:first-child{color:var(--green);}
+  [data-theme="light"] .pp-ai-box{background:var(--felt-surface-2);border:1px solid var(--border-green);}
+  [data-theme="light"] .pp-ai-text{color:var(--text-secondary);}
+  [data-theme="light"] .pp-story-card{border:1px solid var(--border);background:var(--surface);}
     </style>
     <section class="hero">
       <p class="eyebrow"><a href="/community-wall" style="color:var(--green);">Community Wall</a> › Player Profile</p>
@@ -9268,6 +9950,46 @@ function renderInsideTheATMPage() {
     .crew-grid{grid-template-columns:1fr;}
     .hall-grid{grid-template-columns:1fr;}
   }
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .ita-hero{border-bottom:1px solid var(--border);}
+  [data-theme="light"] .ita-hero .eyebrow{color:var(--green);}
+  [data-theme="light"] .ita-lead{color:var(--text-secondary);}
+  [data-theme="light"] .ita-section{border-top:1px solid var(--border);}
+  [data-theme="light"] .ita-body{color:var(--text-secondary);}
+  [data-theme="light"] .dhezz-portrait{border:1px solid var(--border);}
+  [data-theme="light"] .portrait-caption{background:var(--surface);border-top:1px solid var(--border);}
+  [data-theme="light"] .portrait-caption p{color:var(--offwhite);}
+  [data-theme="light"] .rule{border:1px solid var(--border);}
+  [data-theme="light"] .rule:hover{border-color:var(--green-dim);}
+  [data-theme="light"] .rule::before{background:var(--green);}
+  [data-theme="light"] .rule-body{color:var(--text-secondary);}
+  [data-theme="light"] .fw-right{border:1px solid var(--border);background:var(--surface);}
+  [data-theme="light"] .fw-body{color:var(--text-secondary);}
+  [data-theme="light"] .fw-stats{border-top:1px solid var(--border);}
+  [data-theme="light"] .sched-grid{background:var(--surface-2);}
+  [data-theme="light"] .sched-row{background:var(--surface);}
+  [data-theme="light"] .sched-row:hover{background:var(--surface-2);}
+  [data-theme="light"] .sched-row.hdr{color:#666;background:var(--surface);}
+  [data-theme="light"] .sched-game{color:var(--text-secondary);}
+  [data-theme="light"] .s-tbd{background:var(--surface-2);color:#666;border:1px solid var(--border-strong);}
+  [data-theme="light"] .no-sched{color:#666;border:1px dashed var(--border-strong);}
+  [data-theme="light"] .staff-role-label{color:var(--green);border-bottom:1px solid var(--border);}
+  [data-theme="light"] .staff-grid{background:var(--surface-2);}
+  [data-theme="light"] .staff-card{background:var(--surface);}
+  [data-theme="light"] .staff-card:hover{background:var(--surface-2);}
+  [data-theme="light"] .staff-initial{border:1px solid var(--border-strong);color:var(--green);}
+  [data-theme="light"] .staff-quote{color:var(--text-secondary);border-left:2px solid var(--border-strong);}
+  [data-theme="light"] .staff-banter{background:var(--surface-2);border:1px solid var(--border);}
+  [data-theme="light"] .staff-footer{border:1px solid var(--border);color:#666;}
+  [data-theme="light"] .crew-grid{background:var(--surface-2);}
+  [data-theme="light"] .crew-card{background:var(--surface);border-left:3px solid transparent;}
+  [data-theme="light"] .crew-card:hover{background:var(--surface-2);border-left-color:var(--green);}
+  [data-theme="light"] .crew-card-open{border-left:3px solid var(--border)!important;}
+  [data-theme="light"] .crew-card-open:hover{border-left-color:var(--border-strong)!important;}
+  [data-theme="light"] .crew-stat{border-top:1px solid var(--border);}
+  [data-theme="light"] .hall-grid{background:var(--surface-2);}
+  [data-theme="light"] .winner-card{background:var(--surface);}
+  [data-theme="light"] .winner-card:hover{background:var(--surface-2);}
 </style>
 
 <div class="ita-hero">
@@ -9486,6 +10208,17 @@ const AUTH_PAGE_HEAD = `<meta name="robots" content="noindex" />
     ${ATM_AVATAR_CSS}
     [hidden] { display: none !important; }
     @media (min-width: 981px) { .atm-auth { margin: 2.5rem auto 3rem; } .atm-auth-card { padding: 2rem 1.8rem; } .atm-auth h1 { font-size: 2.8rem; } }
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .atm-auth h1{color:var(--offwhite);}
+  [data-theme="light"] .atm-auth h2{color:var(--gold);}
+  [data-theme="light"] .atm-auth .muted{color:var(--gray);}
+  [data-theme="light"] .atm-auth label{color:var(--gray);}
+  [data-theme="light"] .atm-auth input[type=email],[data-theme="light"] .atm-auth input[type=text]{background:var(--input-bg);border:1px solid var(--green-dim);color:var(--offwhite);}
+  [data-theme="light"] .atm-auth input:focus-visible,[data-theme="light"] .atm-btn:focus-visible,[data-theme="light"] .atm-link-btn:focus-visible{outline:2px solid var(--gold);}
+  [data-theme="light"] .atm-btn{background:var(--green);color:var(--on-green);border:0;}
+  [data-theme="light"] .atm-av-opt{background:transparent;border:1px solid var(--border-strong);color:var(--offwhite);}
+  [data-theme="light"] .atm-av-opt[aria-pressed="true"]{border-color:var(--green);background:rgba(0,200,83,.1);color:var(--green);}
+  [data-theme="light"] .atm-av-opt:focus-visible{outline:2px solid var(--gold);}
   </style>`;
 
 // Shared client helpers: JSON POST + delegated "claim this profile" buttons.
@@ -9744,7 +10477,7 @@ function renderAccountAvatarSection(avatarState, wildlife) {
     : '';
   return `<div class="atm-section" id="avatar">
         <h2>YOUR ATM AVATAR</h2>
-        <div class="atm-av-now">${renderAtmAvatar(st.avatar, { size: 56 })}<p><span class="muted">Showing in Community as</span><br />${escapeHtml(current)}</p></div>
+        <div class="atm-av-now">${renderAtmAvatar(st.avatar, { size: 56 })}<p><span class="muted">Showing in The Fish Tank as</span><br />${escapeHtml(current)}</p></div>
         <div class="atm-av-row">
           <button type="button" class="atm-av-opt" data-avatar-type="default" ${pressed(st.avatar.type === 'default')}>${renderAtmAvatar(resolveAtmAvatar(null, { displayName: st.avatar.initial }), { size: 44 })}<span>ATM Default</span></button>
           ${photoOpt}
@@ -9793,9 +10526,9 @@ function renderAccountPage(user, linkedProfile, candidates, avatarState = null, 
         ${profileBlock}
       </div>
       <div class="atm-section">
-        <h2>COMMUNITY</h2>
-        <p class="muted">Join the conversation with the ATMwithNoPIN poker community.</p>
-        <a class="atm-btn" href="/community">GO TO COMMUNITY</a>
+        <h2>THE FISH TANK</h2>
+        <p class="muted">Join the conversation in The Fish Tank.</p>
+        <a class="atm-btn" href="/community">GO TO THE FISH TANK</a>
       </div>
       <div class="atm-section">
         <button class="atm-btn atm-btn-ghost" type="button" id="logoutBtn">LOG OUT</button>
@@ -10135,6 +10868,16 @@ function renderAIFirstProfilePage(species) {
     .aip-alter-name { font-family: 'DM Serif Display', serif; font-size: 1.6rem; color: var(--gold); margin-bottom: .4rem; }
     @media (max-width: 980px) { .aip-grid { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 380px) { .aip-grid { grid-template-columns: 1fr; } }
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .aip fieldset{border:0;}
+  [data-theme="light"] .aip legend{color:var(--gray);}
+  [data-theme="light"] .aip-chip span{border:1px solid var(--green-dim);color:var(--offwhite);}
+  [data-theme="light"] .aip-chip input:checked + span{background:var(--green);color:var(--on-green);border-color:var(--green);}
+  [data-theme="light"] .aip-chip input:focus-visible + span{outline:2px solid var(--gold);}
+  [data-theme="light"] .aip textarea,[data-theme="light"] .aip input[type=text]{background:var(--input-bg);border:1px solid var(--green-dim);color:var(--offwhite);}
+  [data-theme="light"] .aip .hint{color:var(--gray);}
+  [data-theme="light"] .aip-species{background:var(--surface);border:1px solid var(--green-dim);color:var(--offwhite);}
+  [data-theme="light"] .aip-species:hover,[data-theme="light"] .aip-species:focus-visible{border-color:var(--green);outline:none;}
   </style>
   <section class="atm-auth aip">
     <div class="atm-auth-card" id="stepForm">
@@ -10804,6 +11547,8 @@ const COMMUNITY_CSS = `<style>
   .cm-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .cm-head h1 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 2.6rem; letter-spacing: .05em; line-height: 1; color: var(--offwhite); margin: 0; }
   .cm-head p { color: var(--gold); font-size: .8rem; margin-top: .3rem; }
+  .cm-head .cm-tagline { color: var(--green); font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; margin-top: .35rem; }
+  .cm-head .cm-tagline + p { color: var(--gray); margin-top: .2rem; }
   .cm-tabs { display: flex; gap: .45rem; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin: 1rem 0; padding-bottom: .15rem; max-width: 100%; }
   .cm-tabs::-webkit-scrollbar { display: none; }
   .cm-tab { flex: 0 0 auto; white-space: nowrap; font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gray); border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: .45rem .8rem; }
@@ -10848,6 +11593,19 @@ const COMMUNITY_CSS = `<style>
   .cm-foot { font-size: .7rem; color: var(--gray); margin-top: 1.2rem; }
   @media (min-width: 981px) { .cm { padding-top: 2rem; } .cm-head h1 { font-size: 3.2rem; } }
   ${ATM_AVATAR_CSS}
+  /* Light theme (Sprint 1C.3) — dark default above is unchanged. */
+  [data-theme="light"] .cm-tab{color:var(--gray);border:1px solid var(--border-strong);}
+  [data-theme="light"] .cm-tab[aria-current="page"]{color:var(--on-green);background:var(--green);border-color:var(--green);}
+  [data-theme="light"] .cm-box{border:1px solid var(--green-dim);}
+  [data-theme="light"] .cm-box textarea{background:var(--input-bg);border-color:var(--border-strong);}
+  [data-theme="light"] .cm-box textarea:focus-visible,[data-theme="light"] .cm-box select:focus-visible{outline:1px solid var(--green);}
+  [data-theme="light"] .cm-row select{background:var(--input-bg);}
+  [data-theme="light"] .cm .cm-btn{background:var(--green);color:var(--on-green);border:0;}
+  [data-theme="light"] .cm .cm-btn-ghost{background:transparent;color:var(--offwhite);border:1px solid var(--green-dim);}
+  [data-theme="light"] .cm-feed{border-top:1px solid var(--border);}
+  [data-theme="light"] .cm-post{border-bottom:1px solid var(--border);}
+  [data-theme="light"] .cm .cm-like{background:none;border:0;color:var(--gray);}
+  [data-theme="light"] .cm .cm-like.is-liked{color:var(--green);}
 </style>`;
 
 const COMMUNITY_PAGE_HEAD = `<link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -10974,8 +11732,8 @@ function renderCommunityInvite(state, next) {
   }
   const login = `/login?next=${encodeURIComponent(next)}`;
   return `<div class="cm-box cm-invite">
-      <p class="cm-invite-title">Join the conversation.</p>
-      <p>Your free ATM account lets you post, reply and like. No Poker Profile needed.</p>
+      <p class="cm-invite-title">Join The Fish Tank</p>
+      <p>Create your ATM identity and join the table talk. No Poker Profile needed.</p>
       <div class="cm-row"><a class="cm-btn" href="${login}">Create My ATM</a><a class="cm-btn cm-btn-ghost" href="${login}">Sign In</a></div>
     </div>`;
 }
@@ -11001,13 +11759,13 @@ function renderCommunityPage({ channels, activeChannel, posts, viewer }) {
   const feed = posts.length
     ? posts.map((p) => renderCommunityPostCard(p)).join('')
     : `<p class="cm-empty">No posts${activeChannel ? ` in ${escapeHtml(activeChannel.name)}` : ''} yet. Start the conversation.</p>`;
-  const title = activeChannel ? `${activeChannel.name} | Community | ATMwithNoPIN` : 'Community | ATMwithNoPIN';
-  const head = `<meta name="description" content="The ATMwithNoPIN poker community: short posts on cash games, tournaments, hands and Poker Wildlife." />
+  const title = activeChannel ? `${activeChannel.name} | The Fish Tank | ATMwithNoPIN` : 'The Fish Tank — Poker Table Talk | ATMwithNoPIN';
+  const head = `<meta name="description" content="Join The Fish Tank, the ATMwithNoPIN poker community for table talk, cash games, tournaments, hand discussions and Poker Wildlife." />
   <link rel="canonical" href="${WILDLIFE_ORIGIN}${escapeHtml(next)}" />
   ${COMMUNITY_PAGE_HEAD}`;
   return renderLayout(title, `
   <section class="cm">
-    <header class="cm-head"><h1>Community</h1><p>What's happening at the table?</p></header>
+    <header class="cm-head"><h1>The Fish Tank</h1><p class="cm-tagline">Table Talk from ATMwithNoPIN.</p><p>What's happening at the table?</p></header>
     <nav class="cm-tabs" aria-label="Channels">${tabs}</nav>
     ${composer}
     <div class="cm-feed">${feed}</div>
@@ -11038,10 +11796,10 @@ function renderCommunityPostPage({ post, replies, viewer }) {
         </div>
       </article>`).join('')
     : '<p class="cm-empty">No replies yet.</p>';
-  const head = `<meta name="description" content="${escapeHtml(`@${post.author.username} in ${post.channel.name} on the ATMwithNoPIN Community.`)}" />
+  const head = `<meta name="description" content="${escapeHtml(`@${post.author.username} in ${post.channel.name} on The Fish Tank, table talk from ATMwithNoPIN.`)}" />
   <link rel="canonical" href="${WILDLIFE_ORIGIN}${next}" />
   ${COMMUNITY_PAGE_HEAD}`;
-  return renderLayout(`@${post.author.username} | Community | ATMwithNoPIN`, `
+  return renderLayout(`@${post.author.username} | The Fish Tank | ATMwithNoPIN`, `
   <section class="cm cm-detail">
     <a class="cm-back" href="/community?channel=${encodeURIComponent(post.channel.slug)}">← ${escapeHtml(post.channel.name)}</a>
     <h1 class="cm-sr">Post by ${escapeHtml('@' + post.author.username)}</h1>
@@ -11049,15 +11807,15 @@ function renderCommunityPostPage({ post, replies, viewer }) {
     <h2 class="cm-replies-head" id="replies">Replies</h2>
     ${composer}
     <div class="cm-feed">${replyList}</div>
-    <p class="cm-foot"><a href="/community">← All Community posts</a> · <a href="/community-guidelines">Community Guidelines</a></p>
+    <p class="cm-foot"><a href="/community">← All Fish Tank posts</a> · <a href="/community-guidelines">Community Guidelines</a></p>
   </section>
   ${communityClientScript(`/login?next=${encodeURIComponent(next)}`)}`, head);
 }
 
 function renderCommunityNotFoundPage() {
-  return renderLayout('Post not found | Community | ATMwithNoPIN', `
+  return renderLayout('Post not found | The Fish Tank | ATMwithNoPIN', `
   <section class="cm"><header class="cm-head"><h1>Post not found</h1><p>It may have been removed.</p></header>
-  <p class="cm-foot"><a href="/community">← Back to Community</a></p></section>`, COMMUNITY_PAGE_HEAD);
+  <p class="cm-foot"><a href="/community">← Back to The Fish Tank</a></p></section>`, COMMUNITY_PAGE_HEAD);
 }
 
 function communityServerError(res, where, err) {
@@ -11174,7 +11932,7 @@ async function handleCommunityRoutes(req, res, pathname) {
     } catch (err) {
       console.error('[community] page failed:', err && err.code ? err.code : (err && err.message) || 'error');
       res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-      res.end(renderLayout('Community | ATMwithNoPIN', '<section class="cm"><header class="cm-head"><h1>Community</h1><p>The table is on a short break. Please try again shortly.</p></header></section>', COMMUNITY_PAGE_HEAD));
+      res.end(renderLayout('The Fish Tank — Poker Table Talk | ATMwithNoPIN', '<section class="cm"><header class="cm-head"><h1>The Fish Tank</h1><p>The table is on a short break. Please try again shortly.</p></header></section>', COMMUNITY_PAGE_HEAD));
     }
     return true;
   }
@@ -11201,6 +11959,99 @@ async function handleCommunityRoutes(req, res, pathname) {
   }
 
   if (pathname === '/community/') { sendAuthRedirect(res, '/community'); return true; }
+  return false;
+}
+
+// ── ATM Accounts admin API (Sprint 1C.3) ────────────────────────────────────
+// Only reached after the /api/admin/ gate has verified admin_session. POSTs
+// are JSON-only (same reader as Community). Internal naming stays "community".
+const ADMIN_ACCOUNT_ERROR_STATUS = {
+  INVALID_STATUS: 400, INVALID_FILTER: 400, INVALID_TRANSITION: 409, STATUS_UNCHANGED: 409, STATUS_CONFLICT: 409,
+  USER_NOT_FOUND: 404, COMMUNITY_POST_NOT_FOUND: 404, COMMUNITY_REPLY_NOT_FOUND: 404,
+};
+
+function adminAccountError(res, where, err) {
+  const status = err && ADMIN_ACCOUNT_ERROR_STATUS[err.code];
+  if (status) { sendAuthJson(res, status, { ok: false, error: err.message, code: err.code }); return; }
+  console.error(`[admin-accounts] ${where} failed:`, err && err.code ? err.code : (err && err.message) || 'error');
+  sendAuthJson(res, 500, { ok: false, error: 'Something went wrong. Please try again.' });
+}
+
+async function readAdminAccountJson(req, res) {
+  const parsed = await readCommunityJsonBody(req);
+  if (parsed.status) {
+    sendAuthJson(res, parsed.status, { ok: false, error: parsed.status === 413 ? 'Request too large.' : 'Send a JSON body.' });
+    return null;
+  }
+  return parsed.body;
+}
+
+async function handleAdminAccountRoutes(req, res, pathname) {
+  const method = req.method;
+  if (pathname === '/api/admin/users' && method === 'GET') {
+    try {
+      const url = new URL(req.url, 'http://atm.local');
+      const params = url.searchParams;
+      const list = await listAdminUsers({
+        q: params.get('q') || '',
+        status: params.get('status') || '',
+        verified: params.get('verified') || '',
+        limit: params.get('limit') || ADMIN_USERS_DEFAULT_LIMIT,
+        offset: params.get('offset') || 0,
+      });
+      sendAuthJson(res, 200, { ok: true, summary: await getAdminUserSummary(), ...list });
+    } catch (err) { adminAccountError(res, 'list', err); }
+    return true;
+  }
+
+  const userMatch = pathname.match(/^\/api\/admin\/users\/([^/]+)(\/status|\/revoke-sessions)?$/);
+  if (userMatch) {
+    const userId = userMatch[1];
+    const action = userMatch[2] || '';
+    if (!action && method === 'GET') {
+      try {
+        const detail = await getAdminUserDetail(userId);
+        if (!detail) { sendAuthJson(res, 404, { ok: false, error: 'Account not found', code: 'USER_NOT_FOUND' }); return true; }
+        sendAuthJson(res, 200, { ok: true, ...detail });
+      } catch (err) { adminAccountError(res, 'detail', err); }
+      return true;
+    }
+    if (action === '/status' && method === 'POST') {
+      const body = await readAdminAccountJson(req, res);
+      if (!body) return true;
+      try {
+        const result = await setUserStatus(userId, typeof body.status === 'string' ? body.status : '');
+        sendAuthJson(res, 200, { ok: true, ...result });
+      } catch (err) { adminAccountError(res, 'status', err); }
+      return true;
+    }
+    if (action === '/revoke-sessions' && method === 'POST') {
+      const body = await readAdminAccountJson(req, res);
+      if (!body) return true;
+      try {
+        if (!COMMUNITY_ID_RE.test(userId) || !(await getUserById(userId))) throw identityError('USER_NOT_FOUND', 'Account not found');
+        const revoked = await revokeAllUserSessions(userId);
+        sendAuthJson(res, 200, { ok: true, user_id: userId, sessions_revoked: revoked });
+      } catch (err) { adminAccountError(res, 'revoke-sessions', err); }
+      return true;
+    }
+    sendAuthJson(res, 405, { ok: false, error: 'Method not allowed.' });
+    return true;
+  }
+
+  const modMatch = pathname.match(/^\/api\/admin\/community\/(posts|replies)\/([^/]+)\/remove$/);
+  if (modMatch) {
+    if (method !== 'POST') { sendAuthJson(res, 405, { ok: false, error: 'Method not allowed.' }); return true; }
+    const body = await readAdminAccountJson(req, res);
+    if (!body) return true;
+    try {
+      const result = modMatch[1] === 'posts'
+        ? await adminSoftDeleteCommunityPost(modMatch[2])
+        : await adminSoftDeleteCommunityReply(modMatch[2]);
+      sendAuthJson(res, 200, { ok: true, type: modMatch[1] === 'posts' ? 'post' : 'reply', ...result });
+    } catch (err) { adminAccountError(res, 'remove', err); }
+    return true;
+  }
   return false;
 }
 
@@ -11272,7 +12123,7 @@ const server = http.createServer(async (req, res) => {
               window.location.href = '/admin';
             });
           </script>
-        </section>`));
+        </section>`, '', { darkOnly: true }));
       } else {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Admin access required.' }));
@@ -11286,6 +12137,9 @@ const server = http.createServer(async (req, res) => {
     res.end(renderAdminPage(preloadedSubs));
     return;
   }
+
+  // ─── ATM ACCOUNTS + FISH TANK MODERATION (behind /api/admin/ auth gate) ───
+  if (await handleAdminAccountRoutes(req, res, pathname)) return;
 
   if (pathname === '/api/admin/posts' && req.method === 'GET') {
     const posts = await loadPosts();
@@ -12402,7 +13256,7 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
       res.end(renderAdminRailPage(pendingPosts, flaggedPosts, approvedPosts, rejectedPosts, reports, consentRecords));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(renderLayout('Rail Admin Error', `<section class="card"><h1>Error loading Rail admin</h1><p>${escapeHtml(err.message)}</p></section>`));
+      res.end(renderLayout('Rail Admin Error', `<section class="card"><h1>Error loading Rail admin</h1><p>${escapeHtml(err.message)}</p></section>`, '', { darkOnly: true }));
     }
     return;
   }

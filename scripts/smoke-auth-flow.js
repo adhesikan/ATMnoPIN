@@ -415,7 +415,7 @@ async function main() {
   r = await request('GET', '/account/setup', { cookie: claimCookie });
   check('/account/setup with username → /account', r.status === 302 && r.headers.location === '/account');
   r = await request('GET', '/account', { cookie: claimCookie });
-  check('/account renders linked profile', r.status === 200 && r.text.includes('MY ATM') && r.text.includes('@carl') && r.text.includes('Claimer Carl') && r.text.includes('Your Poker Profile is live.') && r.text.includes('VIEW MY POKER PROFILE') && r.text.includes('href="/players/ps-claim-slug"') && r.text.includes('LOG OUT') && r.text.includes('Community is coming next.'));
+  check('/account renders linked profile', r.status === 200 && r.text.includes('MY ATM') && r.text.includes('@carl') && r.text.includes('Claimer Carl') && r.text.includes('Your Poker Profile is live.') && r.text.includes('VIEW MY POKER PROFILE') && r.text.includes('href="/players/ps-claim-slug"') && r.text.includes('LOG OUT') && r.text.includes('Join the conversation in The Fish Tank.') && r.text.includes('GO TO THE FISH TANK'));
   check('/account leaks no edit_token and is no-store', !/SECRET-|edit_token/.test(r.text) && r.headers['cache-control'] === 'no-store');
   r = await request('GET', '/account', { cookie: vCookie });
   check('/account with no profile offers CREATE', r.text.includes('CREATE MY POKER PROFILE') && r.text.includes('href="/ai-profile-generator"'));
@@ -513,7 +513,7 @@ async function main() {
 
   // ─────────────────────────────────────────────────────────────────────────
   console.log('\nAccount nav');
-  const NAV_LABELS = ['Stories', 'Poker Wildlife', 'Community', 'Shop', 'More', 'Create My ATM'];
+  const NAV_LABELS = ['Stories', 'Poker Wildlife', 'Fish Tank', 'Shop', 'More', 'Create My ATM'];
   const signInLink = '<li><a href="/login" data-account-nav>Sign In</a></li>';
   const navCookie = await login('nav@example.com');
   const navPages = [
