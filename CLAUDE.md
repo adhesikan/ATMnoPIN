@@ -152,6 +152,17 @@ An editorial series of **fictional / composite** poker-table archetypes (The Sha
 
 Community routes/APIs/data are independent of Poker Wildlife; do not merge them.
 
+## User Identity Foundation
+
+Server-side primitives only (block after `migrateLegacyPosts()` in `server.js`). **No HTTP routes, signup/login UI, claiming, or community features (feed/posts/likes/follows/DMs) exist yet.** Direction: passwordless email-code sign-in.
+
+- **Tables** (both DBs, `CREATE TABLE IF NOT EXISTS`, targeted single-row queries — never the load-all/save-all pattern): `users` (unique `email_normalized`, nullable unique `username_normalized`, `status` active|suspended|banned, `trust_level` new|verified|established|trusted — TEXT, no enums), `user_sessions` (stores only SHA-256 `token_hash`), `email_verification_codes` (`code_hash` = SHA-256 of `<row id>:<code>`, `purpose` signup|login|claim_profile, 10-min TTL, max 5 attempts, single-use), `user_profile_links` (bridge: one user ↔ one `player_submissions.id`, both unique).
+- **Profile ownership** goes through `user_profile_links`; `player_submissions` is unchanged (no `user_id`). `findPlayerSubmissionsByNormalizedEmail()` is read-only (id/name/nickname/slug/email/status, never `edit_token`). The existing `edit_token` setup flow remains fully supported.
+- **Cookie**: `atm_session` via `buildUserSessionCookie()` / `buildUserSessionLogoutCookie()` — HttpOnly, SameSite=Lax, Path=/, 30 days, `Secure` only when `isProductionEnv()`. Separate from `admin_session`.
+- **Email**: `sendVerificationEmail()` POSTs to Resend's HTTPS API with `fetch` (no SDK). Needs `RESEND_API_KEY` + `AUTH_EMAIL_FROM`; missing → `EMAIL_NOT_CONFIGURED`. Never log tokens, codes, or their hashes.
+- `server.js` only calls `start()` when run directly (`require.main === module`) and exports the identity helpers for tests.
+- Smoke test: `node scripts/smoke-user-identity.js` (temp SQLite, fetch stubbed, no network).
+
 ## Firebase Configuration
 
 Firebase is client-side only. The config is hardcoded in `visitor-tracker.js` and `chat.html` (public API keys — this is intentional for Firebase web apps; security is enforced via Firestore rules).

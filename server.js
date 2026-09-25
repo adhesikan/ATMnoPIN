@@ -130,6 +130,49 @@ async function initializeDatabase() {
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    // User Identity Foundation — targeted-query tables (never bulk DELETE + re-INSERT).
+    sqliteDb.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        email_normalized TEXT NOT NULL UNIQUE,
+        username TEXT,
+        username_normalized TEXT UNIQUE,
+        display_name TEXT NOT NULL DEFAULT '',
+        email_verified_at TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        trust_level TEXT NOT NULL DEFAULT 'new',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_login_at TEXT
+      );
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        expires_at TEXT NOT NULL,
+        last_seen_at TEXT,
+        revoked_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions (user_id);
+      CREATE TABLE IF NOT EXISTS email_verification_codes (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        code_hash TEXT NOT NULL,
+        purpose TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        expires_at TEXT NOT NULL,
+        used_at TEXT,
+        attempt_count INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS idx_email_verification_codes_user_id ON email_verification_codes (user_id);
+      CREATE TABLE IF NOT EXISTS user_profile_links (
+        user_id TEXT PRIMARY KEY,
+        player_submission_id TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
     return;
   }
 
@@ -197,6 +240,49 @@ async function initializeDatabase() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
+    // User Identity Foundation — targeted-query tables (never bulk DELETE + re-INSERT).
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        email_normalized TEXT NOT NULL UNIQUE,
+        username TEXT,
+        username_normalized TEXT UNIQUE,
+        display_name TEXT NOT NULL DEFAULT '',
+        email_verified_at TIMESTAMPTZ,
+        status TEXT NOT NULL DEFAULT 'active',
+        trust_level TEXT NOT NULL DEFAULT 'new',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        last_login_at TIMESTAMPTZ
+      );
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        expires_at TIMESTAMPTZ NOT NULL,
+        last_seen_at TIMESTAMPTZ,
+        revoked_at TIMESTAMPTZ
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions (user_id);
+      CREATE TABLE IF NOT EXISTS email_verification_codes (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        code_hash TEXT NOT NULL,
+        purpose TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        expires_at TIMESTAMPTZ NOT NULL,
+        used_at TIMESTAMPTZ,
+        attempt_count INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS idx_email_verification_codes_user_id ON email_verification_codes (user_id);
+      CREATE TABLE IF NOT EXISTS user_profile_links (
+        user_id TEXT PRIMARY KEY,
+        player_submission_id TEXT NOT NULL UNIQUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
   }
 }
 
@@ -210,6 +296,347 @@ async function migrateLegacyPosts() {
   } catch {
     // Ignore legacy migration failures and fall back to the live DB store.
   }
+}
+
+// ── User Identity Foundation ────────────────────────────────────────────────
+// Primitives for future passwordless (email-code) ATM user accounts. Nothing
+// here is exposed over HTTP yet. All queries are targeted single-row
+// SELECT/INSERT/UPDATE — never the legacy load-all/save-all pattern.
+// Never log raw session tokens, verification codes, or their hashes.
+
+const USER_SESSION_COOKIE = 'atm_session';
+const USER_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
+const EMAIL_VERIFICATION_TTL_MINUTES = 10;
+const EMAIL_VERIFICATION_MAX_ATTEMPTS = 5;
+const USER_STATUSES = ['active', 'suspended', 'banned'];
+const USER_TRUST_LEVELS = ['new', 'verified', 'established', 'trusted'];
+const EMAIL_VERIFICATION_PURPOSES = ['signup', 'login', 'claim_profile'];
+const SHA256_HEX_RE = /^[a-f0-9]{64}$/;
+
+function identityError(code, message) {
+  const err = new Error(message);
+  err.code = code;
+  return err;
+}
+
+function isUniqueViolation(err) {
+  if (!err) return false;
+  if (err.code === '23505') return true; // PostgreSQL unique_violation
+  return typeof err.code === 'string' && err.code.startsWith('SQLITE_CONSTRAINT') && /UNIQUE|PRIMARY/.test(err.code);
+}
+
+// PG returns Date objects for TIMESTAMPTZ; normalize to ISO strings so both
+// backends hand callers the same row shape.
+function identityRow(row) {
+  if (!row) return null;
+  const out = {};
+  for (const [k, v] of Object.entries(row)) out[k] = v instanceof Date ? v.toISOString() : v;
+  return out;
+}
+
+async function identityGet(pgSql, sqliteSql, params) {
+  if (pgPool) {
+    const { rows } = await pgPool.query(pgSql, params);
+    return identityRow(rows[0]);
+  }
+  if (sqliteDb) return identityRow(sqliteDb.prepare(sqliteSql).get(...params));
+  throw identityError('IDENTITY_NO_DB', 'No database configured');
+}
+
+async function identityAll(pgSql, sqliteSql, params) {
+  if (pgPool) {
+    const { rows } = await pgPool.query(pgSql, params);
+    return rows.map(identityRow);
+  }
+  if (sqliteDb) return sqliteDb.prepare(sqliteSql).all(...params).map(identityRow);
+  throw identityError('IDENTITY_NO_DB', 'No database configured');
+}
+
+// Returns the number of rows changed.
+async function identityRun(pgSql, sqliteSql, params) {
+  if (pgPool) return (await pgPool.query(pgSql, params)).rowCount;
+  if (sqliteDb) return sqliteDb.prepare(sqliteSql).run(...params).changes;
+  throw identityError('IDENTITY_NO_DB', 'No database configured');
+}
+
+// ── Normalization ──
+// No provider-specific rewriting: Gmail dots and +tags are preserved.
+function normalizeUserEmail(email) {
+  return String(email == null ? '' : email).trim().toLowerCase();
+}
+
+function normalizeUsername(username) {
+  return String(username == null ? '' : username).trim().toLowerCase();
+}
+
+// Validates an already-normalized username; never mutates it.
+function isValidUsername(username) {
+  return typeof username === 'string' && /^[a-z0-9][a-z0-9_]{2,23}$/.test(username);
+}
+
+function looksLikeEmail(emailNormalized) {
+  return emailNormalized.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNormalized);
+}
+
+// ── Token / code primitives ──
+function hashAuthToken(value) {
+  return crypto.createHash('sha256').update(String(value), 'utf8').digest('hex');
+}
+
+// Raw token for the browser cookie; only hashAuthToken(token) is ever stored.
+function createSessionToken() {
+  return crypto.randomBytes(32).toString('base64url');
+}
+
+function createVerificationCode() {
+  return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+}
+
+// Codes are hashed together with their row id so a hash is bound to one row.
+function hashVerificationCode(verificationId, code) {
+  return hashAuthToken(`${verificationId}:${String(code)}`);
+}
+
+function timingSafeHexEqual(a, b) {
+  const ab = Buffer.from(String(a), 'utf8');
+  const bb = Buffer.from(String(b), 'utf8');
+  return ab.length === bb.length && crypto.timingSafeEqual(ab, bb);
+}
+
+// Pure check of a code against a verification row (does not touch the DB;
+// callers must still incrementEmailVerificationAttempts / markEmailVerificationUsed).
+function checkEmailVerificationCode(row, code, now = new Date()) {
+  if (!row) return { ok: false, reason: 'not_found' };
+  if (row.used_at) return { ok: false, reason: 'used' };
+  if (new Date(row.expires_at).getTime() <= now.getTime()) return { ok: false, reason: 'expired' };
+  if (Number(row.attempt_count) >= EMAIL_VERIFICATION_MAX_ATTEMPTS) return { ok: false, reason: 'too_many_attempts' };
+  if (!/^\d{6}$/.test(String(code || ''))) return { ok: false, reason: 'mismatch' };
+  if (!timingSafeHexEqual(hashVerificationCode(row.id, code), row.code_hash)) return { ok: false, reason: 'mismatch' };
+  return { ok: true };
+}
+
+function isUserSessionActive(session, now = new Date()) {
+  return !!session && !session.revoked_at && new Date(session.expires_at).getTime() > now.getTime();
+}
+
+// ── users ──
+async function getUserById(id) {
+  return identityGet('SELECT * FROM users WHERE id = $1', 'SELECT * FROM users WHERE id = ?', [String(id)]);
+}
+
+async function getUserByNormalizedEmail(emailNormalized) {
+  const e = normalizeUserEmail(emailNormalized);
+  if (!e) return null;
+  return identityGet('SELECT * FROM users WHERE email_normalized = $1', 'SELECT * FROM users WHERE email_normalized = ?', [e]);
+}
+
+async function getUserByNormalizedUsername(usernameNormalized) {
+  const u = normalizeUsername(usernameNormalized);
+  if (!u) return null;
+  return identityGet('SELECT * FROM users WHERE username_normalized = $1', 'SELECT * FROM users WHERE username_normalized = ?', [u]);
+}
+
+async function createUser({ email, username = null, display_name = '', status = 'active', trust_level = 'new', email_verified_at = null } = {}) {
+  const rawEmail = String(email == null ? '' : email).trim();
+  const emailNormalized = normalizeUserEmail(rawEmail);
+  if (!looksLikeEmail(emailNormalized)) throw identityError('INVALID_EMAIL', 'A valid email address is required');
+  let rawUsername = null;
+  let usernameNormalized = null;
+  if (username != null && String(username).trim() !== '') {
+    rawUsername = String(username).trim();
+    usernameNormalized = normalizeUsername(rawUsername);
+    if (!isValidUsername(usernameNormalized)) throw identityError('INVALID_USERNAME', 'Username must be 3–24 characters: letters, numbers, underscore; starting with a letter or number');
+  }
+  if (!USER_STATUSES.includes(status)) throw identityError('INVALID_STATUS', 'Invalid user status');
+  if (!USER_TRUST_LEVELS.includes(trust_level)) throw identityError('INVALID_TRUST_LEVEL', 'Invalid trust level');
+  const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+  const params = [id, rawEmail, emailNormalized, rawUsername, usernameNormalized, String(display_name || '').trim().slice(0, 80), email_verified_at, status, trust_level, now, now];
+  try {
+    await identityRun(
+      `INSERT INTO users (id, email, email_normalized, username, username_normalized, display_name, email_verified_at, status, trust_level, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      `INSERT INTO users (id, email, email_normalized, username, username_normalized, display_name, email_verified_at, status, trust_level, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      params
+    );
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      const msg = String(err.message || '') + String(err.constraint || '') + String(err.detail || '');
+      if (/username/.test(msg)) throw identityError('USERNAME_TAKEN', 'That username is already taken');
+      throw identityError('EMAIL_TAKEN', 'An account with that email already exists');
+    }
+    throw err;
+  }
+  return getUserById(id);
+}
+
+// ── user_sessions ──
+async function createUserSession({ userId, tokenHash, expiresAt } = {}) {
+  if (!userId) throw identityError('INVALID_SESSION', 'userId is required');
+  // Guard against accidentally persisting a raw token instead of its hash.
+  if (!SHA256_HEX_RE.test(String(tokenHash || ''))) throw identityError('INVALID_SESSION', 'tokenHash must be a SHA-256 hex digest');
+  const now = new Date();
+  const expires = expiresAt ? new Date(expiresAt) : new Date(now.getTime() + USER_SESSION_TTL_SECONDS * 1000);
+  const id = crypto.randomUUID();
+  const params = [id, String(userId), tokenHash, now.toISOString(), expires.toISOString(), now.toISOString()];
+  await identityRun(
+    'INSERT INTO user_sessions (id, user_id, token_hash, created_at, expires_at, last_seen_at) VALUES ($1, $2, $3, $4, $5, $6)',
+    'INSERT INTO user_sessions (id, user_id, token_hash, created_at, expires_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?)',
+    params
+  );
+  return identityGet('SELECT * FROM user_sessions WHERE id = $1', 'SELECT * FROM user_sessions WHERE id = ?', [id]);
+}
+
+// Returns the row regardless of expiry/revocation — use isUserSessionActive().
+async function getUserSessionByTokenHash(tokenHash) {
+  if (!SHA256_HEX_RE.test(String(tokenHash || ''))) return null;
+  return identityGet('SELECT * FROM user_sessions WHERE token_hash = $1', 'SELECT * FROM user_sessions WHERE token_hash = ?', [tokenHash]);
+}
+
+// Returns true if the session was newly revoked.
+async function revokeUserSession(id) {
+  const now = new Date().toISOString();
+  const changed = await identityRun(
+    'UPDATE user_sessions SET revoked_at = $1 WHERE id = $2 AND revoked_at IS NULL',
+    'UPDATE user_sessions SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL',
+    [now, String(id)]
+  );
+  return changed > 0;
+}
+
+// ── email_verification_codes ──
+// Takes the RAW code, stores only its row-bound hash. Returns the row (no code).
+async function createEmailVerification({ userId, code, purpose, expiresAt } = {}) {
+  if (!userId) throw identityError('INVALID_VERIFICATION', 'userId is required');
+  if (!EMAIL_VERIFICATION_PURPOSES.includes(purpose)) throw identityError('INVALID_VERIFICATION', 'Invalid verification purpose');
+  if (!/^\d{6}$/.test(String(code || ''))) throw identityError('INVALID_VERIFICATION', 'Verification code must be six digits');
+  const now = new Date();
+  const expires = expiresAt ? new Date(expiresAt) : new Date(now.getTime() + EMAIL_VERIFICATION_TTL_MINUTES * 60 * 1000);
+  const id = crypto.randomUUID();
+  const params = [id, String(userId), hashVerificationCode(id, code), purpose, now.toISOString(), expires.toISOString()];
+  await identityRun(
+    'INSERT INTO email_verification_codes (id, user_id, code_hash, purpose, created_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6)',
+    'INSERT INTO email_verification_codes (id, user_id, code_hash, purpose, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
+    params
+  );
+  return getEmailVerificationById(id);
+}
+
+async function getEmailVerificationById(id) {
+  return identityGet('SELECT * FROM email_verification_codes WHERE id = $1', 'SELECT * FROM email_verification_codes WHERE id = ?', [String(id)]);
+}
+
+// Returns the new attempt_count (null if the row does not exist).
+async function incrementEmailVerificationAttempts(id) {
+  const row = await identityGet(
+    'UPDATE email_verification_codes SET attempt_count = attempt_count + 1 WHERE id = $1 RETURNING attempt_count',
+    'UPDATE email_verification_codes SET attempt_count = attempt_count + 1 WHERE id = ? RETURNING attempt_count',
+    [String(id)]
+  );
+  return row ? Number(row.attempt_count) : null;
+}
+
+// Single-use: returns true only for the call that actually marked it used.
+async function markEmailVerificationUsed(id) {
+  const now = new Date().toISOString();
+  const changed = await identityRun(
+    'UPDATE email_verification_codes SET used_at = $1 WHERE id = $2 AND used_at IS NULL',
+    'UPDATE email_verification_codes SET used_at = ? WHERE id = ? AND used_at IS NULL',
+    [now, String(id)]
+  );
+  return changed > 0;
+}
+
+// ── user_profile_links (bridge to player_submissions; that table is untouched) ──
+async function getUserProfileLink(userId) {
+  return identityGet('SELECT * FROM user_profile_links WHERE user_id = $1', 'SELECT * FROM user_profile_links WHERE user_id = ?', [String(userId)]);
+}
+
+async function getProfileOwnerLink(playerSubmissionId) {
+  return identityGet('SELECT * FROM user_profile_links WHERE player_submission_id = $1', 'SELECT * FROM user_profile_links WHERE player_submission_id = ?', [String(playerSubmissionId)]);
+}
+
+async function createUserProfileLink(userId, playerSubmissionId) {
+  if (!userId || !playerSubmissionId) throw identityError('INVALID_PROFILE_LINK', 'userId and playerSubmissionId are required');
+  try {
+    await identityRun(
+      'INSERT INTO user_profile_links (user_id, player_submission_id, created_at) VALUES ($1, $2, $3)',
+      'INSERT INTO user_profile_links (user_id, player_submission_id, created_at) VALUES (?, ?, ?)',
+      [String(userId), String(playerSubmissionId), new Date().toISOString()]
+    );
+  } catch (err) {
+    if (isUniqueViolation(err)) throw identityError('PROFILE_LINK_EXISTS', 'That user or profile is already linked');
+    throw err;
+  }
+  return getUserProfileLink(userId);
+}
+
+// ── Profile claim lookup (read-only; no claiming yet) ──
+// Matches player_submissions.data.email case/whitespace-insensitively. Never
+// returns edit_token. SQLite uses JSON1 json_extract (bundled with
+// better-sqlite3); note SQLite lower() folds ASCII only.
+async function findPlayerSubmissionsByNormalizedEmail(emailNormalized) {
+  const e = normalizeUserEmail(emailNormalized);
+  if (!e) return [];
+  return identityAll(
+    `SELECT id, data->>'name' AS name, data->>'nickname' AS nickname, data->>'slug' AS slug,
+            data->>'email' AS email, data->>'status' AS status
+       FROM player_submissions WHERE lower(btrim(data->>'email')) = $1 ORDER BY created_at ASC`,
+    `SELECT id, json_extract(data, '$.name') AS name, json_extract(data, '$.nickname') AS nickname,
+            json_extract(data, '$.slug') AS slug, json_extract(data, '$.email') AS email,
+            json_extract(data, '$.status') AS status
+       FROM player_submissions WHERE lower(trim(json_extract(data, '$.email'))) = ? ORDER BY created_at ASC`,
+    [e]
+  );
+}
+
+// ── atm_session cookie (separate from admin_session) ──
+function buildUserSessionCookie(token, { secure = isProductionEnv() } = {}) {
+  if (!/^[A-Za-z0-9_-]{20,200}$/.test(String(token || ''))) throw identityError('INVALID_SESSION', 'Invalid session token');
+  return `${USER_SESSION_COOKIE}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${USER_SESSION_TTL_SECONDS}${secure ? '; Secure' : ''}`;
+}
+
+function buildUserSessionLogoutCookie({ secure = isProductionEnv() } = {}) {
+  return `${USER_SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${secure ? '; Secure' : ''}`;
+}
+
+// ── Verification email via Resend HTTPS API (no SDK dependency) ──
+async function sendVerificationEmail({ email, code, purpose } = {}) {
+  const apiKey = process.env.RESEND_API_KEY || '';
+  const from = process.env.AUTH_EMAIL_FROM || '';
+  if (!apiKey) throw identityError('EMAIL_NOT_CONFIGURED', 'Verification email is not configured (RESEND_API_KEY missing)');
+  if (!from) throw identityError('EMAIL_NOT_CONFIGURED', 'Verification email is not configured (AUTH_EMAIL_FROM missing)');
+  const to = normalizeUserEmail(email);
+  if (!looksLikeEmail(to)) throw identityError('INVALID_EMAIL', 'A valid email address is required');
+  if (!/^\d{6}$/.test(String(code || ''))) throw identityError('INVALID_VERIFICATION', 'Verification code must be six digits');
+  const action = { signup: 'finish creating your account', login: 'sign in', claim_profile: 'claim your Poker Profile' }[purpose];
+  if (!action) throw identityError('INVALID_VERIFICATION', 'Invalid verification purpose');
+
+  const subject = `Your ATMNOPIN code: ${code}`;
+  const text = `Your ATMNOPIN verification code is ${code}\n\nUse it to ${action}. This code expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.\n\nIf you didn't request this, you can ignore this email.`;
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;background:#0a0a0a;color:#f0ece0;padding:32px;text-align:center">
+  <div style="font-size:28px;letter-spacing:3px;font-weight:bold;color:#00c853">ATMNOPIN</div>
+  <p style="font-size:15px;margin:24px 0 8px">Use this code to ${action}:</p>
+  <div style="font-size:36px;letter-spacing:10px;font-weight:bold;font-family:'Courier New',monospace;color:#c9a84c;margin:12px 0">${code}</div>
+  <p style="font-size:13px;color:#888;margin-top:24px">This code expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes. If you didn't request it, you can ignore this email.</p>
+</div>`;
+
+  let res;
+  try {
+    res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [to], subject, html, text }),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch (err) {
+    throw identityError('EMAIL_SEND_FAILED', `Verification email request failed (${err && err.name ? err.name : 'network error'})`);
+  }
+  if (!res.ok) throw identityError('EMAIL_SEND_FAILED', `Verification email provider returned HTTP ${res.status}`);
+  let id = null;
+  try { id = (await res.json()).id || null; } catch {}
+  return { ok: true, id };
 }
 
 const SEED_POSTS = [
@@ -10024,7 +10451,43 @@ async function start() {
   });
 }
 
-start().catch((err) => {
-  console.error('Startup failed:', err);
-  process.exit(1);
-});
+// `node server.js` (Railway / npm start) boots the server. Requiring the file
+// (scripts/smoke-user-identity.js) only loads the helpers below.
+if (require.main === module) {
+  start().catch((err) => {
+    console.error('Startup failed:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  initializeDatabase,
+  USER_SESSION_COOKIE,
+  USER_SESSION_TTL_SECONDS,
+  normalizeUserEmail,
+  normalizeUsername,
+  isValidUsername,
+  hashAuthToken,
+  createSessionToken,
+  createVerificationCode,
+  checkEmailVerificationCode,
+  isUserSessionActive,
+  getUserById,
+  getUserByNormalizedEmail,
+  getUserByNormalizedUsername,
+  createUser,
+  createUserSession,
+  getUserSessionByTokenHash,
+  revokeUserSession,
+  createEmailVerification,
+  getEmailVerificationById,
+  incrementEmailVerificationAttempts,
+  markEmailVerificationUsed,
+  getUserProfileLink,
+  getProfileOwnerLink,
+  createUserProfileLink,
+  findPlayerSubmissionsByNormalizedEmail,
+  buildUserSessionCookie,
+  buildUserSessionLogoutCookie,
+  sendVerificationEmail,
+};
