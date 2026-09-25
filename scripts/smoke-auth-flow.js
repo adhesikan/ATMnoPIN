@@ -467,6 +467,69 @@ async function main() {
   r = await request('POST', '/api/auth/logout');
   check('logout without cookie succeeds', r.status === 200 && /atm_session=;/.test([].concat(r.headers['set-cookie'] || []).join(';')));
 
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log('\nAccount nav');
+  const NAV_LABELS = ['Stories', 'Poker Wildlife', 'Community', 'Shop', 'More', 'Get Featured'];
+  const signInLink = '<li><a href="/login" data-account-nav>Sign In</a></li>';
+  const navCookie = await login('nav@example.com');
+  const navPages = [
+    ['homepage', '/'],
+    ['server-rendered layout (/blog)', '/blog'],
+    ['shop', '/shop.html'],
+  ];
+  for (const [label, url] of navPages) {
+    // Fetch signed in: the default markup must not depend on auth state.
+    r = await request('GET', url, { cookie: navCookie });
+    const navHtml = (r.text.match(/<ul class="nav-links" id="navLinks">[\s\S]*?<\/nav>/) || [''])[0];
+    check(`${label}: default SIGN IN -> /login inside #navLinks`, r.status === 200 && navHtml.includes(signInLink), r.status);
+    check(`${label}: exactly one account nav item`, (r.text.match(/data-account-nav/g) || []).length === 1);
+    check(`${label}: account item follows GET FEATURED`, navHtml.includes(`<li><a href="/ai-profile-generator" class="nav-cta">Get Featured</a></li>\n        ${signInLink}`));
+    const idx = NAV_LABELS.map((l) => navHtml.indexOf(l === 'More' ? 'id="navMoreBtn"' : `>${l}</a>`));
+    check(`${label}: existing nav labels present and in order`, idx.every((n, i) => n >= 0 && (i === 0 || n > idx[i - 1])), idx.join(','));
+    check(`${label}: mobile toggle + More menu intact`, /id="navToggle"[^>]*aria-controls="navLinks"/.test(r.text) && r.text.includes('id="navMoreMenu"'));
+    check(`${label}: loads /account-nav.js`, r.text.includes('<script src="/account-nav.js" defer></script>'));
+    check(`${label}: no account data in markup`, !r.text.includes('nav@example.com') && !r.text.includes(navCookie.split('=')[1]) && !/My ATM/.test(r.text));
+  }
+  r = await request('GET', '/account-nav.js');
+  check('/account-nav.js served as JavaScript', r.status === 200 && /javascript/.test(r.headers['content-type']));
+
+  // Run account-nav.js against a fake DOM + fetch.
+  const vm = require('vm');
+  const navSrc = fs.readFileSync(path.join(__dirname, '..', 'account-nav.js'), 'utf8');
+  async function runAccountNav(fetchImpl) {
+    const makeLink = () => ({ href: '/login', textContent: 'Sign In', setAttribute(k, v) { this[k] = v; } });
+    const links = [makeLink(), makeLink()];
+    const calls = [];
+    const errors = [];
+    const sandbox = {
+      document: { querySelectorAll: (sel) => (sel === '[data-account-nav]' ? links : []) },
+      fetch: (url, opts) => { calls.push({ url, opts }); return fetchImpl(); },
+      console: { error: (...a) => errors.push(a), warn: (...a) => errors.push(a), log() {} },
+    };
+    vm.runInNewContext(navSrc, sandbox);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    return { links, calls, errors };
+  }
+  const jsonRes = (body, okStatus = true) => Promise.resolve({ ok: okStatus, json: async () => body });
+
+  let nav = await runAccountNav(() => jsonRes({ authenticated: true, user: { username: 'x' } }));
+  check('enhancement requests /api/auth/me once (same-origin, no-store)', nav.calls.length === 1 && nav.calls[0].url === '/api/auth/me' && nav.calls[0].opts.credentials === 'same-origin' && nav.calls[0].opts.cache === 'no-store');
+  check('authenticated -> every account link becomes MY ATM -> /account', nav.links.every((l) => l.textContent === 'My ATM' && l.href === '/account'));
+  nav = await runAccountNav(() => jsonRes({ authenticated: false }));
+  check('logged out -> SIGN IN -> /login unchanged', nav.links.every((l) => l.textContent === 'Sign In' && l.href === '/login'));
+  nav = await runAccountNav(() => Promise.reject(new Error('network down')));
+  check('fetch rejection -> SIGN IN unchanged, no console errors', nav.links.every((l) => l.textContent === 'Sign In' && l.href === '/login') && nav.errors.length === 0);
+  nav = await runAccountNav(() => jsonRes({ authenticated: true }, false));
+  check('non-OK response -> SIGN IN unchanged', nav.links.every((l) => l.textContent === 'Sign In' && l.href === '/login'));
+  nav = await runAccountNav(() => Promise.resolve({ ok: true, json: async () => { throw new Error('bad json'); } }));
+  check('malformed JSON -> SIGN IN unchanged, no console errors', nav.links.every((l) => l.textContent === 'Sign In' && l.href === '/login') && nav.errors.length === 0);
+
+  // Real /api/auth/me shapes the script keys off.
+  r = await request('GET', '/api/auth/me');
+  check('/api/auth/me logged out -> authenticated:false', r.json && r.json.authenticated === false);
+  r = await request('GET', '/api/auth/me', { cookie: navCookie });
+  check('/api/auth/me signed in -> authenticated:true', r.json && r.json.authenticated === true);
+
   db.close();
 }
 

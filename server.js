@@ -4434,6 +4434,7 @@ function renderLayout(title, body, head = '') {
           </ul>
         </li>
         <li><a href="/ai-profile-generator" class="nav-cta">Get Featured</a></li>
+        <li><a href="/login" data-account-nav>Sign In</a></li>
       </ul>
     </nav>
     ${body}
@@ -4468,6 +4469,7 @@ function renderLayout(title, body, head = '') {
       else if (mq.addListener) mq.addListener(onBreakpoint);
     })();
   </script>
+  <script src="/account-nav.js" defer></script>
 </body>
 </html>`;
 }
