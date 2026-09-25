@@ -261,7 +261,7 @@ async function main() {
     check('Community admin tab still present', /data-panel="communityPanel"/.test(adminPage.text));
     check('Poker Wildlife admin tab also present', /data-panel="wildlifePanel"/.test(adminPage.text));
     const homeNav = await request('GET', '/');
-    check('homepage nav keeps Community + CREATE MY ATM links', homeNav.text.includes('href="/community-wall"') && homeNav.text.includes('<a href="/login?next=/ai-profile-generator" class="nav-cta" data-account-cta>Create My ATM</a>') && !homeNav.text.includes('class="nav-cta">Get Featured<'));
+    check('homepage nav keeps Community + CREATE MY ATM links', homeNav.text.includes('<li><a href="/community">Community</a></li>') && homeNav.text.includes('<a href="/login?next=/ai-profile-generator" class="nav-cta" data-account-cta>Create My ATM</a>') && !homeNav.text.includes('class="nav-cta">Get Featured<'));
     const genRedirect = await request('GET', '/ai-profile-generator');
     check('logged-out /ai-profile-generator → /login?next=/ai-profile-generator', genRedirect.status === 302 && genRedirect.headers.location === '/login?next=/ai-profile-generator');
 

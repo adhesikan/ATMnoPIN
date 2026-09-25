@@ -30,6 +30,9 @@ A poker entertainment brand site for Dhezz (`@ATMwithNoPIN`). The site is a Node
 | `/login` | server-rendered | Passwordless email-code sign-in (redirects to `/account` if signed in) |
 | `/account/setup` | server-rendered | One-time @username + display name, then profile-claim offer |
 | `/account` | server-rendered | "My ATM": identity, linked Poker Profile / claim / create, log out |
+| `/community` | server-rendered | Community social feed (Sprint 1C.1); `?channel=<slug>` filters |
+| `/community/post/:id` | server-rendered | Single Community post + flat replies |
+| `/community-wall` | server-rendered | Public **player directory** (unchanged; not the social feed) |
 
 ## Design System
 
@@ -157,7 +160,7 @@ Community routes/APIs/data are independent of Poker Wildlife; do not merge them.
 
 ## User Identity Foundation
 
-Server-side primitives (block after `migrateLegacyPosts()` in `server.js`); the HTTP flow on top of them is under **Passwordless Auth** below. **Community features (feed/posts/likes/follows/DMs) do not exist yet.**
+Server-side primitives (block after `migrateLegacyPosts()` in `server.js`); the HTTP flow on top of them is under **Passwordless Auth** below. Community posts/replies/likes are under **Community (Sprint 1C.1)**; follows/DMs do not exist yet.
 
 - **Tables** (both DBs, `CREATE TABLE IF NOT EXISTS`, targeted single-row queries — never the load-all/save-all pattern): `users` (unique `email_normalized`, nullable unique `username_normalized`, `status` active|suspended|banned, `trust_level` new|verified|established|trusted — TEXT, no enums), `user_sessions` (stores only SHA-256 `token_hash`), `email_verification_codes` (`code_hash` = SHA-256 of `<row id>:<code>`, `purpose` signup|login|claim_profile, 10-min TTL, max 5 attempts, single-use), `user_profile_links` (bridge: one user ↔ one `player_submissions.id`, both unique).
 - **Profile ownership** goes through `user_profile_links`; `player_submissions` is unchanged (no `user_id`). `findPlayerSubmissionsByNormalizedEmail()` is read-only (id/name/nickname/slug/email/status, never `edit_token`). The existing `edit_token` setup flow remains fully supported.
@@ -196,6 +199,22 @@ Helpers follow `sendVerificationEmail()`; routes/pages live in `handleAuthRoutes
 - The legacy unauthenticated `/request-feature` flow is unchanged: it still creates `status: pending` profiles (not auto-submitted, not auto-approved) that follow the normal Submit for Review → admin approval path.
 - Existing records were not migrated; the change only affects rows created by the AI-first save after 1B.3.
 - Smoke test: `node scripts/smoke-ai-profile.js` (temp SQLite, OpenAI + geo fetch stubbed).
+
+## Community (Sprint 1C.1)
+
+Lightweight, **mobile-first** Twitter/X-style feed. Routes/pages/helpers sit just before `const server` (`handleCommunityRoutes()`, called right after `handleAuthRoutes()`); data helpers follow `autoLinkNewProfileForUser()`.
+
+- **`/community` is the social feed; `/community-wall` remains the player directory** (still linked from player-profile contexts). The primary nav "Community" item (`renderLayout`, `index.html`, `shop.html`) points to `/community`.
+- **Identity**: ATM `users` + @username via `getCurrentUser()`. Reading is public. Writing (post/reply/like) needs an active, email-verified user **with a username** — 401 `auth_required` when signed out/suspended/banned (`getCurrentUser` returns null), 403 `setup_required` (+ `setup_url`) without a username. **A Poker Profile is NOT required.** Author identity always comes from the session, never the body.
+- **Tables** (both DBs, relational, targeted queries only, no FKs — references enforced in app code): `community_channels` (unique `slug`, `display_order`, `is_active`), `community_posts`, `community_replies` (both with nullable `deleted_at` for future soft-delete moderation — deleted rows are never returned), `community_likes` (PK `(post_id, user_id)` — duplicate likes impossible).
+- **Official channels only**: `COMMUNITY_CHANNEL_SEED` (general, cash-games, tournaments, hand-talk, poker-wildlife) seeded by `seedCommunityChannels()` from `start()` with `ON CONFLICT (slug) DO NOTHING` — never duplicates or overwrites admin edits. No user-created channels.
+- **Feed**: chronological, newest first, 30 by default (API `?limit` max 50), no infinite scroll. Replies are flat (belong to the post), oldest first. Like endpoint toggles and returns `{ liked, like_count }`.
+- **API** (`no-store` JSON): `GET /api/community/channels`, `GET|POST /api/community/posts` (`?channel=`), `GET /api/community/posts/:id`, `POST /api/community/posts/:id/replies`, `POST /api/community/posts/:id/like`. Writes require `Content-Type: application/json`; bodies capped at 8KB (413).
+- **Content**: 500 chars max (code points) for posts and replies, trimmed, empty rejected, control chars stripped; rendered escaped as plain text (`white-space: pre-wrap`).
+- **Public author shape**: `username`, `display_name`, `profile_url` (`/players/<slug>` only when the linked profile is `approved`; otherwise null). Never email, user/session/profile ids, edit_token or admin notes.
+- **Rate limits** (`AUTH_RATE_LIMITS`, in-memory): `community_post_user` 10/h, `community_reply_user` 30/h, `community_like_user` 120/h; validation failures never count and server failures release the hit.
+- **Not built yet**: DMs, follows, user channels, reposts, hashtags, notifications, realtime/WebSockets, uploads, polls, moderation UI, reports/blocking.
+- Smoke test: `node scripts/smoke-community.js` (in-process server, temp SQLite, fetch stubbed).
 
 ## Firebase Configuration
 

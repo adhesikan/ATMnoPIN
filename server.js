@@ -173,6 +173,47 @@ async function initializeDatabase() {
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    // Community (Sprint 1C.1) — relational tables, targeted queries only.
+    // References to users / posts are enforced in application code (no FKs).
+    sqliteDb.exec(`
+      CREATE TABLE IF NOT EXISTS community_channels (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        display_order INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS community_posts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        body TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        deleted_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_community_posts_created ON community_posts (created_at);
+      CREATE INDEX IF NOT EXISTS idx_community_posts_channel_created ON community_posts (channel_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_community_posts_user_created ON community_posts (user_id, created_at);
+      CREATE TABLE IF NOT EXISTS community_replies (
+        id TEXT PRIMARY KEY,
+        post_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        body TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        deleted_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_community_replies_post_created ON community_replies (post_id, created_at);
+      CREATE TABLE IF NOT EXISTS community_likes (
+        post_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (post_id, user_id)
+      );
+    `);
     return;
   }
 
@@ -281,6 +322,47 @@ async function initializeDatabase() {
         user_id TEXT PRIMARY KEY,
         player_submission_id TEXT NOT NULL UNIQUE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    // Community (Sprint 1C.1) — relational tables, targeted queries only.
+    // References to users / posts are enforced in application code (no FKs).
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS community_channels (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        display_order INTEGER NOT NULL DEFAULT 0,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS community_posts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        body TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL,
+        deleted_at TIMESTAMPTZ
+      );
+      CREATE INDEX IF NOT EXISTS idx_community_posts_created ON community_posts (created_at);
+      CREATE INDEX IF NOT EXISTS idx_community_posts_channel_created ON community_posts (channel_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_community_posts_user_created ON community_posts (user_id, created_at);
+      CREATE TABLE IF NOT EXISTS community_replies (
+        id TEXT PRIMARY KEY,
+        post_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        body TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL,
+        deleted_at TIMESTAMPTZ
+      );
+      CREATE INDEX IF NOT EXISTS idx_community_replies_post_created ON community_replies (post_id, created_at);
+      CREATE TABLE IF NOT EXISTS community_likes (
+        post_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
+        PRIMARY KEY (post_id, user_id)
       );
     `);
   }
@@ -693,6 +775,9 @@ const AUTH_RATE_LIMITS = {
   verify_ip: { limit: 30, windowMs: 60 * 60 * 1000 },
   profile_ai_user: { limit: 5, windowMs: 60 * 60 * 1000 }, // AI-first profile generations (incl. regenerate)
   wildlife_ai_user: { limit: 10, windowMs: 60 * 60 * 1000 }, // Poker Wildlife alter-ego matches
+  community_post_user: { limit: 10, windowMs: 60 * 60 * 1000 }, // successful Community posts
+  community_reply_user: { limit: 30, windowMs: 60 * 60 * 1000 }, // successful Community replies
+  community_like_user: { limit: 120, windowMs: 60 * 60 * 1000 }, // like/unlike toggles
 };
 const authRateBuckets = new Map();
 
@@ -814,6 +899,211 @@ async function autoLinkNewProfileForUser(req, submission) {
     console.error('[auth] profile auto-link skipped:', err && err.code ? err.code : 'error');
     return false;
   }
+}
+
+// ── Community (Sprint 1C.1) ─────────────────────────────────────────────────
+// Short-post social feed on top of ATM user identity (users.username). Tables
+// are relational; every query here is a targeted SELECT/INSERT/UPDATE/DELETE —
+// never load-all/save-all. deleted_at is reserved for future moderation and
+// soft-deleted rows are never returned. Player profiles are optional: an
+// author links to /players/<slug> only when their linked profile is approved.
+
+const COMMUNITY_BODY_MAX = 500;
+const COMMUNITY_FEED_DEFAULT_LIMIT = 30;
+const COMMUNITY_FEED_MAX_LIMIT = 50;
+const COMMUNITY_REPLIES_MAX = 500;
+const COMMUNITY_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const COMMUNITY_CHANNEL_SEED = [
+  { slug: 'general', name: 'General Poker', description: 'Anything poker: sessions, questions, table talk.', display_order: 10 },
+  { slug: 'cash-games', name: 'Cash Games', description: 'Stakes, rooms, grinds and cash game stories.', display_order: 20 },
+  { slug: 'tournaments', name: 'Tournaments', description: 'Deep runs, bubbles, bust-outs and schedules.', display_order: 30 },
+  { slug: 'hand-talk', name: 'Hand Talk', description: 'Break down a hand and ask the table.', display_order: 40 },
+  { slug: 'poker-wildlife', name: 'Poker Wildlife', description: 'Spotted a Shark or a Whale? Talk species here.', display_order: 50 },
+];
+
+// Writes "?" placeholders once; PostgreSQL gets them renumbered to $1..$n.
+function communitySql(pgSql, sqliteSql) {
+  let n = 0;
+  return [pgSql.replace(/\?/g, () => `$${++n}`), sqliteSql];
+}
+
+// Strictly increasing ISO timestamps so posts made in the same millisecond
+// still sort newest-first / oldest-first deterministically.
+let communityLastTs = 0;
+function communityNowIso() {
+  let t = Date.now();
+  if (t <= communityLastTs) t = communityLastTs + 1;
+  communityLastTs = t;
+  return new Date(t).toISOString();
+}
+
+// Idempotent by slug: inserts missing official channels, never updates or
+// duplicates existing rows (admin edits survive restarts).
+async function seedCommunityChannels() {
+  let inserted = 0;
+  for (const c of COMMUNITY_CHANNEL_SEED) {
+    inserted += await identityRun(...communitySql(
+      'INSERT INTO community_channels (id, slug, name, description, display_order, is_active, created_at) VALUES (?, ?, ?, ?, ?, TRUE, ?) ON CONFLICT (slug) DO NOTHING',
+      'INSERT INTO community_channels (id, slug, name, description, display_order, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, ?) ON CONFLICT (slug) DO NOTHING'
+    ), [crypto.randomUUID(), c.slug, c.name, c.description, c.display_order, new Date().toISOString()]);
+  }
+  return inserted;
+}
+
+async function loadCommunityChannels() {
+  const rows = await identityAll(...communitySql(
+    'SELECT id, slug, name, description FROM community_channels WHERE is_active = TRUE ORDER BY display_order ASC, name ASC',
+    'SELECT id, slug, name, description FROM community_channels WHERE is_active = 1 ORDER BY display_order ASC, name ASC'
+  ), []);
+  return rows;
+}
+
+async function getActiveCommunityChannelBySlug(slug) {
+  if (typeof slug !== 'string' || !/^[a-z0-9-]{1,60}$/.test(slug)) return null;
+  return identityGet(...communitySql(
+    'SELECT id, slug, name, description FROM community_channels WHERE slug = ? AND is_active = TRUE',
+    'SELECT id, slug, name, description FROM community_channels WHERE slug = ? AND is_active = 1'
+  ), [slug]);
+}
+
+// Trims, normalizes newlines, strips control characters. Length is counted in
+// code points (matches the client counter). Returns { body } or { error }.
+function cleanCommunityBody(value) {
+  if (typeof value !== 'string') return { error: 'Write something first.' };
+  const body = value
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  if (!body) return { error: 'Write something first.' };
+  if (Array.from(body).length > COMMUNITY_BODY_MAX) return { error: `Keep it to ${COMMUNITY_BODY_MAX} characters or fewer.` };
+  return { body };
+}
+
+// Author columns shared by post + reply queries: public identity only, plus
+// the linked profile slug when (and only when) that profile is approved.
+const COMMUNITY_AUTHOR_PG = `u.username AS author_username, u.display_name AS author_display_name,
+  CASE WHEN ps.data->>'status' = 'approved' THEN ps.data->>'slug' END AS author_profile_slug`;
+const COMMUNITY_AUTHOR_SQLITE = `u.username AS author_username, u.display_name AS author_display_name,
+  CASE WHEN json_extract(ps.data, '$.status') = 'approved' THEN json_extract(ps.data, '$.slug') END AS author_profile_slug`;
+const COMMUNITY_AUTHOR_JOINS = `JOIN users u ON u.id = x.user_id
+  LEFT JOIN user_profile_links upl ON upl.user_id = u.id
+  LEFT JOIN player_submissions ps ON ps.id = upl.player_submission_id`;
+
+function communityPostQuery(where, order, limit) {
+  const base = (author, active) => `SELECT x.id, x.body, x.created_at, c.slug AS channel_slug, c.name AS channel_name, ${author},
+    (SELECT COUNT(*) FROM community_likes l WHERE l.post_id = x.id) AS like_count,
+    (SELECT COUNT(*) FROM community_replies r WHERE r.post_id = x.id AND r.deleted_at IS NULL) AS reply_count,
+    EXISTS (SELECT 1 FROM community_likes lv WHERE lv.post_id = x.id AND lv.user_id = ?) AS liked_by_me
+  FROM community_posts x
+  JOIN community_channels c ON c.id = x.channel_id AND c.is_active = ${active}
+  ${COMMUNITY_AUTHOR_JOINS}
+  WHERE x.deleted_at IS NULL ${where}
+  ORDER BY ${order}${limit ? ' LIMIT ?' : ''}`;
+  return communitySql(base(COMMUNITY_AUTHOR_PG, 'TRUE'), base(COMMUNITY_AUTHOR_SQLITE, '1'));
+}
+
+function publicCommunityAuthor(row) {
+  const slug = typeof row.author_profile_slug === 'string' && /^[a-z0-9][a-z0-9-]{0,120}$/i.test(row.author_profile_slug) ? row.author_profile_slug : '';
+  return {
+    username: row.author_username || '',
+    display_name: row.author_display_name || '',
+    profile_url: slug ? `/players/${slug}` : null,
+  };
+}
+
+function publicCommunityPost(row) {
+  return {
+    id: row.id,
+    channel: { slug: row.channel_slug, name: row.channel_name },
+    body: row.body,
+    created_at: row.created_at,
+    author: publicCommunityAuthor(row),
+    like_count: Number(row.like_count) || 0,
+    reply_count: Number(row.reply_count) || 0,
+    liked_by_me: row.liked_by_me === true || Number(row.liked_by_me) === 1,
+  };
+}
+
+function publicCommunityReply(row) {
+  return { id: row.id, post_id: row.post_id, body: row.body, created_at: row.created_at, author: publicCommunityAuthor(row) };
+}
+
+// Newest first. channelSlug '' = all active channels.
+async function loadCommunityFeed({ channelSlug = '', limit = COMMUNITY_FEED_DEFAULT_LIMIT, viewerId = '' } = {}) {
+  const n = Math.min(Math.max(parseInt(limit, 10) || COMMUNITY_FEED_DEFAULT_LIMIT, 1), COMMUNITY_FEED_MAX_LIMIT);
+  const params = [String(viewerId || '')];
+  let where = '';
+  if (channelSlug) { where = 'AND c.slug = ?'; params.push(channelSlug); }
+  params.push(n);
+  const rows = await identityAll(...communityPostQuery(where, 'x.created_at DESC, x.id DESC', true), params);
+  return rows.map(publicCommunityPost);
+}
+
+// One visible (not deleted, active channel) post, or null.
+async function loadCommunityPost(postId, viewerId = '') {
+  if (!COMMUNITY_ID_RE.test(String(postId || ''))) return null;
+  const row = await identityGet(...communityPostQuery('AND x.id = ?', 'x.created_at DESC', false), [String(viewerId || ''), String(postId)]);
+  return row ? publicCommunityPost(row) : null;
+}
+
+// Oldest first; flat (replies attach directly to the post, never to replies).
+async function loadCommunityReplies(postId) {
+  const q = (author) => `SELECT x.id, x.post_id, x.body, x.created_at, ${author}
+    FROM community_replies x ${COMMUNITY_AUTHOR_JOINS}
+    WHERE x.post_id = ? AND x.deleted_at IS NULL
+    ORDER BY x.created_at ASC, x.id ASC LIMIT ?`;
+  const rows = await identityAll(...communitySql(q(COMMUNITY_AUTHOR_PG), q(COMMUNITY_AUTHOR_SQLITE)), [String(postId), COMMUNITY_REPLIES_MAX]);
+  return rows.map(publicCommunityReply);
+}
+
+async function createCommunityPost({ userId, channelSlug, body } = {}) {
+  const channel = await getActiveCommunityChannelBySlug(channelSlug);
+  if (!channel) throw identityError('COMMUNITY_INVALID_CHANNEL', 'Pick a valid channel.');
+  const id = crypto.randomUUID();
+  const now = communityNowIso();
+  await identityRun(...communitySql(
+    'INSERT INTO community_posts (id, user_id, channel_id, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO community_posts (id, user_id, channel_id, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+  ), [id, String(userId), channel.id, body, now, now]);
+  return loadCommunityPost(id, userId);
+}
+
+async function createCommunityReply({ userId, postId, body } = {}) {
+  if (!(await loadCommunityPost(postId))) throw identityError('COMMUNITY_POST_NOT_FOUND', 'Post not found.');
+  const id = crypto.randomUUID();
+  const now = communityNowIso();
+  await identityRun(...communitySql(
+    'INSERT INTO community_replies (id, post_id, user_id, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO community_replies (id, post_id, user_id, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+  ), [id, String(postId), String(userId), body, now, now]);
+  const row = await identityGet(...communitySql(
+    `SELECT x.id, x.post_id, x.body, x.created_at, ${COMMUNITY_AUTHOR_PG} FROM community_replies x ${COMMUNITY_AUTHOR_JOINS} WHERE x.id = ?`,
+    `SELECT x.id, x.post_id, x.body, x.created_at, ${COMMUNITY_AUTHOR_SQLITE} FROM community_replies x ${COMMUNITY_AUTHOR_JOINS} WHERE x.id = ?`
+  ), [id]);
+  return publicCommunityReply(row);
+}
+
+// not liked → liked, liked → unliked. The (post_id, user_id) primary key makes
+// duplicate like rows impossible. Returns { liked, like_count }.
+async function toggleCommunityLike({ userId, postId } = {}) {
+  if (!(await loadCommunityPost(postId))) throw identityError('COMMUNITY_POST_NOT_FOUND', 'Post not found.');
+  const removed = await identityRun(...communitySql(
+    'DELETE FROM community_likes WHERE post_id = ? AND user_id = ?',
+    'DELETE FROM community_likes WHERE post_id = ? AND user_id = ?'
+  ), [String(postId), String(userId)]);
+  if (!removed) {
+    await identityRun(...communitySql(
+      'INSERT INTO community_likes (post_id, user_id, created_at) VALUES (?, ?, ?) ON CONFLICT (post_id, user_id) DO NOTHING',
+      'INSERT INTO community_likes (post_id, user_id, created_at) VALUES (?, ?, ?) ON CONFLICT (post_id, user_id) DO NOTHING'
+    ), [String(postId), String(userId), new Date().toISOString()]);
+  }
+  const countRow = await identityGet(...communitySql(
+    'SELECT COUNT(*) AS n FROM community_likes WHERE post_id = ?',
+    'SELECT COUNT(*) AS n FROM community_likes WHERE post_id = ?'
+  ), [String(postId)]);
+  return { liked: !removed, like_count: Number(countRow && countRow.n) || 0 };
 }
 
 const SEED_POSTS = [
@@ -4423,7 +4713,7 @@ function renderLayout(title, body, head = '') {
       <ul class="nav-links" id="navLinks">
         <li><a href="/blog">Stories</a></li>
         <li><a href="/stories/poker-wildlife">Poker Wildlife</a></li>
-        <li><a href="/community-wall">Community</a></li>
+        <li><a href="/community">Community</a></li>
         <li><a href="/shop.html">Shop</a></li>
         <li class="nav-more">
           <button class="nav-more-btn" id="navMoreBtn" type="button" aria-expanded="false" aria-controls="navMoreMenu">More <span class="nav-more-caret" aria-hidden="true">▾</span></button>
@@ -10211,11 +10501,463 @@ async function handleAuthRoutes(req, res, pathname) {
   return false;
 }
 
+// ── Community (Sprint 1C.1): pages + JSON API ───────────────────────────────
+// Reading is public. Writing (post / reply / like) needs a signed-in, active,
+// email-verified ATM user with an @username; a Poker Profile is NOT required.
+// Identity always comes from atm_session, never from the request body.
+
+const COMMUNITY_BODY_LIMIT_BYTES = 8 * 1024;
+
+// JSON-only body reader with a hard size cap. Resolves { body } or { status }.
+function readCommunityJsonBody(req) {
+  return new Promise((resolve) => {
+    let done = false;
+    let size = 0;
+    let chunks = [];
+    const finish = (v) => { if (!done) { done = true; resolve(v); } };
+    if (!/^application\/json\b/i.test(req.headers['content-type'] || '')) { req.resume(); finish({ status: 400 }); return; }
+    if (Number(req.headers['content-length']) > COMMUNITY_BODY_LIMIT_BYTES) { req.resume(); finish({ status: 413 }); return; }
+    req.on('data', (chunk) => {
+      if (done) return;
+      size += chunk.length;
+      if (size > COMMUNITY_BODY_LIMIT_BYTES) { chunks = []; finish({ status: 413 }); return; }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (done) return;
+      try {
+        const v = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+        finish(v && typeof v === 'object' && !Array.isArray(v) ? { body: v } : { status: 400 });
+      } catch (_) {
+        finish({ status: 400 });
+      }
+    });
+    req.on('error', () => finish({ status: 400 }));
+  });
+}
+
+// 'anon' | 'setup' (verified, no @username) | 'writer'. getCurrentUser()
+// already returns null for suspended/banned users and dead sessions.
+function communityViewerState(user) {
+  if (!user || user.status !== 'active' || !user.email_verified_at) return 'anon';
+  return user.username_normalized ? 'writer' : 'setup';
+}
+
+// Returns the user, or writes 401/403 JSON and returns null.
+async function requireCommunityWriterJson(req, res) {
+  const user = await getCurrentUser(req);
+  const state = communityViewerState(user);
+  if (state === 'anon') { sendAuthJson(res, 401, { error: 'Sign in to join the conversation.', code: 'auth_required', login_url: '/login?next=/community' }); return null; }
+  if (state === 'setup') { sendAuthJson(res, 403, { error: 'Finish your account setup to join the conversation.', code: 'setup_required', setup_url: '/account/setup?next=/community' }); return null; }
+  return user;
+}
+
+function communityRelativeTime(iso, now = Date.now()) {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return '';
+  const s = Math.max(0, Math.floor((now - t) / 1000));
+  if (s < 60) return 'now';
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  if (s < 7 * 86400) return `${Math.floor(s / 86400)}d`;
+  const d = new Date(t);
+  const month = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+  return d.getUTCFullYear() === new Date(now).getUTCFullYear() ? `${month} ${d.getUTCDate()}` : `${month} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+}
+
+const COMMUNITY_CSS = `<style>
+  .cm { max-width: 640px; margin: 0 auto; padding: 1.25rem 0 2rem; min-width: 0; }
+  .cm-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .cm-head h1 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 2.6rem; letter-spacing: .05em; line-height: 1; color: var(--offwhite); margin: 0; }
+  .cm-head p { color: var(--gold); font-size: .8rem; margin-top: .3rem; }
+  .cm-tabs { display: flex; gap: .45rem; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin: 1rem 0; padding-bottom: .15rem; max-width: 100%; }
+  .cm-tabs::-webkit-scrollbar { display: none; }
+  .cm-tab { flex: 0 0 auto; white-space: nowrap; font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gray); border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: .45rem .8rem; }
+  .cm-tab[aria-current="page"] { color: var(--black); background: var(--green); border-color: var(--green); }
+  .cm-box { border: 1px solid var(--green-dim); padding: .85rem; margin-bottom: 1rem; }
+  .cm-box textarea { min-height: 88px; border-radius: 0; background: var(--black); border-color: rgba(255,255,255,.12); font-size: 1rem; resize: vertical; }
+  .cm-box textarea:focus-visible, .cm-box select:focus-visible { outline: 1px solid var(--green); }
+  .cm-row { display: flex; align-items: center; gap: .6rem; margin-top: .6rem; flex-wrap: wrap; }
+  .cm-row select { width: auto; flex: 1 1 8rem; min-width: 0; padding: .5rem .6rem; border-radius: 0; background: var(--black); font-size: .8rem; }
+  .cm-count { font-size: .7rem; color: var(--gray); margin-left: auto; }
+  .cm-count.is-over { color: var(--gold); }
+  .cm .cm-btn { display: inline-block; background: var(--green); color: var(--black); border: 0; border-radius: 0; font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: .08em; padding: .45rem 1.1rem; text-align: center; }
+  .cm .cm-btn[disabled] { opacity: .45; cursor: default; }
+  .cm .cm-btn-ghost { background: transparent; color: var(--offwhite); border: 1px solid var(--green-dim); }
+  .cm-status { min-height: 1.1em; font-size: .75rem; color: var(--gold); margin-top: .4rem; }
+  .cm-note { font-size: .68rem; color: var(--gray); margin-top: .3rem; }
+  .cm-invite-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: .05em; color: var(--offwhite); }
+  .cm-invite p { font-size: .78rem; color: var(--gray); }
+  .cm-invite .cm-row a { flex: 1 1 8rem; }
+  .cm-feed { border-top: 1px solid rgba(255,255,255,.08); }
+  .cm-post { border-bottom: 1px solid rgba(255,255,255,.08); padding: .8rem .1rem; }
+  .cm-post-head { display: flex; align-items: baseline; gap: .35rem; font-size: .75rem; min-width: 0; }
+  .cm-author { display: inline-flex; align-items: baseline; gap: .35rem; min-width: 0; overflow: hidden; }
+  .cm-name { color: var(--offwhite); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cm-handle { color: var(--green); white-space: nowrap; }
+  .cm-time { color: var(--gray); white-space: nowrap; flex-shrink: 0; }
+  .cm-body { display: block; color: var(--offwhite); font-size: .92rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; margin: .3rem 0 .45rem; }
+  a.cm-body:hover { color: var(--offwhite); }
+  .cm-actions { display: flex; align-items: center; gap: 1.1rem; font-size: .75rem; }
+  .cm-chan { color: var(--gold); font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; margin-right: auto; }
+  .cm .cm-like { background: none; border: 0; border-radius: 0; padding: .3rem .1rem; color: var(--gray); font: inherit; font-size: .8rem; letter-spacing: 0; text-transform: none; }
+  .cm .cm-like.is-liked { color: var(--green); }
+  .cm-replies { color: var(--gray); }
+  .cm-empty { color: var(--gray); font-size: .82rem; padding: 1.5rem .1rem; }
+  .cm-back { display: inline-block; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; margin-bottom: .8rem; }
+  .cm-detail .cm-body { font-size: 1.05rem; }
+  .cm-replies-head { font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; letter-spacing: .08em; color: var(--gold); margin: 1.2rem 0 .3rem; }
+  .cm-reply { padding-left: .8rem; border-left: 2px solid var(--green-dim); }
+  .cm-foot { font-size: .7rem; color: var(--gray); margin-top: 1.2rem; }
+  @media (min-width: 981px) { .cm { padding-top: 2rem; } .cm-head h1 { font-size: 3.2rem; } }
+</style>`;
+
+const COMMUNITY_PAGE_HEAD = `<link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+  ${COMMUNITY_CSS}`;
+
+// Post composer, reply composer and like buttons. Redirects to sign-in / setup
+// on 401 / 403 instead of failing silently.
+function communityClientScript(loginUrl) {
+  return `<script>
+(function () {
+  var loginUrl = ${inlineScriptJson(loginUrl)};
+  function len(s) { return Array.from(s).length; }
+  function send(url, body) {
+    return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { status: r.status, ok: r.ok, data: d || {} }; }); });
+  }
+  function authRedirect(res) {
+    if (res.status === 401) { window.location.href = loginUrl; return true; }
+    if (res.status === 403 && res.data.setup_url) { window.location.href = res.data.setup_url; return true; }
+    return false;
+  }
+  var forms = document.querySelectorAll('[data-cm-form]');
+  Array.prototype.forEach.call(forms, function (form) {
+    var ta = form.querySelector('textarea');
+    var count = form.querySelector('[data-cm-count]');
+    var btn = form.querySelector('button[type=submit]');
+    var status = form.querySelector('[data-cm-status]');
+    var busy = false;
+    function update() {
+      var n = len(ta.value.trim());
+      count.textContent = n + '/${COMMUNITY_BODY_MAX}';
+      count.classList.toggle('is-over', n > ${COMMUNITY_BODY_MAX});
+      btn.disabled = busy || n === 0 || n > ${COMMUNITY_BODY_MAX};
+    }
+    ta.addEventListener('input', update);
+    update();
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (btn.disabled) return;
+      busy = true; update();
+      status.textContent = 'Posting…';
+      var sel = form.querySelector('select');
+      var body = { body: ta.value };
+      if (sel) body.channel = sel.value;
+      send(form.getAttribute('data-cm-form'), body).then(function (res) {
+        if (res.ok) {
+          ta.value = '';
+          var after = form.getAttribute('data-cm-after');
+          if (after === 'channel' && res.data.post) window.location.href = '/community?channel=' + encodeURIComponent(res.data.post.channel.slug);
+          else window.location.reload();
+          return;
+        }
+        busy = false; update();
+        if (authRedirect(res)) return;
+        status.textContent = res.data.error || 'Could not post. Please try again.';
+      }).catch(function () { busy = false; update(); status.textContent = 'Network error. Please try again.'; });
+    });
+  });
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-like]') : null;
+    if (!b || b.disabled) return;
+    e.preventDefault();
+    b.disabled = true;
+    send('/api/community/posts/' + encodeURIComponent(b.getAttribute('data-like')) + '/like').then(function (res) {
+      b.disabled = false;
+      if (!res.ok) { authRedirect(res); return; }
+      var liked = res.data.liked === true;
+      b.classList.toggle('is-liked', liked);
+      b.setAttribute('aria-pressed', liked ? 'true' : 'false');
+      b.querySelector('[data-like-icon]').textContent = liked ? '\\u2665' : '\\u2661';
+      b.querySelector('[data-like-count]').textContent = String(res.data.like_count);
+    }).catch(function () { b.disabled = false; });
+  });
+})();
+</script>`;
+}
+
+function renderCommunityAuthor(author) {
+  const handle = `@${author.username}`;
+  const showName = author.display_name && author.display_name.trim().toLowerCase() !== String(author.username).toLowerCase();
+  const inner = `${showName ? `<span class="cm-name">${escapeHtml(author.display_name)}</span>` : ''}<span class="cm-handle">${escapeHtml(handle)}</span>`;
+  return author.profile_url
+    ? `<a class="cm-author" href="${escapeHtml(author.profile_url)}">${inner}</a>`
+    : `<span class="cm-author">${inner}</span>`;
+}
+
+function renderCommunityTime(iso, href) {
+  const t = `<time datetime="${escapeHtml(iso)}" title="${escapeHtml(iso)}">${escapeHtml(communityRelativeTime(iso))}</time>`;
+  return href ? `<a class="cm-time" href="${escapeHtml(href)}">· ${t}</a>` : `<span class="cm-time">· ${t}</span>`;
+}
+
+function renderCommunityPostCard(post, { detail = false } = {}) {
+  const url = `/community/post/${post.id}`;
+  return `<article class="cm-post">
+    <header class="cm-post-head">${renderCommunityAuthor(post.author)}${renderCommunityTime(post.created_at, detail ? '' : url)}</header>
+    ${detail ? `<p class="cm-body">${escapeHtml(post.body)}</p>` : `<a class="cm-body" href="${url}">${escapeHtml(post.body)}</a>`}
+    <footer class="cm-actions">
+      <a class="cm-chan" href="/community?channel=${encodeURIComponent(post.channel.slug)}">${escapeHtml(post.channel.name)}</a>
+      <button type="button" class="cm-like${post.liked_by_me ? ' is-liked' : ''}" data-like="${post.id}" aria-pressed="${post.liked_by_me ? 'true' : 'false'}" aria-label="Like"><span data-like-icon>${post.liked_by_me ? '♥' : '♡'}</span> <span data-like-count>${post.like_count}</span></button>
+      <a class="cm-replies" href="${url}#replies" aria-label="Replies">💬 ${post.reply_count}</a>
+    </footer>
+  </article>`;
+}
+
+function renderCommunityInvite(state, next) {
+  if (state === 'setup') {
+    return `<div class="cm-box cm-invite">
+      <p class="cm-invite-title">Almost there.</p>
+      <p>Pick your @username to post, reply and like.</p>
+      <div class="cm-row"><a class="cm-btn" href="/account/setup?next=${encodeURIComponent(next)}">Finish Account Setup</a></div>
+    </div>`;
+  }
+  const login = `/login?next=${encodeURIComponent(next)}`;
+  return `<div class="cm-box cm-invite">
+      <p class="cm-invite-title">Join the conversation.</p>
+      <p>Your free ATM account lets you post, reply and like. No Poker Profile needed.</p>
+      <div class="cm-row"><a class="cm-btn" href="${login}">Create My ATM</a><a class="cm-btn cm-btn-ghost" href="${login}">Sign In</a></div>
+    </div>`;
+}
+
+function renderCommunityPage({ channels, activeChannel, posts, viewer }) {
+  const state = communityViewerState(viewer);
+  const next = activeChannel ? `/community?channel=${activeChannel.slug}` : '/community';
+  const tabs = [`<a class="cm-tab" href="/community"${activeChannel ? '' : ' aria-current="page"'}>All</a>`]
+    .concat(channels.map((c) => `<a class="cm-tab" href="/community?channel=${encodeURIComponent(c.slug)}"${activeChannel && activeChannel.slug === c.slug ? ' aria-current="page"' : ''}>${escapeHtml(c.name)}</a>`))
+    .join('');
+  const selected = activeChannel ? activeChannel.slug : 'general';
+  const composer = state === 'writer' ? `<form class="cm-box" data-cm-form="/api/community/posts"${activeChannel ? ' data-cm-after="channel"' : ''} novalidate>
+      <label for="cmBody" class="cm-sr">What's happening at the table?</label>
+      <textarea id="cmBody" name="body" rows="3" placeholder="What's happening at the table?"></textarea>
+      <div class="cm-row">
+        <select name="channel" aria-label="Channel">${channels.map((c) => `<option value="${escapeHtml(c.slug)}"${c.slug === selected ? ' selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}</select>
+        <span class="cm-count" data-cm-count>0/${COMMUNITY_BODY_MAX}</span>
+        <button type="submit" class="cm-btn">Post</button>
+      </div>
+      <p class="cm-status" data-cm-status role="status"></p>
+      <p class="cm-note">Posting as ${escapeHtml('@' + viewer.username)} · <a href="/community-guidelines">Community Guidelines</a></p>
+    </form>` : renderCommunityInvite(state, next);
+  const feed = posts.length
+    ? posts.map((p) => renderCommunityPostCard(p)).join('')
+    : `<p class="cm-empty">No posts${activeChannel ? ` in ${escapeHtml(activeChannel.name)}` : ''} yet. Start the conversation.</p>`;
+  const title = activeChannel ? `${activeChannel.name} | Community | ATMwithNoPIN` : 'Community | ATMwithNoPIN';
+  const head = `<meta name="description" content="The ATMwithNoPIN poker community: short posts on cash games, tournaments, hands and Poker Wildlife." />
+  <link rel="canonical" href="${WILDLIFE_ORIGIN}${escapeHtml(next)}" />
+  ${COMMUNITY_PAGE_HEAD}`;
+  return renderLayout(title, `
+  <section class="cm">
+    <header class="cm-head"><h1>Community</h1><p>What's happening at the table?</p></header>
+    <nav class="cm-tabs" aria-label="Channels">${tabs}</nav>
+    ${composer}
+    <div class="cm-feed">${feed}</div>
+    <p class="cm-foot">Newest first. Be decent: <a href="/community-guidelines">Community Guidelines</a> · Looking for players? <a href="/community-wall">Community Wall</a></p>
+  </section>
+  ${communityClientScript(`/login?next=${encodeURIComponent(next)}`)}`, head);
+}
+
+function renderCommunityPostPage({ post, replies, viewer }) {
+  const state = communityViewerState(viewer);
+  const next = `/community/post/${post.id}`;
+  const composer = state === 'writer' ? `<form class="cm-box" data-cm-form="/api/community/posts/${post.id}/replies" novalidate>
+      <label for="cmReply" class="cm-sr">Post your reply</label>
+      <textarea id="cmReply" name="body" rows="2" placeholder="Post your reply"></textarea>
+      <div class="cm-row">
+        <span class="cm-count" data-cm-count>0/${COMMUNITY_BODY_MAX}</span>
+        <button type="submit" class="cm-btn">Reply</button>
+      </div>
+      <p class="cm-status" data-cm-status role="status"></p>
+      <p class="cm-note">Replying as ${escapeHtml('@' + viewer.username)} · <a href="/community-guidelines">Community Guidelines</a></p>
+    </form>` : renderCommunityInvite(state, next);
+  const replyList = replies.length
+    ? replies.map((r) => `<article class="cm-post cm-reply">
+        <header class="cm-post-head">${renderCommunityAuthor(r.author)}${renderCommunityTime(r.created_at, '')}</header>
+        <p class="cm-body">${escapeHtml(r.body)}</p>
+      </article>`).join('')
+    : '<p class="cm-empty">No replies yet.</p>';
+  const head = `<meta name="description" content="${escapeHtml(`@${post.author.username} in ${post.channel.name} on the ATMwithNoPIN Community.`)}" />
+  <link rel="canonical" href="${WILDLIFE_ORIGIN}${next}" />
+  ${COMMUNITY_PAGE_HEAD}`;
+  return renderLayout(`@${post.author.username} | Community | ATMwithNoPIN`, `
+  <section class="cm cm-detail">
+    <a class="cm-back" href="/community?channel=${encodeURIComponent(post.channel.slug)}">← ${escapeHtml(post.channel.name)}</a>
+    <h1 class="cm-sr">Post by ${escapeHtml('@' + post.author.username)}</h1>
+    ${renderCommunityPostCard(post, { detail: true })}
+    <h2 class="cm-replies-head" id="replies">Replies</h2>
+    ${composer}
+    <div class="cm-feed">${replyList}</div>
+    <p class="cm-foot"><a href="/community">← All Community posts</a> · <a href="/community-guidelines">Community Guidelines</a></p>
+  </section>
+  ${communityClientScript(`/login?next=${encodeURIComponent(next)}`)}`, head);
+}
+
+function renderCommunityNotFoundPage() {
+  return renderLayout('Post not found | Community | ATMwithNoPIN', `
+  <section class="cm"><header class="cm-head"><h1>Post not found</h1><p>It may have been removed.</p></header>
+  <p class="cm-foot"><a href="/community">← Back to Community</a></p></section>`, COMMUNITY_PAGE_HEAD);
+}
+
+function communityServerError(res, where, err) {
+  console.error(`[community] ${where} failed:`, err && err.code ? err.code : (err && err.message) || 'error');
+  sendAuthJson(res, 500, { error: 'Something went wrong. Please try again.' });
+}
+
+async function handleCommunityRoutes(req, res, pathname) {
+  const isApi = pathname === '/api/community' || pathname.startsWith('/api/community/');
+  const isPage = pathname === '/community' || pathname.startsWith('/community/');
+  if (!isApi && !isPage) return false;
+  const method = req.method;
+  const url = new URL(req.url, 'http://atm.local');
+  const postMatch = pathname.match(/^\/api\/community\/posts\/([^/]+)(\/replies|\/like)?$/);
+
+  if (pathname === '/api/community/channels' && method === 'GET') {
+    try {
+      const channels = await loadCommunityChannels();
+      sendAuthJson(res, 200, { channels: channels.map((c) => ({ slug: c.slug, name: c.name, description: c.description })) });
+    } catch (err) { communityServerError(res, 'channels', err); }
+    return true;
+  }
+
+  if (pathname === '/api/community/posts' && method === 'GET') {
+    try {
+      const slug = url.searchParams.get('channel') || '';
+      if (slug && slug !== 'all' && !(await getActiveCommunityChannelBySlug(slug))) { sendAuthJson(res, 400, { error: 'Unknown channel.' }); return true; }
+      const viewer = await getCurrentUser(req);
+      const posts = await loadCommunityFeed({ channelSlug: slug === 'all' ? '' : slug, limit: url.searchParams.get('limit'), viewerId: viewer ? viewer.id : '' });
+      sendAuthJson(res, 200, { posts });
+    } catch (err) { communityServerError(res, 'feed', err); }
+    return true;
+  }
+
+  if (pathname === '/api/community/posts' && method === 'POST') {
+    const user = await requireCommunityWriterJson(req, res);
+    if (!user) return true;
+    const parsedBody = await readCommunityJsonBody(req);
+    if (!parsedBody.body) { sendAuthJson(res, parsedBody.status, { error: parsedBody.status === 413 ? 'Post is too large.' : 'Invalid request.' }); return true; }
+    const cleaned = cleanCommunityBody(parsedBody.body.body);
+    if (cleaned.error) { sendAuthJson(res, 400, { error: cleaned.error }); return true; }
+    const channelSlug = typeof parsedBody.body.channel === 'string' ? parsedBody.body.channel : '';
+    if (!authRateAllowed('community_post_user', user.id)) { sendAuthJson(res, 429, { error: "You're posting fast. Take a breather and try again later." }); return true; }
+    const hit = authRateRecord('community_post_user', user.id);
+    try {
+      const post = await createCommunityPost({ userId: user.id, channelSlug, body: cleaned.body });
+      sendAuthJson(res, 201, { ok: true, post });
+    } catch (err) {
+      authRateRelease('community_post_user', user.id, hit);
+      if (err.code === 'COMMUNITY_INVALID_CHANNEL') { sendAuthJson(res, 400, { error: 'Pick a valid channel.' }); return true; }
+      communityServerError(res, 'create post', err);
+    }
+    return true;
+  }
+
+  if (postMatch && !postMatch[2] && method === 'GET') {
+    try {
+      const viewer = await getCurrentUser(req);
+      const post = await loadCommunityPost(postMatch[1], viewer ? viewer.id : '');
+      if (!post) { sendAuthJson(res, 404, { error: 'Post not found.' }); return true; }
+      sendAuthJson(res, 200, { post, replies: await loadCommunityReplies(post.id) });
+    } catch (err) { communityServerError(res, 'post', err); }
+    return true;
+  }
+
+  if (postMatch && postMatch[2] === '/replies' && method === 'POST') {
+    const user = await requireCommunityWriterJson(req, res);
+    if (!user) return true;
+    const parsedBody = await readCommunityJsonBody(req);
+    if (!parsedBody.body) { sendAuthJson(res, parsedBody.status, { error: parsedBody.status === 413 ? 'Reply is too large.' : 'Invalid request.' }); return true; }
+    const cleaned = cleanCommunityBody(parsedBody.body.body);
+    if (cleaned.error) { sendAuthJson(res, 400, { error: cleaned.error }); return true; }
+    if (!authRateAllowed('community_reply_user', user.id)) { sendAuthJson(res, 429, { error: "You're replying fast. Take a breather and try again later." }); return true; }
+    const hit = authRateRecord('community_reply_user', user.id);
+    try {
+      const reply = await createCommunityReply({ userId: user.id, postId: postMatch[1], body: cleaned.body });
+      sendAuthJson(res, 201, { ok: true, reply });
+    } catch (err) {
+      authRateRelease('community_reply_user', user.id, hit);
+      if (err.code === 'COMMUNITY_POST_NOT_FOUND') { sendAuthJson(res, 404, { error: 'Post not found.' }); return true; }
+      communityServerError(res, 'create reply', err);
+    }
+    return true;
+  }
+
+  if (postMatch && postMatch[2] === '/like' && method === 'POST') {
+    const user = await requireCommunityWriterJson(req, res);
+    if (!user) return true;
+    if (!/^application\/json\b/i.test(req.headers['content-type'] || '')) { req.resume(); sendAuthJson(res, 400, { error: 'Invalid request.' }); return true; }
+    req.resume();
+    if (!authRateAllowed('community_like_user', user.id)) { sendAuthJson(res, 429, { error: 'Too many likes. Try again later.' }); return true; }
+    const hit = authRateRecord('community_like_user', user.id);
+    try {
+      const result = await toggleCommunityLike({ userId: user.id, postId: postMatch[1] });
+      sendAuthJson(res, 200, { ok: true, ...result });
+    } catch (err) {
+      authRateRelease('community_like_user', user.id, hit);
+      if (err.code === 'COMMUNITY_POST_NOT_FOUND') { sendAuthJson(res, 404, { error: 'Post not found.' }); return true; }
+      communityServerError(res, 'like', err);
+    }
+    return true;
+  }
+
+  if (isApi) { sendAuthJson(res, 404, { error: 'Not found.' }); return true; }
+
+  if (pathname === '/community' && method === 'GET') {
+    try {
+      const [channels, viewer] = await Promise.all([loadCommunityChannels(), getCurrentUser(req)]);
+      const slug = url.searchParams.get('channel') || '';
+      const activeChannel = channels.find((c) => c.slug === slug) || null;
+      const posts = await loadCommunityFeed({ channelSlug: activeChannel ? activeChannel.slug : '', viewerId: viewer ? viewer.id : '' });
+      sendAuthHtml(res, renderCommunityPage({ channels, activeChannel, posts, viewer }));
+      logPageVisit(req, pathname);
+    } catch (err) {
+      console.error('[community] page failed:', err && err.code ? err.code : (err && err.message) || 'error');
+      res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(renderLayout('Community | ATMwithNoPIN', '<section class="cm"><header class="cm-head"><h1>Community</h1><p>The table is on a short break. Please try again shortly.</p></header></section>', COMMUNITY_PAGE_HEAD));
+    }
+    return true;
+  }
+
+  const pageMatch = pathname.match(/^\/community\/post\/([^/]+)\/?$/);
+  if (pageMatch && method === 'GET') {
+    try {
+      const viewer = await getCurrentUser(req);
+      const post = await loadCommunityPost(pageMatch[1], viewer ? viewer.id : '');
+      if (!post) {
+        res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+        res.end(renderCommunityNotFoundPage());
+        return true;
+      }
+      const replies = await loadCommunityReplies(post.id);
+      sendAuthHtml(res, renderCommunityPostPage({ post, replies, viewer }));
+      logPageVisit(req, '/community/post');
+    } catch (err) {
+      console.error('[community] post page failed:', err && err.code ? err.code : (err && err.message) || 'error');
+      res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(renderCommunityNotFoundPage());
+    }
+    return true;
+  }
+
+  if (pathname === '/community/') { sendAuthRedirect(res, '/community'); return true; }
+  return false;
+}
+
 const server = http.createServer(async (req, res) => {
   const parsed = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsed.pathname;
 
   if (await handleAuthRoutes(req, res, pathname)) return;
+  if (await handleCommunityRoutes(req, res, pathname)) return;
 
   if (pathname === '/api/admin/login' && req.method === 'POST') {
     try {
@@ -11849,6 +12591,7 @@ async function start() {
   await seedDefaultPosts();
   await seedDefaultChronicles();
   await seedWildlifeSpecies();
+  await seedCommunityChannels();
   await seedDefaultSubmissions();
   server.listen(PORT, () => {
     console.log(`ATM is open on port ${PORT} 🏧`);
@@ -11902,5 +12645,15 @@ module.exports = {
   authRateRecord,
   authRateRelease,
   authRateBuckets,
+  seedCommunityChannels,
+  loadCommunityChannels,
+  loadCommunityFeed,
+  loadCommunityPost,
+  loadCommunityReplies,
+  createCommunityPost,
+  createCommunityReply,
+  toggleCommunityLike,
+  cleanCommunityBody,
+  COMMUNITY_CHANNEL_SEED,
   server,
 };
