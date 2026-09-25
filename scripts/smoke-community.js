@@ -33,6 +33,22 @@ delete process.env.RESEND_API_KEY;
 global.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
 
 const Database = require('better-sqlite3');
+
+// Pre-1C.2 users table (no avatar columns) with one existing account, so the
+// additive avatar migration is exercised against a legacy row.
+const LEGACY_USER_ID = crypto.randomUUID();
+{
+  const legacy = new Database(DB_FILE);
+  legacy.exec(`CREATE TABLE users (
+    id TEXT PRIMARY KEY, email TEXT NOT NULL, email_normalized TEXT NOT NULL UNIQUE, username TEXT,
+    username_normalized TEXT UNIQUE, display_name TEXT NOT NULL DEFAULT '', email_verified_at TEXT,
+    status TEXT NOT NULL DEFAULT 'active', trust_level TEXT NOT NULL DEFAULT 'new',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, last_login_at TEXT)`);
+  legacy.prepare("INSERT INTO users (id, email, email_normalized, username, username_normalized, display_name, email_verified_at) VALUES (?, 'legacy@example.com', 'legacy@example.com', 'OldTimer', 'oldtimer', 'Old Timer', ?)")
+    .run(LEGACY_USER_ID, new Date().toISOString());
+  legacy.close();
+}
+
 const app = require(path.join(__dirname, '..', 'server.js'));
 
 let pass = 0, fail = 0;
@@ -100,6 +116,13 @@ async function main() {
   const edited = db.prepare("SELECT name, description FROM community_channels WHERE slug = 'hand-talk'").get();
   check('re-seed does not overwrite an edited channel', edited.name === 'Hand Talk (edited)' && edited.description === 'admin edit');
   db.prepare("UPDATE community_channels SET name = 'Hand Talk', description = 'Break down a hand and ask the table.' WHERE slug = 'hand-talk'").run();
+  const userCols = db.prepare('PRAGMA table_info(users)').all();
+  const avCol = userCols.find((c) => c.name === 'avatar_type');
+  check('users gains avatar_type (NOT NULL DEFAULT default) + avatar_wildlife_slug', avCol && avCol.notnull === 1 && /default/.test(avCol.dflt_value) && userCols.some((c) => c.name === 'avatar_wildlife_slug'), JSON.stringify(userCols.map((c) => c.name)));
+  const legacyRow = db.prepare('SELECT username, avatar_type, avatar_wildlife_slug FROM users WHERE id = ?').get(LEGACY_USER_ID);
+  check('existing (pre-migration) user defaults to avatar default / null slug', legacyRow && legacyRow.username === 'OldTimer' && legacyRow.avatar_type === 'default' && legacyRow.avatar_wildlife_slug === null, JSON.stringify(legacyRow));
+  await app.initializeDatabase();
+  check('avatar migration is idempotent (re-run ok, no duplicate columns)', db.prepare('PRAGMA table_info(users)').all().filter((c) => c.name.startsWith('avatar_')).length === 2);
   check('seeded channel ids are unique uuids', new Set(db.prepare('SELECT id FROM community_channels').all().map((r) => r.id)).size === 5);
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -162,7 +185,7 @@ async function main() {
   check('valid post → 201', r.status === 201 && r.json.ok === true, r.text);
   const p1 = r.json.post;
   check('post body trimmed', p1.body === 'First hand of the night — flopped a set.');
-  check('post shape is public-only', Object.keys(p1).sort().join() === 'author,body,channel,created_at,id,like_count,liked_by_me,reply_count' && Object.keys(p1.author).sort().join() === 'display_name,profile_url,username');
+  check('post shape is public-only', Object.keys(p1).sort().join() === 'author,body,channel,created_at,id,like_count,liked_by_me,reply_count' && Object.keys(p1.author).sort().join() === 'avatar,display_name,profile_url,username' && Object.keys(p1.author.avatar).sort().join() === 'initial,species_name,type,url');
   r = await post(alice.cookie, { channel: 'general', body: '   \n\t ' });
   check('empty/whitespace rejected (400)', r.status === 400);
   r = await post(alice.cookie, { channel: 'general' });
@@ -332,6 +355,178 @@ async function main() {
   r = await request('GET', '/players/carol-pending-9f9f9f');
   check('pending profile page still 404', r.status === 404);
 
+
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log('\nAvatars (Sprint 1C.2)');
+  const setAvatar = (cookie, body) => request('POST', '/api/account/avatar', { cookie, body });
+  const psData = (id) => JSON.parse(db.prepare('SELECT data FROM player_submissions WHERE id = ?').get(id).data);
+  const userAv = (u) => db.prepare('SELECT avatar_type, avatar_wildlife_slug FROM users WHERE id = ?').get(u.user.id);
+  const feedAuthor = async (username) => (await request('GET', '/api/community/posts')).json.posts.find((p) => p.author.username === username).author;
+  const addSpecies = (sp) => db.prepare('INSERT INTO wildlife_species (id, data) VALUES (?, ?)').run(sp.id, JSON.stringify(sp));
+  const SHARK_IMG = 'https://res.cloudinary.com/demo/image/upload/v1/wildlife/shark.jpg';
+  const shark = { id: crypto.randomUUID(), slug: 'avatar-shark', name: 'The Test Shark', status: 'published', image_url: SHARK_IMG, display_order: 1 };
+  const noImg = { id: crypto.randomUUID(), slug: 'avatar-whale', name: 'The Imageless Whale', status: 'published', image_url: '', display_order: 2 };
+  const draft = { id: crypto.randomUUID(), slug: 'avatar-draft-fish', name: 'The Draft Fish', status: 'draft', image_url: 'https://res.cloudinary.com/demo/image/upload/v1/wildlife/fish.jpg', display_order: 3 };
+  const evil = { id: crypto.randomUUID(), slug: 'avatar-evil', name: 'The <b>Evil</b> Owl', status: 'published', image_url: 'javascript:alert(1)', display_order: 4 };
+  const local = { id: crypto.randomUUID(), slug: 'avatar-local-cat', name: 'The Local Cat', status: 'published', image_url: '/uploads/local-cat.png', display_order: 5 };
+  [shark, noImg, draft, evil, local].forEach(addSpecies);
+
+  // Resolver (pure).
+  const res0 = app.resolveAtmAvatar(null, { displayName: 'alice aces', username: 'x' });
+  check('resolver: default → initial from display name', res0.type === 'default' && res0.url === null && res0.initial === 'A');
+  check('resolver: initial falls back to username, then "A"', app.resolveAtmAvatar({}, { displayName: '  ', username: 'zed' }).initial === 'Z' && app.resolveAtmAvatar({}, {}).initial === 'A');
+  check('resolver: profile_photo without photo → default', app.resolveAtmAvatar({ avatar_type: 'profile_photo', avatar_photo_url: '' }).type === 'default');
+  check('resolver: unsafe URLs → default', ['javascript:alert(1)', 'http://x.test/a.jpg', 'https://x.test/a".jpg', '//evil.test/a.jpg', 'data:image/png;base64,AA'].every((u) => app.resolveAtmAvatar({ avatar_type: 'profile_photo', avatar_photo_url: u }).type === 'default'));
+  check('resolver: unknown type → default', app.resolveAtmAvatar({ avatar_type: 'url', avatar_photo_url: SHARK_IMG, avatar_wildlife_image_url: SHARK_IMG }).type === 'default');
+
+  // Defaults.
+  const fresh = await makeUser('fresh.avatar@example.com', { username: 'fresh_face', display_name: 'Fresh Face' });
+  check('new user defaults to avatar default / null slug', userAv(fresh).avatar_type === 'default' && userAv(fresh).avatar_wildlife_slug === null);
+  r = await post(fresh.cookie, { channel: 'general', body: 'Default avatar here.' });
+  check('user with no Poker Profile can still post (default avatar)', r.status === 201 && r.json.post.author.avatar.type === 'default' && r.json.post.author.avatar.initial === 'F' && r.json.post.author.profile_url === null);
+  r = await request('GET', '/api/community/posts');
+  const bobAuthor0 = r.json.posts.find((p) => p.author.username === 'bob_nuts').author;
+  check('default avatar in feed API (no url, initial)', bobAuthor0.avatar.type === 'default' && bobAuthor0.avatar.url === null && bobAuthor0.avatar.initial === 'B');
+
+  // Auth / validation.
+  r = await setAvatar(null, { avatar_type: 'default' });
+  check('unauthenticated avatar update → 401', r.status === 401 && r.headers['cache-control'] === 'no-store');
+  r = await request('POST', '/api/account/avatar', { cookie: bob.cookie, rawBody: 'avatar_type=default', contentType: 'application/x-www-form-urlencoded' });
+  check('avatar update requires JSON', r.status === 400);
+  r = await setAvatar(suspended.cookie, { avatar_type: 'default' });
+  check('suspended user cannot update avatar', r.status === 401);
+  r = await setAvatar(bob.cookie, { avatar_type: 'url', avatar_url: 'https://evil.test/me.jpg' });
+  check('invalid avatar_type rejected', r.status === 400);
+  r = await setAvatar(bob.cookie, { avatar_type: 'custom', url: 'https://evil.test/me.jpg' });
+  check('arbitrary custom-URL avatar rejected', r.status === 400);
+  r = await setAvatar(bob.cookie, { avatar_type: 'profile_photo' });
+  check('profile_photo without a linked profile → 400', r.status === 400 && userAv(bob).avatar_type === 'default');
+  r = await setAvatar(alice.cookie, { avatar_type: 'profile_photo' });
+  check('profile_photo with linked profile but no photo → 400', r.status === 400 && userAv(alice).avatar_type === 'default');
+  for (const [label, slug] of [['draft', draft.slug], ['no-image', noImg.slug], ['unsafe-image', evil.slug], ['nonexistent', 'avatar-nope'], ['malformed', '../../etc'], ['non-string', 42]]) {
+    r = await setAvatar(bob.cookie, { avatar_type: 'wildlife', wildlife_slug: slug });
+    check(`wildlife ${label} species rejected`, r.status === 400 && userAv(bob).avatar_type === 'default', `${r.status}`);
+  }
+
+  // Profile photo.
+  const ALICE_PHOTO = 'https://res.cloudinary.com/demo/image/upload/v1/profiles/alice.jpg';
+  db.prepare('UPDATE player_submissions SET data = ? WHERE id = ?').run(JSON.stringify({ ...psData(approved.id), photo_url: ALICE_PHOTO }), approved.id);
+  r = await setAvatar(alice.cookie, { avatar_type: 'profile_photo', avatar_url: 'https://evil.test/x.jpg', user_id: bob.user.id });
+  check('profile_photo with linked photo → 200', r.status === 200 && r.json.avatar.type === 'profile_photo' && r.json.avatar.url === ALICE_PHOTO, r.text);
+  check('response avatar shape is public-only', Object.keys(r.json).sort().join() === 'avatar,ok' && Object.keys(r.json.avatar).sort().join() === 'initial,species_name,type,url');
+  check('browser-supplied user_id ignored (bob unchanged)', userAv(bob).avatar_type === 'default' && userAv(alice).avatar_type === 'profile_photo');
+  check('feed resolves profile photo', (await feedAuthor('AceAlice')).avatar.url === ALICE_PHOTO);
+  const alicePhotoRow = db.prepare('SELECT avatar_type, avatar_wildlife_slug FROM users WHERE id = ?').get(alice.user.id);
+  check('users row stores preference only, no URL', alicePhotoRow.avatar_type === 'profile_photo' && alicePhotoRow.avatar_wildlife_slug === null && !JSON.stringify(db.prepare('SELECT * FROM users WHERE id = ?').get(alice.user.id)).includes('cloudinary'));
+
+  // Wildlife.
+  r = await setAvatar(bob.cookie, { avatar_type: 'wildlife', wildlife_slug: shark.slug, image_url: 'https://evil.test/x.jpg' });
+  check('published Wildlife species with image → 200', r.status === 200 && r.json.avatar.type === 'wildlife' && r.json.avatar.url === SHARK_IMG && r.json.avatar.species_name === 'The Test Shark', r.text);
+  check('stores avatar_type=wildlife + slug only', JSON.stringify(userAv(bob)) === JSON.stringify({ avatar_type: 'wildlife', avatar_wildlife_slug: 'avatar-shark' }) && !JSON.stringify(db.prepare('SELECT * FROM users WHERE id = ?').get(bob.user.id)).includes('cloudinary'));
+  check('feed resolves Wildlife image dynamically', (await feedAuthor('bob_nuts')).avatar.url === SHARK_IMG);
+  r = await setAvatar(carol.cookie, { avatar_type: 'wildlife', wildlife_slug: local.slug });
+  check('local /uploads Wildlife image allowed in dev', r.status === 200 && r.json.avatar.url === '/uploads/local-cat.png');
+
+  // Replies carry avatars too (API + page), same resolver.
+  r = await reply(bob.cookie, p1.id, { body: 'shark reply' });
+  check('new reply returns author avatar', r.status === 201 && r.json.reply.author.avatar.type === 'wildlife' && r.json.reply.author.avatar.url === SHARK_IMG);
+  const sharkReplyId = r.json.reply.id;
+  r = await request('GET', `/api/community/posts/${p1.id}`);
+  check('post detail API: post + reply avatars', r.json.post.author.avatar.url === ALICE_PHOTO && r.json.replies.find((x) => x.id === sharkReplyId).author.avatar.url === SHARK_IMG && r.json.replies.find((x) => x.author.username === 'AceAlice').author.avatar.type === 'profile_photo');
+  r = await request('GET', `/community/post/${p1.id}`);
+  check('post page renders post + reply avatars (circular, cover)', r.text.includes(`<img class="atm-av" src="${ALICE_PHOTO}" alt="" width="40" height="40"`) && r.text.includes(`<img class="atm-av" src="${SHARK_IMG}"`) && /\.atm-av \{[^}]*border-radius: 50%;[^}]*object-fit: cover;/.test(r.text));
+  check('post page wraps cards with avatar column', r.text.includes('class="cm-post cm-with-av"') && r.text.includes('class="cm-post cm-reply cm-with-av"'));
+  r = await request('GET', '/community');
+  check('feed page renders image avatars', r.text.includes(`src="${SHARK_IMG}"`) && r.text.includes(`src="${ALICE_PHOTO}"`));
+  check('feed page renders default initial avatar', r.text.includes('<span class="atm-av atm-av-default" aria-hidden="true" style="width:40px;height:40px;font-size:20px;">'));
+  check('approved author avatar links to profile (hidden from AT)', r.text.includes('<a class="cm-av-link" href="/players/ace-alice-1a2b3c" tabindex="-1" aria-hidden="true">'));
+
+  // Switching never touches photo_url.
+  const photoBefore = psData(approved.id).photo_url;
+  await setAvatar(alice.cookie, { avatar_type: 'wildlife', wildlife_slug: shark.slug });
+  check('switch to Wildlife keeps photo_url', psData(approved.id).photo_url === photoBefore && (await feedAuthor('AceAlice')).avatar.url === SHARK_IMG);
+  await setAvatar(alice.cookie, { avatar_type: 'default' });
+  check('switch to default keeps photo_url + clears slug', psData(approved.id).photo_url === photoBefore && userAv(alice).avatar_wildlife_slug === null && (await feedAuthor('AceAlice')).avatar.type === 'default');
+  r = await setAvatar(alice.cookie, { avatar_type: 'profile_photo' });
+  check('switch back to profile photo works', r.status === 200 && psData(approved.id).photo_url === photoBefore && (await feedAuthor('AceAlice')).avatar.url === ALICE_PHOTO);
+
+  // Wildlife lifecycle fallbacks (bob selected the shark).
+  const setShark = (patch) => db.prepare('UPDATE wildlife_species SET data = ? WHERE id = ?').run(JSON.stringify({ ...shark, ...patch }), shark.id);
+  setShark({ status: 'draft' });
+  check('unpublished species → default fallback', (await feedAuthor('bob_nuts')).avatar.type === 'default');
+  setShark({ status: 'published', image_url: '' });
+  check('species loses image → default fallback', (await feedAuthor('bob_nuts')).avatar.type === 'default');
+  setShark({ status: 'published', image_url: 'javascript:alert(1)' });
+  check('species image becomes unsafe → default fallback', (await feedAuthor('bob_nuts')).avatar.type === 'default');
+  setShark({});
+  check('republished with image → Wildlife avatar returns', (await feedAuthor('bob_nuts')).avatar.url === SHARK_IMG);
+  db.prepare('DELETE FROM wildlife_species WHERE id = ?').run(shark.id);
+  const bobDeleted = await feedAuthor('bob_nuts');
+  check('deleted species → default fallback (preference kept)', bobDeleted.avatar.type === 'default' && bobDeleted.avatar.url === null && userAv(bob).avatar_type === 'wildlife');
+  r = await request('GET', `/community/post/${p1.id}`);
+  check('reply by fallen-back user renders default', r.status === 200 && !r.text.includes(SHARK_IMG));
+  addSpecies(shark);
+
+  // Profile-photo fallbacks.
+  db.prepare('UPDATE player_submissions SET data = ? WHERE id = ?').run(JSON.stringify({ ...psData(approved.id), status: 'rejected' }), approved.id);
+  check('rejected profile photo → default fallback', (await feedAuthor('AceAlice')).avatar.type === 'default');
+  db.prepare('UPDATE player_submissions SET data = ? WHERE id = ?').run(JSON.stringify({ ...psData(approved.id), status: 'approved', photo_url: '' }), approved.id);
+  check('photo removed → default fallback', (await feedAuthor('AceAlice')).avatar.type === 'default');
+  db.prepare('UPDATE player_submissions SET data = ? WHERE id = ?').run(JSON.stringify({ ...psData(approved.id), photo_url: ALICE_PHOTO }), approved.id);
+
+  // My ATM page.
+  r = await request('GET', '/account', { cookie: bob.cookie });
+  check('My ATM shows YOUR ATM AVATAR section', r.status === 200 && r.text.includes('<h2>YOUR ATM AVATAR</h2>') && r.text.includes('ATM Default') && r.text.includes('Poker Wildlife'));
+  check('My ATM shows current Wildlife avatar + pressed option', r.text.includes('Poker Wildlife: The Test Shark') && r.text.includes(`data-wildlife-slug="avatar-shark" aria-pressed="true"`));
+  check('selector lists only published species with valid images', r.text.includes('The Test Shark') && r.text.includes('The Local Cat') && !r.text.includes('The Draft Fish') && !r.text.includes('The Imageless Whale') && !r.text.includes('Evil') && !r.text.includes('javascript:'));
+  check('no profile → no photo option, link to create profile', !r.text.includes('data-avatar-type="profile_photo"') && r.text.includes('href="/ai-profile-generator">Poker Profile</a>'));
+  check('My ATM never renders an edit_token', !r.text.includes('EDITTOKEN_') && !r.text.includes('/profile/setup/'));
+  r = await request('GET', '/account', { cookie: carol.cookie });
+  check('profile without photo → link to existing photo uploader', r.text.includes('href="/account/profile-photo">Add a profile photo</a>') && !r.text.includes('data-avatar-type="profile_photo"') && !r.text.includes('EDITTOKEN_PENDING'));
+  r = await request('GET', '/account', { cookie: alice.cookie });
+  check('profile with photo → selectable + pressed', r.text.includes('data-avatar-type="profile_photo" aria-pressed="true"') && r.text.includes(`src="${ALICE_PHOTO}"`));
+  r = await request('GET', '/account/profile-photo', { cookie: carol.cookie });
+  check('/account/profile-photo → owner\'s existing setup page', r.status === 302 && r.headers.location === '/profile/setup/EDITTOKEN_PENDING_SECRET_456' && r.headers['cache-control'] === 'no-store', `${r.status} ${r.headers.location}`);
+  r = await request('GET', '/account/profile-photo', { cookie: bob.cookie });
+  check('/account/profile-photo without profile → /account', r.status === 302 && r.headers.location === '/account');
+  r = await request('GET', '/account/profile-photo');
+  check('/account/profile-photo logged out → login', r.status === 302 && r.headers.location.startsWith('/login'));
+
+  // Existing photo upload flow is untouched and doesn't reset the avatar pref.
+  const photoToken = crypto.randomUUID();
+  const dave = await makeUser('dave@example.com', { username: 'dave_d', display_name: 'Dave' });
+  const daveProfile = { id: crypto.randomUUID(), name: 'Dave', nickname: 'D', slug: 'dave-d-777777', status: 'approved', email: 'dave@example.com', edit_token: photoToken, photo_url: '' };
+  db.prepare('INSERT INTO player_submissions (id, data) VALUES (?, ?)').run(daveProfile.id, JSON.stringify(daveProfile));
+  await app.createUserProfileLink(dave.user.id, daveProfile.id);
+  r = await request('GET', '/account/profile-photo', { cookie: dave.cookie });
+  check('/account/profile-photo redirects owner to their setup page', r.status === 302 && r.headers.location === `/profile/setup/${photoToken}`);
+  r = await request('GET', `/profile/setup/${photoToken}`);
+  check('existing /profile/setup page + photo section still render', r.status === 200 && r.text.includes('3 — Profile Photo') && r.text.includes('id="sectionPhoto"'));
+  const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082', 'hex');
+  const boundary = '----avatarSmoke' + Date.now();
+  const multipart = Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="d.png"\r\nContent-Type: image/png\r\n\r\n`),
+    png,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ]);
+  const up = await new Promise((resolve, reject) => {
+    const q = http.request(BASE + `/api/profile/${photoToken}/photo`, { method: 'POST', headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': multipart.length } }, (res2) => {
+      let t = ''; res2.on('data', (c) => t += c); res2.on('end', () => { let j = null; try { j = JSON.parse(t); } catch {} resolve({ status: res2.statusCode, json: j, text: t }); });
+    });
+    q.on('error', reject); q.end(multipart);
+  });
+  const uploadedUrl = up.json && up.json.photo_url;
+  check('existing profile photo upload still works', up.status === 200 && typeof uploadedUrl === 'string' && uploadedUrl.startsWith('/uploads/'), up.text.slice(0, 200));
+  check('photo upload does not change avatar preference', userAv(dave).avatar_type === 'default');
+  r = await setAvatar(dave.cookie, { avatar_type: 'profile_photo' });
+  check('freshly uploaded photo selectable as avatar', r.status === 200 && r.json.avatar.url === uploadedUrl);
+  if (uploadedUrl) { try { fs.unlinkSync(path.join(__dirname, '..', uploadedUrl)); } catch {} }
+
+  r = await request('GET', '/stories/poker-wildlife');
+  check('Wildlife landing still works', r.status === 200 && r.text.includes('The Test Shark') && !r.text.includes('The Draft Fish'));
+  r = await request('GET', '/api/auth/me', { cookie: bob.cookie });
+  check('/api/auth/me shape unchanged (no avatar internals)', r.status === 200 && Object.keys(r.json.user).sort().join() === 'display_name,email,email_verified,trust_level,username');
+
   // ─────────────────────────────────────────────────────────────────────────
   console.log('\nPrivacy');
   const surfaces = [
@@ -343,6 +538,8 @@ async function main() {
     await post(alice.cookie, { channel: 'general', body: 'privacy probe' }),
     await reply(alice.cookie, p1.id, { body: 'privacy probe reply' }),
     await like(alice.cookie, p1.id),
+    await request('POST', '/api/account/avatar', { cookie: alice.cookie, body: { avatar_type: 'profile_photo' } }),
+    await request('POST', '/api/account/avatar', { cookie: bob.cookie, body: { avatar_type: 'wildlife', wildlife_slug: 'avatar-shark' } }),
   ];
   const all = surfaces.map((s) => s.text).join('\n');
   check('emails not exposed', !/alice\.private@example\.com|bob\.secret@example\.com|carol@example\.com/i.test(all));
@@ -351,6 +548,8 @@ async function main() {
   check('admin_notes not exposed', !all.includes('ADMIN_NOTE') && !/admin_notes/.test(all));
   check('internal user ids not exposed', ![alice.user.id, bob.user.id, carol.user.id].some((id) => all.includes(id)));
   check('player_submission ids not exposed', !all.includes(approved.id) && !all.includes(pending.id));
+  check('Wildlife species ids not exposed', !all.includes(shark.id) && !all.includes(local.id));
+  check('avatar internals not exposed', !/avatar_type|avatar_wildlife_slug|avatar_photo_url|linked_profile_id/.test(all));
   check('channel ids not exposed', !db.prepare('SELECT id FROM community_channels').all().some((c) => all.includes(c.id)));
   check('all community API responses are no-store JSON', surfaces.filter((s) => /json/.test(s.headers['content-type'] || '')).every((s) => s.headers['cache-control'] === 'no-store'));
 

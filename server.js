@@ -173,6 +173,10 @@ async function initializeDatabase() {
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    // ATM Avatars (Sprint 1C.2) — additive columns; existing rows get 'default' / NULL.
+    const userCols = sqliteDb.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+    if (!userCols.includes('avatar_type')) sqliteDb.exec(`ALTER TABLE users ADD COLUMN avatar_type TEXT NOT NULL DEFAULT 'default'`);
+    if (!userCols.includes('avatar_wildlife_slug')) sqliteDb.exec('ALTER TABLE users ADD COLUMN avatar_wildlife_slug TEXT');
     // Community (Sprint 1C.1) — relational tables, targeted queries only.
     // References to users / posts are enforced in application code (no FKs).
     sqliteDb.exec(`
@@ -323,6 +327,11 @@ async function initializeDatabase() {
         player_submission_id TEXT NOT NULL UNIQUE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+    `);
+    // ATM Avatars (Sprint 1C.2) — additive columns; existing rows get 'default' / NULL.
+    await pgPool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_type TEXT NOT NULL DEFAULT 'default';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_wildlife_slug TEXT;
     `);
     // Community (Sprint 1C.1) — relational tables, targeted queries only.
     // References to users / posts are enforced in application code (no FKs).
@@ -981,12 +990,114 @@ function cleanCommunityBody(value) {
   return { body };
 }
 
+// ── ATM Avatars (Sprint 1C.2) ───────────────────────────────────────────────
+// users.avatar_type (default | profile_photo | wildlife) + avatar_wildlife_slug
+// store the preference only. Image URLs are always resolved live: the linked
+// profile's photo_url, or the species' image_url while it is published. Any
+// missing / unpublished / invalid source falls back to the ATM default.
+
+const AVATAR_TYPES = ['default', 'profile_photo', 'wildlife'];
+const AVATAR_WILDLIFE_SLUG_RE = /^[a-z0-9][a-z0-9-]{0,80}$/;
+
+// Source columns for resolveAtmAvatar(); expects aliases u (users) and ps
+// (linked player_submissions, may be NULL). A rejected profile's photo is never used.
+const AVATAR_SOURCE_PG = `u.avatar_type AS avatar_type,
+  CASE WHEN COALESCE(ps.data->>'status', '') <> 'rejected' THEN ps.data->>'photo_url' END AS avatar_photo_url,
+  (SELECT ws.data->>'image_url' FROM wildlife_species ws WHERE u.avatar_type = 'wildlife' AND ws.data->>'slug' = u.avatar_wildlife_slug
+     AND ws.data->>'status' = 'published' ORDER BY ws.created_at LIMIT 1) AS avatar_wildlife_image_url,
+  (SELECT ws.data->>'name' FROM wildlife_species ws WHERE u.avatar_type = 'wildlife' AND ws.data->>'slug' = u.avatar_wildlife_slug
+     AND ws.data->>'status' = 'published' ORDER BY ws.created_at LIMIT 1) AS avatar_wildlife_name`;
+const AVATAR_SOURCE_SQLITE = `u.avatar_type AS avatar_type,
+  CASE WHEN COALESCE(json_extract(ps.data, '$.status'), '') <> 'rejected' THEN json_extract(ps.data, '$.photo_url') END AS avatar_photo_url,
+  (SELECT json_extract(ws.data, '$.image_url') FROM wildlife_species ws WHERE u.avatar_type = 'wildlife' AND json_extract(ws.data, '$.slug') = u.avatar_wildlife_slug
+     AND json_extract(ws.data, '$.status') = 'published' ORDER BY ws.created_at LIMIT 1) AS avatar_wildlife_image_url,
+  (SELECT json_extract(ws.data, '$.name') FROM wildlife_species ws WHERE u.avatar_type = 'wildlife' AND json_extract(ws.data, '$.slug') = u.avatar_wildlife_slug
+     AND json_extract(ws.data, '$.status') = 'published' ORDER BY ws.created_at LIMIT 1) AS avatar_wildlife_name`;
+
+// Same rule as getPublishedWildlifeForProfiles(): https URL or a local upload.
+function safeAvatarImageUrl(value) {
+  const s = typeof value === 'string' ? value.trim() : '';
+  return /^https:\/\/[^\s"'<>\\]+$/i.test(s) || /^\/uploads\/[\w.-]+$/.test(s) ? s : '';
+}
+
+function avatarInitial(displayName, username) {
+  const label = String(displayName || '').trim() || String(username || '').trim();
+  const m = label.match(/[\p{L}\p{N}]/u);
+  return m ? m[0].toUpperCase() : 'A';
+}
+
+// The single avatar resolver (Community feed, post page, replies, My ATM).
+// row: { avatar_type, avatar_photo_url, avatar_wildlife_image_url, avatar_wildlife_name }.
+// Returns public-safe { type, url, initial, species_name } only.
+function resolveAtmAvatar(row, { displayName = '', username = '' } = {}) {
+  const r = row || {};
+  const initial = avatarInitial(displayName, username);
+  if (r.avatar_type === 'profile_photo') {
+    const url = safeAvatarImageUrl(r.avatar_photo_url);
+    if (url) return { type: 'profile_photo', url, initial, species_name: null };
+  }
+  if (r.avatar_type === 'wildlife') {
+    const url = safeAvatarImageUrl(r.avatar_wildlife_image_url);
+    if (url) return { type: 'wildlife', url, initial, species_name: String(r.avatar_wildlife_name || '') || null };
+  }
+  return { type: 'default', url: null, initial, species_name: null };
+}
+
+// Decorative (alt="") — the name/handle next to it carries the meaning.
+function renderAtmAvatar(avatar, { size = 40, className = '' } = {}) {
+  const a = avatar || { type: 'default', initial: 'A' };
+  const cls = `atm-av${className ? ' ' + className : ''}`;
+  const style = `width:${size}px;height:${size}px;`;
+  if (a.url) return `<img class="${cls}" src="${escapeHtml(a.url)}" alt="" width="${size}" height="${size}" loading="lazy" decoding="async" style="${style}" />`;
+  return `<span class="${cls} atm-av-default" aria-hidden="true" style="${style}font-size:${Math.round(size * 0.5)}px;">${escapeHtml(a.initial || 'A')}</span>`;
+}
+
+const ATM_AVATAR_CSS = `
+  .atm-av { display: inline-block; flex: 0 0 auto; border-radius: 50%; object-fit: cover; background: var(--felt); border: 1px solid var(--green-dim); vertical-align: middle; }
+  .atm-av-default { display: inline-flex; align-items: center; justify-content: center; color: var(--green); font-family: 'Bebas Neue', sans-serif; line-height: 1; letter-spacing: 0; user-select: none; }`;
+
+// Avatar state for one user (My ATM + update validation). Targeted query.
+async function getUserAvatarState(userId) {
+  const row = await identityGet(
+    `SELECT u.display_name, u.username, u.avatar_wildlife_slug, upl.player_submission_id AS linked_profile_id, ${AVATAR_SOURCE_PG}
+       FROM users u LEFT JOIN user_profile_links upl ON upl.user_id = u.id
+       LEFT JOIN player_submissions ps ON ps.id = upl.player_submission_id WHERE u.id = $1`,
+    `SELECT u.display_name, u.username, u.avatar_wildlife_slug, upl.player_submission_id AS linked_profile_id, ${AVATAR_SOURCE_SQLITE}
+       FROM users u LEFT JOIN user_profile_links upl ON upl.user_id = u.id
+       LEFT JOIN player_submissions ps ON ps.id = upl.player_submission_id WHERE u.id = ?`,
+    [String(userId)]
+  );
+  if (!row) return null;
+  return {
+    avatar: resolveAtmAvatar(row, { displayName: row.display_name, username: row.username }),
+    avatar_type: AVATAR_TYPES.includes(row.avatar_type) ? row.avatar_type : 'default',
+    wildlife_slug: row.avatar_type === 'wildlife' ? row.avatar_wildlife_slug || null : null,
+    has_profile: !!row.linked_profile_id,
+    profile_photo_url: safeAvatarImageUrl(row.avatar_photo_url),
+  };
+}
+
+// Stores the preference only (never an image URL). Callers validate first.
+async function setUserAvatarPreference(userId, avatarType, wildlifeSlug = null) {
+  if (!AVATAR_TYPES.includes(avatarType)) throw identityError('INVALID_AVATAR', 'Invalid avatar type');
+  const slug = avatarType === 'wildlife' ? String(wildlifeSlug || '') : null;
+  if (avatarType === 'wildlife' && !AVATAR_WILDLIFE_SLUG_RE.test(slug)) throw identityError('INVALID_AVATAR', 'Invalid species');
+  return identityRun(
+    'UPDATE users SET avatar_type = $1, avatar_wildlife_slug = $2, updated_at = $3 WHERE id = $4',
+    'UPDATE users SET avatar_type = ?, avatar_wildlife_slug = ?, updated_at = ? WHERE id = ?',
+    [avatarType, slug, new Date().toISOString(), String(userId)]
+  );
+}
+
 // Author columns shared by post + reply queries: public identity only, plus
-// the linked profile slug when (and only when) that profile is approved.
+// the linked profile slug when (and only when) that profile is approved, plus
+// avatar sources (resolved by resolveAtmAvatar, never returned raw).
 const COMMUNITY_AUTHOR_PG = `u.username AS author_username, u.display_name AS author_display_name,
-  CASE WHEN ps.data->>'status' = 'approved' THEN ps.data->>'slug' END AS author_profile_slug`;
+  CASE WHEN ps.data->>'status' = 'approved' THEN ps.data->>'slug' END AS author_profile_slug,
+  ${AVATAR_SOURCE_PG}`;
 const COMMUNITY_AUTHOR_SQLITE = `u.username AS author_username, u.display_name AS author_display_name,
-  CASE WHEN json_extract(ps.data, '$.status') = 'approved' THEN json_extract(ps.data, '$.slug') END AS author_profile_slug`;
+  CASE WHEN json_extract(ps.data, '$.status') = 'approved' THEN json_extract(ps.data, '$.slug') END AS author_profile_slug,
+  ${AVATAR_SOURCE_SQLITE}`;
 const COMMUNITY_AUTHOR_JOINS = `JOIN users u ON u.id = x.user_id
   LEFT JOIN user_profile_links upl ON upl.user_id = u.id
   LEFT JOIN player_submissions ps ON ps.id = upl.player_submission_id`;
@@ -1010,6 +1121,7 @@ function publicCommunityAuthor(row) {
     username: row.author_username || '',
     display_name: row.author_display_name || '',
     profile_url: slug ? `/players/${slug}` : null,
+    avatar: resolveAtmAvatar(row, { displayName: row.author_display_name, username: row.author_username }),
   };
 }
 
@@ -9360,6 +9472,18 @@ const AUTH_PAGE_HEAD = `<meta name="robots" content="noindex" />
     .atm-cand { border: 1px solid var(--green-dim); padding: .9rem; margin-bottom: .75rem; }
     .atm-cand-name { display: block; font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: var(--offwhite); }
     .atm-cand .atm-btn { margin-top: .7rem; }
+    .atm-av-now { display: flex; align-items: center; gap: .8rem; margin-bottom: .9rem; }
+    .atm-av-now p { margin: 0; }
+    .atm-av-label { font-size: .65rem; letter-spacing: .14em; text-transform: uppercase; color: var(--gray); margin: .9rem 0 .45rem; }
+    .atm-av-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: .45rem; }
+    .atm-av-opt { display: flex; flex-direction: column; align-items: center; gap: .35rem; padding: .55rem .3rem; background: transparent; border: 1px solid rgba(255,255,255,.12); border-radius: 0; color: var(--offwhite); font: inherit; font-size: .62rem; letter-spacing: .06em; text-transform: uppercase; text-align: center; line-height: 1.2; cursor: pointer; min-width: 0; }
+    .atm-av-opt span:last-child { overflow-wrap: anywhere; }
+    .atm-av-opt[aria-pressed="true"] { border-color: var(--green); background: rgba(0,200,83,.1); color: var(--green); }
+    .atm-av-opt:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .atm-av-opt[disabled] { opacity: .55; cursor: wait; }
+    .atm-av-row { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; }
+    .atm-av-row .muted { align-self: center; margin: 0; }
+    ${ATM_AVATAR_CSS}
     [hidden] { display: none !important; }
     @media (min-width: 981px) { .atm-auth { margin: 2.5rem auto 3rem; } .atm-auth-card { padding: 2rem 1.8rem; } .atm-auth h1 { font-size: 2.8rem; } }
   </style>`;
@@ -9601,7 +9725,35 @@ function renderAccountSetupPage(next) {
   </script>`, AUTH_PAGE_HEAD);
 }
 
-function renderAccountPage(user, linkedProfile, candidates) {
+// My ATM avatar selector. Buttons carry only a type + species slug; the
+// server re-validates both and stores the preference, never a URL.
+function renderAccountAvatarSection(avatarState, wildlife) {
+  const st = avatarState || { avatar: resolveAtmAvatar(null), avatar_type: 'default', wildlife_slug: null, has_profile: false, profile_photo_url: '' };
+  const pressed = (on) => `aria-pressed="${on ? 'true' : 'false'}"`;
+  const current = st.avatar.type === 'wildlife' ? `Poker Wildlife${st.avatar.species_name ? ': ' + st.avatar.species_name : ''}`
+    : st.avatar.type === 'profile_photo' ? 'My Profile Photo' : 'ATM Default';
+  const photoOpt = st.profile_photo_url
+    ? `<button type="button" class="atm-av-opt" data-avatar-type="profile_photo" ${pressed(st.avatar.type === 'profile_photo')}>${renderAtmAvatar({ url: st.profile_photo_url }, { size: 44 })}<span>My Profile Photo</span></button>`
+    : st.has_profile
+      ? `<p class="muted">No profile photo yet. <a href="/account/profile-photo">Add a profile photo</a></p>`
+      : `<p class="muted">Create a <a href="/ai-profile-generator">Poker Profile</a> to use your own photo.</p>`;
+  const species = wildlife.filter((w) => w.image_url);
+  const wildlifeGrid = species.length
+    ? `<p class="atm-av-label">Poker Wildlife</p>
+      <div class="atm-av-grid">${species.map((w) => `<button type="button" class="atm-av-opt" data-avatar-type="wildlife" data-wildlife-slug="${escapeHtml(w.slug)}" ${pressed(st.avatar.type === 'wildlife' && st.wildlife_slug === w.slug)}>${renderAtmAvatar({ url: w.image_url }, { size: 44 })}<span>${escapeHtml(w.name)}</span></button>`).join('')}</div>`
+    : '';
+  return `<div class="atm-section" id="avatar">
+        <h2>YOUR ATM AVATAR</h2>
+        <div class="atm-av-now">${renderAtmAvatar(st.avatar, { size: 56 })}<p><span class="muted">Showing in Community as</span><br />${escapeHtml(current)}</p></div>
+        <div class="atm-av-row">
+          <button type="button" class="atm-av-opt" data-avatar-type="default" ${pressed(st.avatar.type === 'default')}>${renderAtmAvatar(resolveAtmAvatar(null, { displayName: st.avatar.initial }), { size: 44 })}<span>ATM Default</span></button>
+          ${photoOpt}
+        </div>
+        ${wildlifeGrid}
+      </div>`;
+}
+
+function renderAccountPage(user, linkedProfile, candidates, avatarState = null, wildlife = []) {
   let profileBlock;
   if (linkedProfile) {
     const nick = linkedProfile.nickname ? ` <span class="muted">“${escapeHtml(linkedProfile.nickname)}”</span>` : '';
@@ -9635,13 +9787,15 @@ function renderAccountPage(user, linkedProfile, candidates) {
       <div class="atm-handle">@${escapeHtml(user.username || '')}</div>
       <p>${escapeHtml(user.display_name || '')}</p>
       <p><span class="atm-verified">✓ Verified email</span><span class="muted">${escapeHtml(user.email)}</span></p>
+      ${renderAccountAvatarSection(avatarState, wildlife)}
       <div class="atm-section">
         <h2>POKER PROFILE</h2>
         ${profileBlock}
       </div>
       <div class="atm-section">
         <h2>COMMUNITY</h2>
-        <p class="muted">Community is coming next.</p>
+        <p class="muted">Join the conversation with the ATMwithNoPIN poker community.</p>
+        <a class="atm-btn" href="/community">GO TO COMMUNITY</a>
       </div>
       <div class="atm-section">
         <button class="atm-btn atm-btn-ghost" type="button" id="logoutBtn">LOG OUT</button>
@@ -9660,6 +9814,25 @@ function renderAccountPage(user, linkedProfile, candidates) {
     });
     document.getElementById('logoutBtn').addEventListener('click', function () {
       atmPost('/api/auth/logout', {}).then(function () { window.location.href = '/'; }, function () { window.location.href = '/'; });
+    });
+    var avBusy = false;
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('[data-avatar-type]') : null;
+      if (!b || avBusy || b.getAttribute('aria-pressed') === 'true') return;
+      avBusy = true;
+      var opts = document.querySelectorAll('[data-avatar-type]');
+      Array.prototype.forEach.call(opts, function (o) { o.disabled = true; });
+      atmSay('Saving your avatar…');
+      atmPost('/api/account/avatar', { avatar_type: b.getAttribute('data-avatar-type'), wildlife_slug: b.getAttribute('data-wildlife-slug') || null }).then(function (res) {
+        if (res.ok) { window.location.reload(); return; }
+        avBusy = false;
+        Array.prototype.forEach.call(opts, function (o) { o.disabled = false; });
+        atmSay(res.data.error || 'Could not save your avatar.');
+      }).catch(function () {
+        avBusy = false;
+        Array.prototype.forEach.call(opts, function (o) { o.disabled = false; });
+        atmSay('Network error. Please try again.');
+      });
     });
   })();
   </script>`, AUTH_PAGE_HEAD);
@@ -10142,7 +10315,7 @@ function renderAIFirstProfilePage(species) {
 // Returns true when the request was handled.
 async function handleAuthRoutes(req, res, pathname) {
   const isAuthPath = pathname.startsWith('/api/auth/') || pathname.startsWith('/api/account/')
-    || pathname === '/login' || pathname === '/account' || pathname === '/account/setup';
+    || pathname === '/login' || pathname === '/account' || pathname === '/account/setup' || pathname === '/account/profile-photo';
   if (!isAuthPath) return false;
   const method = req.method;
 
@@ -10339,6 +10512,38 @@ async function handleAuthRoutes(req, res, pathname) {
     return true;
   }
 
+  // ── ATM Avatar (Sprint 1C.2) ──
+  // Identity comes from the session only; the body can pick a type and (for
+  // wildlife) a species slug — never a user id or an image URL.
+  if (pathname === '/api/account/avatar' && method === 'POST') {
+    const user = await requireVerifiedUserJson(req, res);
+    if (!user) return true;
+    const body = await readAuthJsonBody(req);
+    if (!body) { sendAuthJson(res, 400, { error: 'Invalid request.' }); return true; }
+    const avatarType = typeof body.avatar_type === 'string' ? body.avatar_type : '';
+    if (!AVATAR_TYPES.includes(avatarType)) { sendAuthJson(res, 400, { error: 'Choose a valid avatar.' }); return true; }
+    try {
+      let slug = null;
+      if (avatarType === 'profile_photo') {
+        const state = await getUserAvatarState(user.id);
+        if (!state || !state.profile_photo_url) { sendAuthJson(res, 400, { error: 'Add a profile photo to your Poker Profile first.' }); return true; }
+      } else if (avatarType === 'wildlife') {
+        slug = typeof body.wildlife_slug === 'string' ? body.wildlife_slug : '';
+        const species = AVATAR_WILDLIFE_SLUG_RE.test(slug)
+          ? (await getPublishedWildlifeForProfiles()).find((w) => w.slug === slug && w.image_url)
+          : null;
+        if (!species) { sendAuthJson(res, 400, { error: 'Choose a Poker Wildlife species from the list.' }); return true; }
+      }
+      await setUserAvatarPreference(user.id, avatarType, slug);
+      const state = await getUserAvatarState(user.id);
+      sendAuthJson(res, 200, { ok: true, avatar: state ? state.avatar : resolveAtmAvatar(null) });
+    } catch (err) {
+      console.error('[auth] avatar update failed:', err && err.code ? err.code : 'error');
+      sendAuthJson(res, 500, { error: 'Could not save your avatar. Please try again.' });
+    }
+    return true;
+  }
+
   // ── AI-first Poker Profile (Sprint 1B.2) ──
   if (pathname === '/api/account/generate-poker-profile' && method === 'POST') {
     const user = await requireProfileCreatorJson(req, res);
@@ -10494,7 +10699,36 @@ async function handleAuthRoutes(req, res, pathname) {
     } catch (err) {
       console.error('[auth] account profile lookup failed:', err && err.code ? err.code : 'error');
     }
-    sendAuthHtml(res, renderAccountPage(user, linkedProfile, candidates));
+    let avatarState = null;
+    let wildlife = [];
+    try {
+      avatarState = await getUserAvatarState(user.id);
+      wildlife = await getPublishedWildlifeForProfiles();
+    } catch (err) {
+      console.error('[auth] account avatar lookup failed:', err && err.code ? err.code : 'error');
+    }
+    sendAuthHtml(res, renderAccountPage(user, linkedProfile, candidates, avatarState, wildlife));
+    return true;
+  }
+
+  // Hands the signed-in owner to the existing profile-photo uploader on their
+  // linked profile's setup page (no new uploader; token never rendered into /account).
+  if (pathname === '/account/profile-photo' && method === 'GET') {
+    const user = await getCurrentUser(req);
+    if (!user || !user.email_verified_at) { sendAuthRedirect(res, '/login?next=/account'); return true; }
+    try {
+      const link = await getUserProfileLink(user.id);
+      const row = link ? await identityGet(
+        "SELECT data->>'edit_token' AS edit_token FROM player_submissions WHERE id = $1",
+        "SELECT json_extract(data, '$.edit_token') AS edit_token FROM player_submissions WHERE id = ?",
+        [String(link.player_submission_id)]
+      ) : null;
+      const token = row && typeof row.edit_token === 'string' ? row.edit_token : '';
+      sendAuthRedirect(res, /^[A-Za-z0-9_-]{8,200}$/.test(token) ? `/profile/setup/${token}` : '/account');
+    } catch (err) {
+      console.error('[auth] profile-photo redirect failed:', err && err.code ? err.code : 'error');
+      sendAuthRedirect(res, '/account');
+    }
     return true;
   }
 
@@ -10591,6 +10825,9 @@ const COMMUNITY_CSS = `<style>
   .cm-invite .cm-row a { flex: 1 1 8rem; }
   .cm-feed { border-top: 1px solid rgba(255,255,255,.08); }
   .cm-post { border-bottom: 1px solid rgba(255,255,255,.08); padding: .8rem .1rem; }
+  .cm-with-av { display: flex; align-items: flex-start; gap: .65rem; }
+  .cm-main { flex: 1 1 auto; min-width: 0; }
+  .cm-av-link { flex: 0 0 auto; line-height: 0; }
   .cm-post-head { display: flex; align-items: baseline; gap: .35rem; font-size: .75rem; min-width: 0; }
   .cm-author { display: inline-flex; align-items: baseline; gap: .35rem; min-width: 0; overflow: hidden; }
   .cm-name { color: var(--offwhite); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -10610,6 +10847,7 @@ const COMMUNITY_CSS = `<style>
   .cm-reply { padding-left: .8rem; border-left: 2px solid var(--green-dim); }
   .cm-foot { font-size: .7rem; color: var(--gray); margin-top: 1.2rem; }
   @media (min-width: 981px) { .cm { padding-top: 2rem; } .cm-head h1 { font-size: 3.2rem; } }
+  ${ATM_AVATAR_CSS}
 </style>`;
 
 const COMMUNITY_PAGE_HEAD = `<link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -10697,6 +10935,14 @@ function renderCommunityAuthor(author) {
     : `<span class="cm-author">${inner}</span>`;
 }
 
+// Links to the approved profile when there is one; hidden from AT (the name link follows).
+function renderCommunityAvatar(author) {
+  const img = renderAtmAvatar(author.avatar, { size: 40 });
+  return author.profile_url
+    ? `<a class="cm-av-link" href="${escapeHtml(author.profile_url)}" tabindex="-1" aria-hidden="true">${img}</a>`
+    : `<span class="cm-av-link">${img}</span>`;
+}
+
 function renderCommunityTime(iso, href) {
   const t = `<time datetime="${escapeHtml(iso)}" title="${escapeHtml(iso)}">${escapeHtml(communityRelativeTime(iso))}</time>`;
   return href ? `<a class="cm-time" href="${escapeHtml(href)}">· ${t}</a>` : `<span class="cm-time">· ${t}</span>`;
@@ -10704,7 +10950,9 @@ function renderCommunityTime(iso, href) {
 
 function renderCommunityPostCard(post, { detail = false } = {}) {
   const url = `/community/post/${post.id}`;
-  return `<article class="cm-post">
+  return `<article class="cm-post cm-with-av">
+    ${renderCommunityAvatar(post.author)}
+    <div class="cm-main">
     <header class="cm-post-head">${renderCommunityAuthor(post.author)}${renderCommunityTime(post.created_at, detail ? '' : url)}</header>
     ${detail ? `<p class="cm-body">${escapeHtml(post.body)}</p>` : `<a class="cm-body" href="${url}">${escapeHtml(post.body)}</a>`}
     <footer class="cm-actions">
@@ -10712,6 +10960,7 @@ function renderCommunityPostCard(post, { detail = false } = {}) {
       <button type="button" class="cm-like${post.liked_by_me ? ' is-liked' : ''}" data-like="${post.id}" aria-pressed="${post.liked_by_me ? 'true' : 'false'}" aria-label="Like"><span data-like-icon>${post.liked_by_me ? '♥' : '♡'}</span> <span data-like-count>${post.like_count}</span></button>
       <a class="cm-replies" href="${url}#replies" aria-label="Replies">💬 ${post.reply_count}</a>
     </footer>
+    </div>
   </article>`;
 }
 
@@ -10781,9 +11030,12 @@ function renderCommunityPostPage({ post, replies, viewer }) {
       <p class="cm-note">Replying as ${escapeHtml('@' + viewer.username)} · <a href="/community-guidelines">Community Guidelines</a></p>
     </form>` : renderCommunityInvite(state, next);
   const replyList = replies.length
-    ? replies.map((r) => `<article class="cm-post cm-reply">
+    ? replies.map((r) => `<article class="cm-post cm-reply cm-with-av">
+        ${renderCommunityAvatar(r.author)}
+        <div class="cm-main">
         <header class="cm-post-head">${renderCommunityAuthor(r.author)}${renderCommunityTime(r.created_at, '')}</header>
         <p class="cm-body">${escapeHtml(r.body)}</p>
+        </div>
       </article>`).join('')
     : '<p class="cm-empty">No replies yet.</p>';
   const head = `<meta name="description" content="${escapeHtml(`@${post.author.username} in ${post.channel.name} on the ATMwithNoPIN Community.`)}" />
@@ -12655,5 +12907,9 @@ module.exports = {
   toggleCommunityLike,
   cleanCommunityBody,
   COMMUNITY_CHANNEL_SEED,
+  AVATAR_TYPES,
+  resolveAtmAvatar,
+  getUserAvatarState,
+  setUserAvatarPreference,
   server,
 };
