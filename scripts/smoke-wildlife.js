@@ -195,15 +195,20 @@ async function main() {
     check('old mid-page "Community Wall" promo section removed', !/id="community-preview"/.test(home.text) && !/their stories, bad beats, and moments of glory/.test(home.text) && !/class="cw-track"/.test(home.text));
     check('homepage did not break: hero + follow still present', /id="home"/.test(home.text) && /id="follow"/.test(home.text));
 
-    // ── Hero-right promo panel: "Get on the Community Wall" replaced by Poker Wildlife ──
-    check('hero-right panel no longer promotes "Get on the Community Wall"', !/Get on the <em>Community Wall<\/em>/.test(home.text) && !/Community profiles carousel/.test(home.text));
-    check('hero-right panel promotes Poker Wildlife', /class="hc-panel"/.test(home.text) && /class="hc-heading">Poker <em>Wildlife<\/em>/.test(home.text) && /class="hc-eyebrow">\/\/ ATM Field Guide/.test(home.text));
-    check('hero-right "Meet the Species" CTA links to the field guide', /<a href="\/stories\/poker-wildlife" class="hc-cta-btn">Meet the Species/.test(home.text));
-    check('hero carousel mechanics still present (viewport/track/dots)', /id="hcViewport"/.test(home.text) && /id="hcTrack"/.test(home.text) && /id="hcDots"/.test(home.text));
-    const heroTrack = (home.text.split('id="hcTrack">')[1] || '').split('hc-carousel-footer')[0] || '';
-    check('hero carousel rotates featured Poker Wildlife species', /href="\/stories\/poker-wildlife\/shark"/.test(heroTrack) && /href="\/stories\/poker-wildlife\/howler-monkey"/.test(heroTrack));
-    check('non-featured species NOT in the hero carousel', !/href="\/stories\/poker-wildlife\/whale"/.test(heroTrack));
-    check('old hero Community profile slides removed', !/\/players\/manny-the-machine/.test(home.text) && !/Fellow Fish/.test(heroTrack) && !/submit your story and get featured/.test(home.text) && !/Generate your AI poker profile and get featured on the community wall/.test(home.text));
+    // ── Sprint 1B.4: hero-right Poker Wildlife panel removed; section#poker-wildlife is the one feature ──
+    check('hero-right panel removed (no #heroCommunityPanel / .hc-panel / carousel)', !/id="heroCommunityPanel"/.test(home.text) && !/class="hc-panel"/.test(home.text) && !/id="hcTrack"/.test(home.text) && !home.text.includes('<!-- HERO_CAROUSEL -->'));
+    check('no "Get on the Community Wall" hero promo', !/Get on the <em>Community Wall<\/em>/.test(home.text) && !/Community profiles carousel/.test(home.text));
+    check('exactly one Poker Wildlife feature section', (home.text.match(/<section[^>]*id="poker-wildlife"/g) || []).length === 1);
+    const heroHtml = (home.text.match(/<section class="hero" id="home">[\s\S]*?<\/section>/) || [''])[0];
+    check('hero keeps headline', /EVERY POKER<br>\s*PLAYER HAS<br>\s*<span class="italic">A Story\.<\/span><br>\s*<span class="accent">AI<\/span> Helps Tell Yours\./.test(heroHtml));
+    const heroCtas = heroHtml.match(/<a [^>]*class="btn [^"]*"[^>]*>[^<]*<\/a>/g) || [];
+    check('hero has exactly 2 CTAs', heroCtas.length === 2, heroCtas.join(' | '));
+    check('hero primary CTA: CREATE MY ATM -> /login?next=/ai-profile-generator', /^<a href="\/login\?next=\/ai-profile-generator" class="btn btn-primary"[^>]*>Create My ATM<\/a>$/.test(heroCtas[0] || ''));
+    check('hero secondary CTA: EXPLORE POKER WILDLIFE -> /stories/poker-wildlife', /^<a href="\/stories\/poker-wildlife" class="btn btn-ghost">Explore Poker Wildlife<\/a>$/.test(heroCtas[1] || ''));
+    check('old hero Generate My Poker Profile / Read Stories CTAs gone', !/Generate My Poker Profile/.test(heroHtml) && !/Read Stories/.test(heroHtml) && !heroHtml.includes('href="/blog"'));
+    const sectionOrder = ['id="home"', 'id="poker-wildlife"', 'id="stories"', 'The Open Seat', 'id="follow"'].map((m) => home.text.indexOf(m));
+    check('homepage section order preserved (hero → wildlife → stories → open seat → follow)', sectionOrder.every((n, i) => n >= 0 && (i === 0 || n > sectionOrder[i - 1])), sectionOrder.join(','));
+    check('old hero Community profile slides removed', !/\/players\/manny-the-machine/.test(home.text) && !/Fellow Fish/.test(heroHtml) && !/submit your story and get featured/.test(home.text) && !/Generate your AI poker profile and get featured on the community wall/.test(home.text));
     check('hero carousel inline script still intact in index.html', /COMMUNITY CAROUSEL/.test(idxHtml) && /getElementById\('hcTrack'\)/.test(idxHtml));
 
     // ── Flash / stale-overwrite bug: the homepage must never be cached ──
@@ -242,7 +247,7 @@ async function main() {
     await request('PUT', '/api/admin/wildlife/' + parrot.id, { cookie, body: { ...parrot, tagline: 'EDITED BY SMOKE TEST' } });
 
     // Regression: other content types still serve
-    for (const [name, p] of [['blog', '/blog'], ['chronicles', '/chronicles'], ['rail', '/rail'], ['community wall', '/community-wall'], ['get featured', '/ai-profile-generator'], ['admin', '/admin'], ['player cards', '/player-cards']]) {
+    for (const [name, p] of [['blog', '/blog'], ['chronicles', '/chronicles'], ['rail', '/rail'], ['community wall', '/community-wall'], ['admin', '/admin'], ['player cards', '/player-cards']]) {
       const r = await request('GET', p);
       check(`${name} still 200`, r.status === 200, `${p} -> ${r.status}`);
     }
@@ -256,7 +261,9 @@ async function main() {
     check('Community admin tab still present', /data-panel="communityPanel"/.test(adminPage.text));
     check('Poker Wildlife admin tab also present', /data-panel="wildlifePanel"/.test(adminPage.text));
     const homeNav = await request('GET', '/');
-    check('homepage nav keeps Community + Get Featured links', homeNav.text.includes('href="/community-wall"') && homeNav.text.includes('>Get Featured<'));
+    check('homepage nav keeps Community + CREATE MY ATM links', homeNav.text.includes('href="/community-wall"') && homeNav.text.includes('<a href="/login?next=/ai-profile-generator" class="nav-cta" data-account-cta>Create My ATM</a>') && !homeNav.text.includes('class="nav-cta">Get Featured<'));
+    const genRedirect = await request('GET', '/ai-profile-generator');
+    check('logged-out /ai-profile-generator → /login?next=/ai-profile-generator', genRedirect.status === 302 && genRedirect.headers.location === '/login?next=/ai-profile-generator');
 
     // ── Admin AI-content approval + submitter "appears once approved" messaging ──
     {
@@ -318,10 +325,9 @@ async function main() {
       }
       check('failed AI attempts never trip the daily rate limit (stays 503, never 429)', stillOk);
 
-      const genPage = await request('GET', '/ai-profile-generator');
-      check('generator button relabeled "Start My Poker Profile" (not "Generate My Poker Profile")',
-        genPage.text.includes('Start My Poker Profile') && !genPage.text.includes('Generate My Poker Profile ✨'));
-      check('generator page explains the AI step comes next', /Generate My AI Poker Personality<\/strong> there/.test(genPage.text));
+      // The legacy generator page is no longer the GET /ai-profile-generator
+      // experience (Sprint 1B.4, account-first); its backend is covered in
+      // smoke-ai-profile.js / smoke-auth-flow.js.
 
       // clean up the injected rows so they can't leak into other phases
       const db2 = new Database(DB_FILE);

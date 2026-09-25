@@ -468,8 +468,52 @@ async function main() {
   check('logout without cookie succeeds', r.status === 200 && /atm_session=;/.test([].concat(r.headers['set-cookie'] || []).join(';')));
 
   // ─────────────────────────────────────────────────────────────────────────
+  console.log('\nAccount-first next (Sprint 1B.4)');
+  const GEN = '/ai-profile-generator';
+  r = await request('GET', '/login?next=/ai-profile-generator');
+  check('/login?next= renders and embeds the safe next', r.status === 200 && r.text.includes('var next = "/ai-profile-generator";'));
+  check('verify step: username needed → /account/setup?next=…, else next || /account', r.text.includes("'/account/setup' + (next ? '?next=' + encodeURIComponent(next) : '')") && r.text.includes("(next || '/account')"));
+  r = await request('GET', '/login');
+  check('/login without next embeds next = null (default → /account)', r.status === 200 && r.text.includes('var next = null;'));
+  r = await request('GET', '/account/setup?next=/ai-profile-generator');
+  check('unauthenticated /account/setup keeps next through /login', r.status === 302 && r.headers.location === '/login?next=%2Fai-profile-generator');
+  app.resetAuthRateLimits();
+  await request('POST', '/api/auth/request-code', { body: { email: 'nextflow@example.com' } });
+  r = await request('POST', '/api/auth/verify-code', { body: { email: 'nextflow@example.com', code: lastCodeFor('nextflow@example.com') } });
+  const nextCookie = sessionCookieFrom(r);
+  check('new user verify → needs_username (client goes to /account/setup?next=…)', r.status === 200 && r.json.needs_username === true && !JSON.stringify(r.json).includes('ai-profile-generator'));
+  r = await request('GET', GEN, { cookie: nextCookie });
+  check('verified, no username: generator → /account/setup?next=/ai-profile-generator', r.status === 302 && r.headers.location === '/account/setup?next=/ai-profile-generator');
+  r = await request('GET', '/account/setup?next=/ai-profile-generator', { cookie: nextCookie });
+  check('/account/setup?next= continues to the generator after username', r.status === 200 && r.text.includes('var done = "/ai-profile-generator";') && r.text.includes('href="/ai-profile-generator">NOT MINE / CONTINUE WITHOUT CLAIMING'));
+  r = await request('GET', '/account/setup', { cookie: nextCookie });
+  check('/account/setup without next still ends at /account', r.text.includes('var done = "/account";') && r.text.includes('href="/account">NOT MINE'));
+  r = await request('POST', '/api/account/username', { cookie: nextCookie, body: { username: 'next_flow', display_name: 'Next Flow' } });
+  check('username set', r.status === 200, r.text);
+  r = await request('GET', '/account/setup?next=/ai-profile-generator', { cookie: nextCookie });
+  check('/account/setup with username + next → generator', r.status === 302 && r.headers.location === GEN);
+  r = await request('GET', '/login?next=/ai-profile-generator', { cookie: nextCookie });
+  check('signed-in /login?next= → generator', r.status === 302 && r.headers.location === GEN);
+  r = await request('GET', GEN, { cookie: nextCookie });
+  check('verified + username → AI-first generator', r.status === 200 && r.text.includes('CREATE YOUR POKER IDENTITY') && !r.text.includes('Start My Poker Profile'));
+  r = await request('GET', GEN);
+  check('logged out generator → /login?next=/ai-profile-generator', r.status === 302 && r.headers.location === '/login?next=/ai-profile-generator');
+  const BAD_NEXT = ['//evil.example', '//evil.example/ai-profile-generator', 'https://evil.example', 'http:/evil.example', 'javascript:alert(1)', 'JaVaScRiPt:alert(1)', '/\\evil.example', '\\\\evil.example', '/\t/evil.example', '/\n/evil.example', '/.//evil.example', '/a/..//evil.example', 'evil.example', ' /account', ''];
+  check('safeLocalNextPath rejects external/malformed destinations', BAD_NEXT.every((n) => app.safeLocalNextPath(n) === null), BAD_NEXT.filter((n) => app.safeLocalNextPath(n) !== null).join(' '));
+  check('safeLocalNextPath accepts local paths', app.safeLocalNextPath(GEN) === GEN && app.safeLocalNextPath('/account') === '/account' && app.safeLocalNextPath('/blog?x=1') === '/blog?x=1');
+  let badOk = true;
+  for (const n of BAD_NEXT.concat(['%2F%2Fevil.example', '%2F%5Cevil.example', '/%09/evil.example'])) {
+    const q = /%/.test(n) ? n : encodeURIComponent(n);
+    const signedIn = await request('GET', '/login?next=' + q, { cookie: nextCookie });
+    const signedOut = await request('GET', '/login?next=' + q);
+    const setup = await request('GET', '/account/setup?next=' + q);
+    if (signedIn.headers.location !== '/account' || !signedOut.text.includes('var next = null;') || /evil/.test(signedOut.text) || setup.headers.location !== '/login') { badOk = false; console.log('    bad next leaked:', JSON.stringify(n)); }
+  }
+  check('open-redirect attempts ignored (→ /account, next = null, /login)', badOk);
+
+  // ─────────────────────────────────────────────────────────────────────────
   console.log('\nAccount nav');
-  const NAV_LABELS = ['Stories', 'Poker Wildlife', 'Community', 'Shop', 'More', 'Get Featured'];
+  const NAV_LABELS = ['Stories', 'Poker Wildlife', 'Community', 'Shop', 'More', 'Create My ATM'];
   const signInLink = '<li><a href="/login" data-account-nav>Sign In</a></li>';
   const navCookie = await login('nav@example.com');
   const navPages = [
@@ -483,12 +527,13 @@ async function main() {
     const navHtml = (r.text.match(/<ul class="nav-links" id="navLinks">[\s\S]*?<\/nav>/) || [''])[0];
     check(`${label}: default SIGN IN -> /login inside #navLinks`, r.status === 200 && navHtml.includes(signInLink), r.status);
     check(`${label}: exactly one account nav item`, (r.text.match(/data-account-nav/g) || []).length === 1);
-    check(`${label}: account item follows GET FEATURED`, navHtml.includes(`<li><a href="/ai-profile-generator" class="nav-cta">Get Featured</a></li>\n        ${signInLink}`));
+    check(`${label}: account item follows CREATE MY ATM`, navHtml.includes(`<li><a href="/login?next=/ai-profile-generator" class="nav-cta" data-account-cta>Create My ATM</a></li>\n        ${signInLink}`));
+    check(`${label}: no GET FEATURED nav CTA`, !/class="nav-cta"[^>]*>Get Featured</.test(navHtml));
     const idx = NAV_LABELS.map((l) => navHtml.indexOf(l === 'More' ? 'id="navMoreBtn"' : `>${l}</a>`));
     check(`${label}: existing nav labels present and in order`, idx.every((n, i) => n >= 0 && (i === 0 || n > idx[i - 1])), idx.join(','));
     check(`${label}: mobile toggle + More menu intact`, /id="navToggle"[^>]*aria-controls="navLinks"/.test(r.text) && r.text.includes('id="navMoreMenu"'));
     check(`${label}: loads /account-nav.js`, r.text.includes('<script src="/account-nav.js" defer></script>'));
-    check(`${label}: no account data in markup`, !r.text.includes('nav@example.com') && !r.text.includes(navCookie.split('=')[1]) && !/My ATM/.test(r.text));
+    check(`${label}: no account data in markup`, !r.text.includes('nav@example.com') && !r.text.includes(navCookie.split('=')[1]) && !/>My ATM</.test(r.text));
   }
   r = await request('GET', '/account-nav.js');
   check('/account-nav.js served as JavaScript', r.status === 200 && /javascript/.test(r.headers['content-type']));
@@ -499,24 +544,27 @@ async function main() {
   async function runAccountNav(fetchImpl) {
     const makeLink = () => ({ href: '/login', textContent: 'Sign In', setAttribute(k, v) { this[k] = v; } });
     const links = [makeLink(), makeLink()];
+    const ctas = [{ href: '/login?next=/ai-profile-generator', textContent: 'Create My ATM', setAttribute(k, v) { this[k] = v; } }];
     const calls = [];
     const errors = [];
     const sandbox = {
-      document: { querySelectorAll: (sel) => (sel === '[data-account-nav]' ? links : []) },
+      document: { querySelectorAll: (sel) => (sel === '[data-account-nav]' ? links : sel === '[data-account-cta]' ? ctas : []) },
       fetch: (url, opts) => { calls.push({ url, opts }); return fetchImpl(); },
       console: { error: (...a) => errors.push(a), warn: (...a) => errors.push(a), log() {} },
     };
     vm.runInNewContext(navSrc, sandbox);
     await new Promise((resolve) => setTimeout(resolve, 20));
-    return { links, calls, errors };
+    return { links, ctas, calls, errors };
   }
   const jsonRes = (body, okStatus = true) => Promise.resolve({ ok: okStatus, json: async () => body });
 
   let nav = await runAccountNav(() => jsonRes({ authenticated: true, user: { username: 'x' } }));
   check('enhancement requests /api/auth/me once (same-origin, no-store)', nav.calls.length === 1 && nav.calls[0].url === '/api/auth/me' && nav.calls[0].opts.credentials === 'same-origin' && nav.calls[0].opts.cache === 'no-store');
   check('authenticated -> every account link becomes MY ATM -> /account', nav.links.every((l) => l.textContent === 'My ATM' && l.href === '/account'));
+  check('authenticated -> CREATE MY ATM points at /ai-profile-generator', nav.ctas.every((c) => c.textContent === 'Create My ATM' && c.href === '/ai-profile-generator'));
   nav = await runAccountNav(() => jsonRes({ authenticated: false }));
   check('logged out -> SIGN IN -> /login unchanged', nav.links.every((l) => l.textContent === 'Sign In' && l.href === '/login'));
+  check('logged out -> CREATE MY ATM -> /login?next=/ai-profile-generator unchanged', nav.ctas.every((c) => c.href === '/login?next=/ai-profile-generator'));
   nav = await runAccountNav(() => Promise.reject(new Error('network down')));
   check('fetch rejection -> SIGN IN unchanged, no console errors', nav.links.every((l) => l.textContent === 'Sign In' && l.href === '/login') && nav.errors.length === 0);
   nav = await runAccountNav(() => jsonRes({ authenticated: true }, false));

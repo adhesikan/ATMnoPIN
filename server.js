@@ -4435,7 +4435,7 @@ function renderLayout(title, body, head = '') {
             <li><a href="/inside-the-atm">Inside the ATM</a></li>
           </ul>
         </li>
-        <li><a href="/ai-profile-generator" class="nav-cta">Get Featured</a></li>
+        <li><a href="/login?next=/ai-profile-generator" class="nav-cta" data-account-cta>Create My ATM</a></li>
         <li><a href="/login" data-account-nav>Sign In</a></li>
       </ul>
     </nav>
@@ -9093,7 +9093,37 @@ const AUTH_CLIENT_SCRIPT = `<script>
   });
 </script>`;
 
-function renderLoginPage() {
+// Post-auth `next` destination: only same-origin app paths ("/x"), never
+// "//host", "/\\host", absolute/javascript: URLs or control characters
+// (browsers strip tabs/newlines, which could turn "/\t/evil" into "//evil").
+function safeLocalNextPath(raw) {
+  if (typeof raw !== 'string' || !raw || raw.length > 512) return null;
+  if (raw[0] !== '/' || raw[1] === '/' || raw[1] === '\\') return null;
+  if (/[\u0000-\u001f\u007f\\]/.test(raw)) return null;
+  try {
+    const url = new URL(raw, 'http://atm.local');
+    // Dot-segments can normalize "/./x" or "/a/..//x" into "//x"; re-check.
+    if (url.origin !== 'http://atm.local' || url.pathname.startsWith('//')) return null;
+    return url.pathname + url.search;
+  } catch (_) {
+    return null;
+  }
+}
+
+function getSafeNextFromReq(req) {
+  try {
+    return safeLocalNextPath(new URL(req.url, 'http://atm.local').searchParams.get('next'));
+  } catch (_) {
+    return null;
+  }
+}
+
+// JSON for an inline <script>; escapes "<" so a value can't close the tag.
+function inlineScriptJson(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+function renderLoginPage(next) {
   return renderLayout('Sign In | ATMwithNoPIN', `
   <section class="atm-auth">
     <div class="atm-auth-card" id="stepEmail">
@@ -9124,6 +9154,7 @@ function renderLoginPage() {
   ${AUTH_CLIENT_SCRIPT}
   <script>
   (function () {
+    var next = ${inlineScriptJson(next || null)};
     var email = '';
     var emailInput = document.getElementById('authEmail');
     var codeInput = document.getElementById('authCode');
@@ -9186,14 +9217,16 @@ function renderLoginPage() {
       atmSay('Verifying…');
       atmPost('/api/auth/verify-code', { email: email, code: code }).then(function (res) {
         if (!res.ok) { btn.disabled = false; atmSay(res.data.error || 'Invalid or expired verification code.'); return; }
-        window.location.href = res.data.needs_username ? '/account/setup' : '/account';
+        window.location.href = res.data.needs_username
+          ? '/account/setup' + (next ? '?next=' + encodeURIComponent(next) : '')
+          : (next || '/account');
       }).catch(function () { btn.disabled = false; atmSay('Network error. Please try again.'); });
     });
   })();
   </script>`, AUTH_PAGE_HEAD);
 }
 
-function renderAccountSetupPage() {
+function renderAccountSetupPage(next) {
   return renderLayout('Your ATM Identity | ATMwithNoPIN', `
   <section class="atm-auth">
     <div class="atm-auth-card" id="identityStep">
@@ -9215,13 +9248,14 @@ function renderAccountSetupPage() {
       <h1 id="claimHeading">WE FOUND YOUR POKER PROFILE</h1>
       <p id="claimIntro" class="muted"></p>
       <div id="claimList"></div>
-      <a class="atm-btn atm-btn-ghost" href="/account">NOT MINE / CONTINUE WITHOUT CLAIMING</a>
+      <a class="atm-btn atm-btn-ghost" href="${escapeHtml(next || '/account')}">NOT MINE / CONTINUE WITHOUT CLAIMING</a>
     </div>
     <p class="atm-status" id="authStatus" role="status" aria-live="polite"></p>
   </section>
   ${AUTH_CLIENT_SCRIPT}
   <script>
   (function () {
+    var done = ${inlineScriptJson(next || '/account')};
     function showCandidates(list) {
       var single = list.length === 1;
       document.getElementById('claimHeading').textContent = single ? 'WE FOUND YOUR POKER PROFILE' : 'WE FOUND POKER PROFILES THAT MATCH YOUR EMAIL';
@@ -9267,11 +9301,11 @@ function renderAccountSetupPage() {
         if (!res.ok) { btn.disabled = false; atmSay(res.data.error || 'Could not save your username.'); return; }
         return fetch('/api/account/profile-candidates', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
           var list = (d && d.candidates) || [];
-          if (d && d.linked) { window.location.href = '/account'; return; }
-          if (!list.length) { window.location.href = '/account'; return; }
+          if (d && d.linked) { window.location.href = done; return; }
+          if (!list.length) { window.location.href = done; return; }
           showCandidates(list);
         });
-      }).catch(function () { window.location.href = '/account'; });
+      }).catch(function () { window.location.href = done; });
     });
   })();
   </script>`, AUTH_PAGE_HEAD);
@@ -10142,16 +10176,18 @@ async function handleAuthRoutes(req, res, pathname) {
   if (method !== 'GET' && method !== 'HEAD') return false;
 
   if (pathname === '/login') {
-    if (await getCurrentUser(req)) { sendAuthRedirect(res, '/account'); return true; }
-    sendAuthHtml(res, renderLoginPage());
+    const next = getSafeNextFromReq(req);
+    if (await getCurrentUser(req)) { sendAuthRedirect(res, next || '/account'); return true; }
+    sendAuthHtml(res, renderLoginPage(next));
     return true;
   }
 
   if (pathname === '/account/setup') {
+    const next = getSafeNextFromReq(req);
     const user = await getCurrentUser(req);
-    if (!user || !user.email_verified_at) { sendAuthRedirect(res, '/login'); return true; }
-    if (user.username_normalized) { sendAuthRedirect(res, '/account'); return true; }
-    sendAuthHtml(res, renderAccountSetupPage());
+    if (!user || !user.email_verified_at) { sendAuthRedirect(res, next ? '/login?next=' + encodeURIComponent(next) : '/login'); return true; }
+    if (user.username_normalized) { sendAuthRedirect(res, next || '/account'); return true; }
+    sendAuthHtml(res, renderAccountSetupPage(next));
     return true;
   }
 
@@ -10774,22 +10810,22 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
   }
 
   if (pathname === '/ai-profile-generator' && req.method === 'GET') {
-    // Signed-in, verified ATM users with a username get the AI-first flow;
-    // everyone else keeps the legacy public generator (for now).
+    // Account-first: logged-out visitors create/sign in to their ATM first,
+    // verified users pick an @username, then get the AI-first flow. The legacy
+    // generator (renderAIProfileGeneratorPage + POST /request-feature) is kept
+    // for compatibility but is no longer the GET experience here.
     const aiUser = await getCurrentUser(req);
-    if (aiUser && aiUser.email_verified_at && aiUser.username_normalized) {
-      try {
-        const link = await getUserProfileLink(aiUser.id);
-        sendAuthHtml(res, link ? renderPokerProfileExistsPage() : renderAIFirstProfilePage(await getPublishedWildlifeForProfiles()));
-        logPageVisit(req, pathname);
-        return;
-      } catch (err) {
-        console.error('[account-profile] page failed:', err && err.code ? err.code : 'error');
-      }
+    if (!aiUser || !aiUser.email_verified_at) { sendAuthRedirect(res, '/login?next=/ai-profile-generator'); return; }
+    if (!aiUser.username_normalized) { sendAuthRedirect(res, '/account/setup?next=/ai-profile-generator'); return; }
+    try {
+      const link = await getUserProfileLink(aiUser.id);
+      sendAuthHtml(res, link ? renderPokerProfileExistsPage() : renderAIFirstProfilePage(await getPublishedWildlifeForProfiles()));
+      logPageVisit(req, pathname);
+    } catch (err) {
+      console.error('[account-profile] page failed:', err && err.code ? err.code : 'error');
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end('Something went wrong. Please try again.');
     }
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(renderAIProfileGeneratorPage());
-    logPageVisit(req, pathname);
     return;
   }
 
@@ -11741,7 +11777,6 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
         </div>
       </section>`;
       const html = data
-        .replace('<!-- HERO_CAROUSEL -->', renderHeroCarousel(pubWildlife))
         .replace('<!-- POKER_WILDLIFE_FEATURE -->', wildlifeSection)
         .replace('<!-- BLOG_PREVIEW -->', `<div class="section-divider"><div class="hp-section" id="stories"><p class="section-label">// Latest from the ATM</p><h2>Latest Stories</h2>${featuredHtml}<div class="section-cta-row"><a href="/blog" class="section-cta-link">View all stories →</a></div></div></div>`)
         .replace('<!-- RECENT_POSTS -->', '')
@@ -11831,6 +11866,7 @@ if (require.main === module) {
 
 module.exports = {
   initializeDatabase,
+  safeLocalNextPath,
   USER_SESSION_COOKIE,
   USER_SESSION_TTL_SECONDS,
   normalizeUserEmail,

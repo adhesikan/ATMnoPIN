@@ -155,9 +155,8 @@
 
     /* ─── HERO ─── */
     .hero {
-      min-height: 88vh;
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
       max-width: var(--max-w);
       margin: 0 auto;
     }
@@ -165,7 +164,7 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
-      padding: 5rem 4rem 5rem 2.5rem;
+      padding: 5.5rem 2.5rem 4.5rem;
     }
     .eyebrow {
       font-size: 0.62rem;
@@ -754,7 +753,7 @@
             <li><a href="/inside-the-atm">Inside the ATM</a></li>
           </ul>
         </li>
-        <li><a href="/ai-profile-generator" class="nav-cta">Get Featured</a></li>
+        <li><a href="/login?next=/ai-profile-generator" class="nav-cta" data-account-cta>Create My ATM</a></li>
         <li><a href="/login" data-account-nav>Sign In</a></li>
       </ul>
     </nav>
@@ -775,13 +774,9 @@
       <p class="hero-sub">Share a few details about your game, your habits, and your biggest poker moments. ATMwithNoPIN AI turns them into your poker profile, funny nickname, and player Chronicle.</p>
       <p class="hero-warning">⚠ Warning: AI may reveal that you are actually the fish.</p>
       <div class="hero-cta">
-        <a href="/ai-profile-generator" class="btn btn-primary">Generate My Poker Profile</a>
+        <a href="/login?next=/ai-profile-generator" class="btn btn-primary" data-account-cta>Create My ATM</a>
         <a href="/stories/poker-wildlife" class="btn btn-ghost">Explore Poker Wildlife</a>
-        <a href="/blog" class="btn btn-ghost">Read Stories</a>
       </div>
-    </div>
-    <div class="hero-right" id="heroCommunityPanel">
-      <!-- HERO_CAROUSEL -->
     </div>
   </section>
 

@@ -123,10 +123,12 @@ async function main() {
   // ─────────────────────────────────────────────────────────────────────────
   console.log('\nGenerator page');
   let r = await request('GET', '/ai-profile-generator');
-  check('signed-out → legacy generator', r.status === 200 && r.text.includes('Start My Poker Profile') && r.text.includes('name="email"'));
-  check('signed-out → no AI-first form', !r.text.includes('CREATE YOUR POKER IDENTITY'));
+  check('signed-out → 302 /login?next=/ai-profile-generator', r.status === 302 && r.headers.location === '/login?next=/ai-profile-generator');
+  check('signed-out → no legacy generator, no AI-first form', !r.text.includes('Start My Poker Profile') && !r.text.includes('CREATE YOUR POKER IDENTITY'));
+  r = await request('GET', '/ai-profile-generator', { cookie: unverified.cookie });
+  check('unverified session → /login?next=/ai-profile-generator', r.status === 302 && r.headers.location === '/login?next=/ai-profile-generator');
   r = await request('GET', '/ai-profile-generator', { cookie: noName.cookie });
-  check('verified user without username → legacy generator', r.status === 200 && r.text.includes('Start My Poker Profile'));
+  check('verified user without username → /account/setup (next preserved)', r.status === 302 && r.headers.location === '/account/setup?next=/ai-profile-generator');
   r = await request('GET', '/ai-profile-generator', { cookie: main.cookie });
   const page = r.text;
   check('authenticated verified user → AI-first page', r.status === 200 && page.includes('CREATE YOUR POKER IDENTITY') && page.includes("Give AI a few clues. We'll do the rest."));
