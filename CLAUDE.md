@@ -27,6 +27,9 @@ A poker entertainment brand site for Dhezz (`@ATMwithNoPIN`). The site is a Node
 | `/stories/poker-wildlife` | server-rendered | Poker Wildlife landing (published species only) |
 | `/stories/poker-wildlife/:slug` | server-rendered | Individual species page; `?preview=1` + admin session shows drafts |
 | `/uploads/*` | `uploads/` dir | Locally uploaded images |
+| `/login` | server-rendered | Passwordless email-code sign-in (redirects to `/account` if signed in) |
+| `/account/setup` | server-rendered | One-time @username + display name, then profile-claim offer |
+| `/account` | server-rendered | "My ATM": identity, linked Poker Profile / claim / create, log out |
 
 ## Design System
 
@@ -154,7 +157,7 @@ Community routes/APIs/data are independent of Poker Wildlife; do not merge them.
 
 ## User Identity Foundation
 
-Server-side primitives only (block after `migrateLegacyPosts()` in `server.js`). **No HTTP routes, signup/login UI, claiming, or community features (feed/posts/likes/follows/DMs) exist yet.** Direction: passwordless email-code sign-in.
+Server-side primitives (block after `migrateLegacyPosts()` in `server.js`); the HTTP flow on top of them is under **Passwordless Auth** below. **Community features (feed/posts/likes/follows/DMs) do not exist yet.**
 
 - **Tables** (both DBs, `CREATE TABLE IF NOT EXISTS`, targeted single-row queries — never the load-all/save-all pattern): `users` (unique `email_normalized`, nullable unique `username_normalized`, `status` active|suspended|banned, `trust_level` new|verified|established|trusted — TEXT, no enums), `user_sessions` (stores only SHA-256 `token_hash`), `email_verification_codes` (`code_hash` = SHA-256 of `<row id>:<code>`, `purpose` signup|login|claim_profile, 10-min TTL, max 5 attempts, single-use), `user_profile_links` (bridge: one user ↔ one `player_submissions.id`, both unique).
 - **Profile ownership** goes through `user_profile_links`; `player_submissions` is unchanged (no `user_id`). `findPlayerSubmissionsByNormalizedEmail()` is read-only (id/name/nickname/slug/email/status, never `edit_token`). The existing `edit_token` setup flow remains fully supported.
@@ -162,6 +165,19 @@ Server-side primitives only (block after `migrateLegacyPosts()` in `server.js`).
 - **Email**: `sendVerificationEmail()` POSTs to Resend's HTTPS API with `fetch` (no SDK). Needs `RESEND_API_KEY` + `AUTH_EMAIL_FROM`; missing → `EMAIL_NOT_CONFIGURED`. Never log tokens, codes, or their hashes.
 - `server.js` only calls `start()` when run directly (`require.main === module`) and exports the identity helpers for tests.
 - Smoke test: `node scripts/smoke-user-identity.js` (temp SQLite, fetch stubbed, no network).
+
+## Passwordless Auth (Sprint 1B)
+
+Helpers follow `sendVerificationEmail()`; routes/pages live in `handleAuthRoutes()` (called first in the request handler). All responses are `Cache-Control: no-store`; tokens, codes and edit_tokens never go in URLs, JSON, or logs.
+
+- **Flow**: `/login` → `POST /api/auth/request-code` (creates the user if absent — `trust_level: new`, no username — issues a `login`-purpose code, emails it; generic response that never reveals account existence; provider failure → 503) → `POST /api/auth/verify-code` (newest unused login code via `getLatestLoginVerification`; wrong code bumps attempts; success marks used, sets `email_verified_at`, `new → verified`, `last_login_at`, sets `atm_session`; returns only `needs_username`/`has_profile`) → `/account/setup` if no username → `/account`.
+- **Session**: `getCurrentUser(req)` resolves `atm_session` (hash lookup, active session, user `status === 'active'`), returns null otherwise, never throws. `GET /api/auth/me` returns safe fields only. `POST /api/auth/logout` revokes + clears the cookie, idempotent. `admin_session` is untouched.
+- **Rate limits** (in-memory, `AUTH_RATE_LIMITS`, reset on deploy): send — 60s cooldown + 5/hour per email, 15/hour per IP; verify — 30/hour per IP (plus the per-code 5-attempt cap). State-changing auth POSTs require `Content-Type: application/json`.
+- **Username**: `POST /api/account/username` sets @username + display name (1–50 chars) **once**; changes are not supported yet (409).
+- **Profile claiming**: `GET /api/account/profile-candidates` (unclaimed `player_submissions` matching the *verified account* email; safe fields only) and `POST /api/account/claim-profile` (requires username, one profile per user, re-checks the email match, relies on `user_profile_links` uniqueness for races). Never auto-claims.
+- **Generator auto-link**: after `/request-feature` saves a submission, `autoLinkNewProfileForUser()` links it if the requester is a signed-in verified user whose email matches and neither side is linked. Unauthenticated generator + `edit_token` flow unchanged.
+- **Nav**: no SIGN IN / MY ATM link yet (nav is duplicated across `renderLayout`, `index.html`, `shop.html`) — deferred.
+- Smoke test: `node scripts/smoke-auth-flow.js` (in-process server, temp SQLite, Resend stubbed).
 
 ## Firebase Configuration
 

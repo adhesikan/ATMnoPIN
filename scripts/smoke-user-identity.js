@@ -197,7 +197,7 @@ async function main() {
   const body = call ? JSON.parse(call.opts.body) : {};
   check('POSTs to Resend emails API', call && call.url === 'https://api.resend.com/emails' && call.opts.method === 'POST');
   check('Bearer auth header', call && call.opts.headers.Authorization === 'Bearer re_test_SUPERSECRET');
-  check('email includes code + expiry + brand', body.to?.[0] === 'a@example.com' && body.html.includes('012345') && body.text.includes('012345') && /expires in \d+ minutes/.test(body.text) && body.html.includes('ATMNOPIN'));
+  check('email includes code + expiry + brand', body.to?.[0] === 'a@example.com' && body.html.includes('012345') && body.text.includes('012345') && /expires in \d+ minutes/.test(body.text) && body.html.includes('ATMwithNoPIN'));
   global.fetch = async () => ({ ok: false, status: 401, json: async () => ({}) });
   try {
     await id.sendVerificationEmail({ email: 'a@example.com', code: '123456', purpose: 'signup' });

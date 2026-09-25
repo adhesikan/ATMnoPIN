@@ -537,6 +537,17 @@ async function incrementEmailVerificationAttempts(id) {
   return row ? Number(row.attempt_count) : null;
 }
 
+// Removes exactly one verification row (used to discard a code whose email
+// was never delivered, so it cannot supersede an earlier delivered code).
+async function deleteEmailVerification(id) {
+  const changed = await identityRun(
+    'DELETE FROM email_verification_codes WHERE id = $1',
+    'DELETE FROM email_verification_codes WHERE id = ?',
+    [String(id)]
+  );
+  return changed > 0;
+}
+
 // Single-use: returns true only for the call that actually marked it used.
 async function markEmailVerificationUsed(id) {
   const now = new Date().toISOString();
@@ -613,13 +624,13 @@ async function sendVerificationEmail({ email, code, purpose } = {}) {
   const action = { signup: 'finish creating your account', login: 'sign in', claim_profile: 'claim your Poker Profile' }[purpose];
   if (!action) throw identityError('INVALID_VERIFICATION', 'Invalid verification purpose');
 
-  const subject = `Your ATMNOPIN code: ${code}`;
-  const text = `Your ATMNOPIN verification code is ${code}\n\nUse it to ${action}. This code expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.\n\nIf you didn't request this, you can ignore this email.`;
+  const subject = `Your ATMwithNoPIN code: ${code}`;
+  const text = `Your ATMwithNoPIN verification code is ${code}\n\nUse it to ${action}. This code expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.\n\nIf you didn't request this code, you can ignore this email.`;
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;background:#0a0a0a;color:#f0ece0;padding:32px;text-align:center">
-  <div style="font-size:28px;letter-spacing:3px;font-weight:bold;color:#00c853">ATMNOPIN</div>
+  <div style="font-size:28px;letter-spacing:3px;font-weight:bold;color:#00c853">ATMwithNoPIN</div>
   <p style="font-size:15px;margin:24px 0 8px">Use this code to ${action}:</p>
   <div style="font-size:36px;letter-spacing:10px;font-weight:bold;font-family:'Courier New',monospace;color:#c9a84c;margin:12px 0">${code}</div>
-  <p style="font-size:13px;color:#888;margin-top:24px">This code expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes. If you didn't request it, you can ignore this email.</p>
+  <p style="font-size:13px;color:#888;margin-top:24px">This code expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.<br />If you didn't request this code, you can ignore this email.</p>
 </div>`;
 
   let res;
@@ -637,6 +648,170 @@ async function sendVerificationEmail({ email, code, purpose } = {}) {
   let id = null;
   try { id = (await res.json()).id || null; } catch {}
   return { ok: true, id };
+}
+
+// ── Passwordless auth flow (Sprint 1B) ──
+// Routes: /api/auth/*, /api/account/*, /login, /account, /account/setup.
+
+function getCookieValue(req, name) {
+  const header = (req && req.headers && req.headers.cookie) || '';
+  for (const part of header.split(';')) {
+    const i = part.indexOf('=');
+    if (i === -1) continue;
+    if (part.slice(0, i).trim() === name) return part.slice(i + 1).trim();
+  }
+  return '';
+}
+
+// Resolves the signed-in ATM user from atm_session, or null. Never throws.
+async function getCurrentUser(req) {
+  const token = getCookieValue(req, USER_SESSION_COOKIE);
+  if (!token || token.length > 200) return null;
+  try {
+    const session = await getUserSessionByTokenHash(hashAuthToken(token));
+    if (!isUserSessionActive(session)) return null;
+    const user = await getUserById(session.user_id);
+    if (!user || user.status !== 'active') return null;
+    return user;
+  } catch (err) {
+    console.error('[auth] session lookup failed:', err && err.code ? err.code : 'error');
+    return null;
+  }
+}
+
+function getAuthClientIp(req) {
+  const raw = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+  return raw.replace(/^::ffff:/, '');
+}
+
+// In-memory sliding-window limiter (single Node process). Keys are
+// '<scope>:<value>'; swap these three helpers for Redis/DB if we scale out.
+const AUTH_RATE_LIMITS = {
+  send_email: { limit: 5, windowMs: 60 * 60 * 1000 },
+  send_ip: { limit: 15, windowMs: 60 * 60 * 1000 },
+  send_cooldown: { limit: 1, windowMs: 60 * 1000 },
+  verify_ip: { limit: 30, windowMs: 60 * 60 * 1000 },
+};
+const authRateBuckets = new Map();
+
+function authRateAllowed(scope, value, now = Date.now()) {
+  const { limit, windowMs } = AUTH_RATE_LIMITS[scope];
+  const key = `${scope}:${value}`;
+  const hits = (authRateBuckets.get(key) || []).filter((t) => now - t < windowMs);
+  if (hits.length) authRateBuckets.set(key, hits); else authRateBuckets.delete(key);
+  return hits.length < limit;
+}
+
+function authRateRecord(scope, value, now = Date.now()) {
+  const key = `${scope}:${value}`;
+  const hits = authRateBuckets.get(key) || [];
+  hits.push(now);
+  authRateBuckets.set(key, hits);
+  return now;
+  if (authRateBuckets.size > 50000) {
+    for (const [k, v] of authRateBuckets) {
+      if (!v.length || now - v[v.length - 1] > 60 * 60 * 1000) authRateBuckets.delete(k);
+    }
+  }
+}
+
+// Undoes one hit recorded by authRateRecord (identified by its timestamp).
+function authRateRelease(scope, value, at) {
+  const key = `${scope}:${value}`;
+  const hits = authRateBuckets.get(key);
+  if (!hits) return;
+  const i = hits.lastIndexOf(at);
+  if (i !== -1) hits.splice(i, 1);
+  if (!hits.length) authRateBuckets.delete(key);
+}
+
+function resetAuthRateLimits() {
+  authRateBuckets.clear();
+}
+
+// Newest unused login code for a user; expiry/attempts are checked by
+// checkEmailVerificationCode(). Older unused codes are implicitly superseded.
+async function getLatestLoginVerification(userId) {
+  return identityGet(
+    `SELECT * FROM email_verification_codes WHERE user_id = $1 AND purpose = 'login' AND used_at IS NULL ORDER BY created_at DESC LIMIT 1`,
+    `SELECT * FROM email_verification_codes WHERE user_id = ? AND purpose = 'login' AND used_at IS NULL ORDER BY created_at DESC, rowid DESC LIMIT 1`,
+    [String(userId)]
+  );
+}
+
+// Stamps a successful email-code login: first verification, new → verified, last login.
+async function markUserLoggedIn(userId) {
+  const now = new Date().toISOString();
+  await identityRun(
+    `UPDATE users SET email_verified_at = COALESCE(email_verified_at, $1),
+       trust_level = CASE WHEN trust_level = 'new' THEN 'verified' ELSE trust_level END,
+       last_login_at = $2, updated_at = $3 WHERE id = $4`,
+    `UPDATE users SET email_verified_at = COALESCE(email_verified_at, ?),
+       trust_level = CASE WHEN trust_level = 'new' THEN 'verified' ELSE trust_level END,
+       last_login_at = ?, updated_at = ? WHERE id = ?`,
+    [now, now, now, String(userId)]
+  );
+}
+
+// Sets username + display name once. Returns false if a username was already set.
+async function setUserUsernameOnce(userId, username, displayName) {
+  const raw = String(username == null ? '' : username).trim();
+  const normalized = normalizeUsername(raw);
+  if (!isValidUsername(normalized)) throw identityError('INVALID_USERNAME', 'Invalid username');
+  try {
+    const changed = await identityRun(
+      'UPDATE users SET username = $1, username_normalized = $2, display_name = $3, updated_at = $4 WHERE id = $5 AND username_normalized IS NULL',
+      'UPDATE users SET username = ?, username_normalized = ?, display_name = ?, updated_at = ? WHERE id = ? AND username_normalized IS NULL',
+      [raw, normalized, displayName, new Date().toISOString(), String(userId)]
+    );
+    return changed > 0;
+  } catch (err) {
+    if (isUniqueViolation(err)) throw identityError('USERNAME_TAKEN', 'That username is already taken');
+    throw err;
+  }
+}
+
+// Public-safe summary of one player_submission (never email / edit_token).
+async function getPlayerSubmissionSummaryById(id) {
+  return identityGet(
+    `SELECT id, data->>'name' AS name, data->>'nickname' AS nickname, data->>'slug' AS slug, data->>'status' AS status
+       FROM player_submissions WHERE id = $1`,
+    `SELECT id, json_extract(data, '$.name') AS name, json_extract(data, '$.nickname') AS nickname,
+            json_extract(data, '$.slug') AS slug, json_extract(data, '$.status') AS status
+       FROM player_submissions WHERE id = ?`,
+    [String(id)]
+  );
+}
+
+function safeProfileSummary(p) {
+  return { id: p.id, name: p.name || '', nickname: p.nickname || '', slug: p.slug || '', status: p.status || '' };
+}
+
+// Unclaimed player_submissions whose email matches the user's VERIFIED account email.
+async function getClaimableProfilesForUser(user) {
+  const matches = await findPlayerSubmissionsByNormalizedEmail(user.email_normalized);
+  const out = [];
+  for (const m of matches) {
+    if (!(await getProfileOwnerLink(m.id))) out.push(safeProfileSummary(m));
+  }
+  return out;
+}
+
+// Additive hook for the existing profile generator: links a freshly saved
+// submission to the signed-in verified user when the emails match. Never throws.
+async function autoLinkNewProfileForUser(req, submission) {
+  try {
+    const user = await getCurrentUser(req);
+    if (!user || !user.email_verified_at) return false;
+    if (normalizeUserEmail(submission.email) !== user.email_normalized) return false;
+    if (await getUserProfileLink(user.id)) return false;
+    if (await getProfileOwnerLink(submission.id)) return false;
+    await createUserProfileLink(user.id, submission.id);
+    return true;
+  } catch (err) {
+    console.error('[auth] profile auto-link skipped:', err && err.code ? err.code : 'error');
+    return false;
+  }
 }
 
 const SEED_POSTS = [
@@ -8823,9 +8998,585 @@ function renderInsideTheATMPage() {
 `);
 }
 
+// ── Passwordless auth: HTTP routes + pages (Sprint 1B) ──────────────────────
+// Every response here is Cache-Control: no-store. Tokens / codes / edit_tokens
+// never go into URLs, JSON bodies or logs.
+
+const AUTH_GENERIC_CODE_ERROR = 'Invalid or expired verification code.';
+
+function sendAuthJson(res, status, payload, headers = {}) {
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', Pragma: 'no-cache', ...headers });
+  res.end(JSON.stringify(payload));
+}
+
+function sendAuthHtml(res, html) {
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', Pragma: 'no-cache' });
+  res.end(html);
+}
+
+function sendAuthRedirect(res, location) {
+  res.writeHead(302, { Location: location, 'Cache-Control': 'no-store' });
+  res.end();
+}
+
+// Requiring application/json on state-changing auth POSTs blocks simple
+// cross-site form posts (on top of SameSite=Lax on atm_session).
+async function readAuthJsonBody(req) {
+  if (!/^application\/json\b/i.test(req.headers['content-type'] || '')) return null;
+  try {
+    const body = await parseJsonBody(req);
+    return body && typeof body === 'object' && !Array.isArray(body) ? body : null;
+  } catch {
+    return null;
+  }
+}
+
+// Returns the user, or writes a 401/403 and returns null.
+async function requireVerifiedUserJson(req, res) {
+  const user = await getCurrentUser(req);
+  if (!user) { sendAuthJson(res, 401, { error: 'Sign in required.' }); return null; }
+  if (!user.email_verified_at) { sendAuthJson(res, 403, { error: 'Verify your email to continue.' }); return null; }
+  return user;
+}
+
+const AUTH_PAGE_HEAD = `<meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+  <style>
+    .atm-auth { max-width: 460px; margin: 1rem auto 2rem; }
+    .atm-auth-card { border: 1px solid var(--green-dim); background: linear-gradient(180deg, rgba(0,200,83,.07), transparent 55%); padding: 1.4rem 1.1rem; }
+    .atm-auth h1 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 2.3rem; letter-spacing: .04em; line-height: 1; color: var(--offwhite); margin: .4rem 0 .8rem; }
+    .atm-auth h2 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 1.45rem; letter-spacing: .06em; color: var(--gold); margin-bottom: .5rem; }
+    .atm-auth p { font-size: .85rem; margin-bottom: 1rem; }
+    .atm-auth .muted { color: var(--gray); font-size: .75rem; }
+    .atm-auth label { display: block; font-size: .7rem; text-transform: uppercase; letter-spacing: .14em; color: var(--gray); margin-bottom: .35rem; }
+    .atm-auth input[type=email], .atm-auth input[type=text] { width: 100%; padding: .8rem .9rem; background: var(--black); border: 1px solid var(--green-dim); color: var(--offwhite); font: inherit; font-size: 1rem; margin-bottom: 1rem; border-radius: 0; }
+    .atm-auth input:focus-visible, .atm-btn:focus-visible, .atm-link-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .atm-auth .code-input { font-size: 1.6rem; letter-spacing: .45em; text-align: center; }
+    .atm-btn { display: block; width: 100%; padding: .85rem 1rem; background: var(--green); color: var(--black); border: 0; border-radius: 0; font-family: 'Bebas Neue', sans-serif; font-size: 1.25rem; letter-spacing: .08em; cursor: pointer; text-align: center; text-decoration: none; }
+    .atm-btn:hover { filter: brightness(1.12); text-decoration: none; }
+    .atm-btn[disabled] { opacity: .55; cursor: wait; }
+    .atm-btn-ghost { background: transparent; color: var(--offwhite); border: 1px solid var(--green-dim); margin-top: .6rem; }
+    .atm-link-btn { background: none; border: 0; color: var(--green); font: inherit; font-size: .75rem; text-decoration: underline; cursor: pointer; padding: .2rem 0; letter-spacing: 0; text-transform: none; }
+    .atm-link-btn[disabled] { color: var(--gray); cursor: default; text-decoration: none; }
+    .atm-status { min-height: 1.3em; font-size: .8rem; margin-top: .8rem; color: var(--gold); }
+    .atm-section { border-top: 1px solid var(--green-dim); padding-top: 1.2rem; margin-top: 1.2rem; }
+    .atm-handle { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: .03em; color: var(--green); line-height: 1.1; }
+    .atm-verified { display: inline-block; font-size: .65rem; letter-spacing: .14em; text-transform: uppercase; color: var(--green); border: 1px solid var(--green-dim); padding: .15rem .5rem; margin-right: .4rem; }
+    .atm-cand { border: 1px solid var(--green-dim); padding: .9rem; margin-bottom: .75rem; }
+    .atm-cand-name { display: block; font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: var(--offwhite); }
+    .atm-cand .atm-btn { margin-top: .7rem; }
+    [hidden] { display: none !important; }
+    @media (min-width: 981px) { .atm-auth { margin: 2.5rem auto 3rem; } .atm-auth-card { padding: 2rem 1.8rem; } .atm-auth h1 { font-size: 2.8rem; } }
+  </style>`;
+
+// Shared client helpers: JSON POST + delegated "claim this profile" buttons.
+const AUTH_CLIENT_SCRIPT = `<script>
+  window.atmPost = function (url, body) {
+    return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, data: d }; }); });
+  };
+  window.atmSay = function (msg) { var el = document.getElementById('authStatus'); if (el) el.textContent = msg || ''; };
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('[data-claim-id]') : null;
+    if (!btn) return;
+    btn.disabled = true;
+    atmSay('Claiming your profile…');
+    atmPost('/api/account/claim-profile', { player_submission_id: btn.getAttribute('data-claim-id') }).then(function (res) {
+      if (!res.ok) { btn.disabled = false; atmSay(res.data.error || 'Could not claim that profile.'); return; }
+      window.location.href = '/account';
+    }).catch(function () { btn.disabled = false; atmSay('Network error. Please try again.'); });
+  });
+</script>`;
+
+function renderLoginPage() {
+  return renderLayout('Sign In | ATMwithNoPIN', `
+  <section class="atm-auth">
+    <div class="atm-auth-card" id="stepEmail">
+      <p class="eyebrow">ATMwithNoPIN account</p>
+      <h1>WELCOME TO THE ATM</h1>
+      <p>Sign in or create your ATMwithNoPIN account.</p>
+      <form id="emailForm" novalidate>
+        <label for="authEmail">Email address</label>
+        <input id="authEmail" name="email" type="email" autocomplete="email" maxlength="254" required />
+        <button class="atm-btn" type="submit" id="sendBtn">SEND MY CODE</button>
+      </form>
+    </div>
+    <div class="atm-auth-card" id="stepCode" hidden>
+      <p class="eyebrow">Almost in</p>
+      <h1>CHECK YOUR EMAIL</h1>
+      <p>We sent a 6-digit code to <strong id="sentTo"></strong>.</p>
+      <form id="codeForm" novalidate>
+        <label for="authCode">6-digit code</label>
+        <input id="authCode" name="code" class="code-input" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required />
+        <button class="atm-btn" type="submit" id="verifyBtn">VERIFY &amp; ENTER</button>
+      </form>
+      <p class="muted" style="margin-top:1rem;">Didn't get it? Check spam, or
+        <button type="button" class="atm-link-btn" id="resendBtn">Resend code</button> ·
+        <button type="button" class="atm-link-btn" id="changeEmailBtn">Use a different email</button></p>
+    </div>
+    <p class="atm-status" id="authStatus" role="status" aria-live="polite"></p>
+  </section>
+  ${AUTH_CLIENT_SCRIPT}
+  <script>
+  (function () {
+    var email = '';
+    var emailInput = document.getElementById('authEmail');
+    var codeInput = document.getElementById('authCode');
+    var stepEmail = document.getElementById('stepEmail');
+    var stepCode = document.getElementById('stepCode');
+    var resendBtn = document.getElementById('resendBtn');
+    var timer = null;
+    function cooldown() {
+      var left = 60;
+      clearInterval(timer);
+      resendBtn.disabled = true;
+      resendBtn.textContent = 'Resend code (' + left + 's)';
+      timer = setInterval(function () {
+        left--;
+        if (left <= 0) { clearInterval(timer); resendBtn.disabled = false; resendBtn.textContent = 'Resend code'; }
+        else resendBtn.textContent = 'Resend code (' + left + 's)';
+      }, 1000);
+    }
+    function requestCode(btn) {
+      btn.disabled = true;
+      atmSay('Sending…');
+      return atmPost('/api/auth/request-code', { email: email }).then(function (res) {
+        btn.disabled = false;
+        if (!res.ok) { atmSay(res.data.error || 'Something went wrong. Please try again.'); return false; }
+        return true;
+      }).catch(function () { btn.disabled = false; atmSay('Network error. Please try again.'); return false; });
+    }
+    document.getElementById('emailForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      email = emailInput.value.trim();
+      if (!email) { atmSay('Enter your email address.'); emailInput.focus(); return; }
+      requestCode(document.getElementById('sendBtn')).then(function (sent) {
+        if (!sent) return;
+        document.getElementById('sentTo').textContent = email;
+        stepEmail.hidden = true;
+        stepCode.hidden = false;
+        atmSay('Code sent. It expires in 10 minutes.');
+        cooldown();
+        codeInput.focus();
+      });
+    });
+    resendBtn.addEventListener('click', function () {
+      requestCode(resendBtn).then(function (sent) {
+        if (sent) { atmSay('A new code is on its way. Use the newest one.'); cooldown(); }
+      });
+    });
+    document.getElementById('changeEmailBtn').addEventListener('click', function () {
+      stepCode.hidden = true;
+      stepEmail.hidden = false;
+      codeInput.value = '';
+      atmSay('');
+      emailInput.focus();
+    });
+    document.getElementById('codeForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var code = codeInput.value.replace(/[^0-9]/g, '');
+      if (code.length !== 6) { atmSay('Enter the 6-digit code from your email.'); codeInput.focus(); return; }
+      var btn = document.getElementById('verifyBtn');
+      btn.disabled = true;
+      atmSay('Verifying…');
+      atmPost('/api/auth/verify-code', { email: email, code: code }).then(function (res) {
+        if (!res.ok) { btn.disabled = false; atmSay(res.data.error || 'Invalid or expired verification code.'); return; }
+        window.location.href = res.data.needs_username ? '/account/setup' : '/account';
+      }).catch(function () { btn.disabled = false; atmSay('Network error. Please try again.'); });
+    });
+  })();
+  </script>`, AUTH_PAGE_HEAD);
+}
+
+function renderAccountSetupPage() {
+  return renderLayout('Your ATM Identity | ATMwithNoPIN', `
+  <section class="atm-auth">
+    <div class="atm-auth-card" id="identityStep">
+      <p class="eyebrow">Email verified</p>
+      <h1>YOUR ATM IDENTITY</h1>
+      <p>Choose your @username</p>
+      <p class="muted">Your @username is your unique identity around the ATM community.</p>
+      <form id="identityForm" novalidate>
+        <label for="username">@username</label>
+        <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="24" required aria-describedby="usernameHelp" />
+        <p class="muted" id="usernameHelp" style="margin-top:-.6rem;">3–24 characters: letters, numbers or underscore. It can't be changed later.</p>
+        <label for="displayName">Display name</label>
+        <input id="displayName" name="display_name" type="text" autocomplete="nickname" maxlength="50" required />
+        <button class="atm-btn" type="submit" id="identityBtn">CREATE MY ATM IDENTITY</button>
+      </form>
+    </div>
+    <div class="atm-auth-card" id="claimStep" hidden>
+      <p class="eyebrow">Poker profile</p>
+      <h1 id="claimHeading">WE FOUND YOUR POKER PROFILE</h1>
+      <p id="claimIntro" class="muted"></p>
+      <div id="claimList"></div>
+      <a class="atm-btn atm-btn-ghost" href="/account">NOT MINE / CONTINUE WITHOUT CLAIMING</a>
+    </div>
+    <p class="atm-status" id="authStatus" role="status" aria-live="polite"></p>
+  </section>
+  ${AUTH_CLIENT_SCRIPT}
+  <script>
+  (function () {
+    function showCandidates(list) {
+      var single = list.length === 1;
+      document.getElementById('claimHeading').textContent = single ? 'WE FOUND YOUR POKER PROFILE' : 'WE FOUND POKER PROFILES THAT MATCH YOUR EMAIL';
+      document.getElementById('claimIntro').textContent = single
+        ? 'It matches your verified email. Is this you?'
+        : 'Several profiles match your verified email. Choose the one that is yours.';
+      var wrap = document.getElementById('claimList');
+      wrap.textContent = '';
+      list.forEach(function (c) {
+        var card = document.createElement('div');
+        card.className = 'atm-cand';
+        var name = document.createElement('span');
+        name.className = 'atm-cand-name';
+        name.textContent = c.name || 'Unnamed profile';
+        card.appendChild(name);
+        if (c.nickname) {
+          var nick = document.createElement('span');
+          nick.className = 'muted';
+          nick.textContent = '“' + c.nickname + '”';
+          card.appendChild(nick);
+        }
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'atm-btn';
+        btn.setAttribute('data-claim-id', c.id);
+        btn.textContent = single ? 'CLAIM MY PROFILE' : 'CLAIM THIS PROFILE';
+        card.appendChild(btn);
+        wrap.appendChild(card);
+      });
+      document.getElementById('identityStep').hidden = true;
+      document.getElementById('claimStep').hidden = false;
+      atmSay('');
+    }
+    document.getElementById('identityForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var btn = document.getElementById('identityBtn');
+      btn.disabled = true;
+      atmSay('Creating your identity…');
+      atmPost('/api/account/username', {
+        username: document.getElementById('username').value,
+        display_name: document.getElementById('displayName').value
+      }).then(function (res) {
+        if (!res.ok) { btn.disabled = false; atmSay(res.data.error || 'Could not save your username.'); return; }
+        return fetch('/api/account/profile-candidates', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+          var list = (d && d.candidates) || [];
+          if (d && d.linked) { window.location.href = '/account'; return; }
+          if (!list.length) { window.location.href = '/account'; return; }
+          showCandidates(list);
+        });
+      }).catch(function () { window.location.href = '/account'; });
+    });
+  })();
+  </script>`, AUTH_PAGE_HEAD);
+}
+
+function renderAccountPage(user, linkedProfile, candidates) {
+  let profileBlock;
+  if (linkedProfile) {
+    const nick = linkedProfile.nickname ? ` <span class="muted">“${escapeHtml(linkedProfile.nickname)}”</span>` : '';
+    profileBlock = `
+      <p><span class="atm-cand-name">${escapeHtml(linkedProfile.name || 'Your profile')}</span>${nick}</p>
+      ${linkedProfile.status === 'approved' && linkedProfile.slug
+        ? `<a class="atm-btn" href="/players/${escapeHtml(linkedProfile.slug)}">VIEW MY PROFILE</a>`
+        : `<p class="muted">Your profile stays private until an admin approves it — then it goes live on the Community Wall and your own player page.</p>`}`;
+  } else if (candidates.length) {
+    profileBlock = `
+      <p class="muted">We found ${candidates.length === 1 ? 'a poker profile' : 'poker profiles'} matching your verified email.</p>
+      <button class="atm-btn" type="button" id="showClaimBtn" aria-expanded="false" aria-controls="claimPanel">CLAIM MY EXISTING PROFILE</button>
+      <div id="claimPanel" hidden style="margin-top:1rem;">
+        ${candidates.map((c) => `<div class="atm-cand">
+          <span class="atm-cand-name">${escapeHtml(c.name || 'Unnamed profile')}</span>
+          ${c.nickname ? `<span class="muted">“${escapeHtml(c.nickname)}”</span>` : ''}
+          <button class="atm-btn" type="button" data-claim-id="${escapeHtml(c.id)}">${candidates.length === 1 ? 'CLAIM MY PROFILE' : 'CLAIM THIS PROFILE'}</button>
+        </div>`).join('')}
+      </div>`;
+  } else {
+    profileBlock = `
+      <p class="muted">You haven't created a poker profile yet.</p>
+      <a class="atm-btn" href="/ai-profile-generator">CREATE MY POKER PROFILE</a>`;
+  }
+  return renderLayout('My ATM | ATMwithNoPIN', `
+  <section class="atm-auth">
+    <div class="atm-auth-card">
+      <p class="eyebrow">Signed in</p>
+      <h1>MY ATM</h1>
+      <div class="atm-handle">@${escapeHtml(user.username || '')}</div>
+      <p>${escapeHtml(user.display_name || '')}</p>
+      <p><span class="atm-verified">✓ Verified email</span><span class="muted">${escapeHtml(user.email)}</span></p>
+      <div class="atm-section">
+        <h2>POKER PROFILE</h2>
+        ${profileBlock}
+      </div>
+      <div class="atm-section">
+        <h2>COMMUNITY</h2>
+        <p class="muted">Community is coming next.</p>
+      </div>
+      <div class="atm-section">
+        <button class="atm-btn atm-btn-ghost" type="button" id="logoutBtn">LOG OUT</button>
+      </div>
+    </div>
+    <p class="atm-status" id="authStatus" role="status" aria-live="polite"></p>
+  </section>
+  ${AUTH_CLIENT_SCRIPT}
+  <script>
+  (function () {
+    var show = document.getElementById('showClaimBtn');
+    if (show) show.addEventListener('click', function () {
+      var panel = document.getElementById('claimPanel');
+      panel.hidden = !panel.hidden;
+      show.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true');
+    });
+    document.getElementById('logoutBtn').addEventListener('click', function () {
+      atmPost('/api/auth/logout', {}).then(function () { window.location.href = '/'; }, function () { window.location.href = '/'; });
+    });
+  })();
+  </script>`, AUTH_PAGE_HEAD);
+}
+
+// Returns true when the request was handled.
+async function handleAuthRoutes(req, res, pathname) {
+  const isAuthPath = pathname.startsWith('/api/auth/') || pathname.startsWith('/api/account/')
+    || pathname === '/login' || pathname === '/account' || pathname === '/account/setup';
+  if (!isAuthPath) return false;
+  const method = req.method;
+
+  if (pathname === '/api/auth/request-code' && method === 'POST') {
+    const body = await readAuthJsonBody(req);
+    if (!body) { sendAuthJson(res, 400, { error: 'Invalid request.' }); return true; }
+    const email = normalizeUserEmail(typeof body.email === 'string' ? body.email : '');
+    if (!looksLikeEmail(email)) { sendAuthJson(res, 400, { error: 'Enter a valid email address.' }); return true; }
+    const ip = getAuthClientIp(req);
+    if (!authRateAllowed('send_cooldown', email) || !authRateAllowed('send_email', email) || !authRateAllowed('send_ip', ip)) {
+      sendAuthJson(res, 429, { error: 'Too many code requests. Please wait a minute and try again.' });
+      return true;
+    }
+    // Email hits are reserved now (so concurrent requests can't slip past the
+    // cooldown) and released if the provider fails; IP hits always count.
+    const cooldownHit = authRateRecord('send_cooldown', email);
+    const emailHit = authRateRecord('send_email', email);
+    authRateRecord('send_ip', ip);
+    try {
+      let user = await getUserByNormalizedEmail(email);
+      if (!user) {
+        try {
+          user = await createUser({ email: body.email.trim(), display_name: '', status: 'active', trust_level: 'new' });
+        } catch (err) {
+          if (err.code !== 'EMAIL_TAKEN') throw err;
+          user = await getUserByNormalizedEmail(email); // lost a signup race
+        }
+      }
+      // Suspended/banned: same generic response, no email sent.
+      if (user && user.status === 'active') {
+        const code = createVerificationCode();
+        const verification = await createEmailVerification({ userId: user.id, code, purpose: 'login' });
+        try {
+          await sendVerificationEmail({ email, code, purpose: 'login' });
+        } catch (err) {
+          console.error('[auth] verification email not sent:', err && err.code ? err.code : 'error');
+          authRateRelease('send_cooldown', email, cooldownHit);
+          authRateRelease('send_email', email, emailHit);
+          await deleteEmailVerification(verification.id).catch(() => {
+            console.error('[auth] unsent verification cleanup failed');
+          });
+          sendAuthJson(res, 503, { error: "We couldn't send a code right now. Please try again in a few minutes." });
+          return true;
+        }
+      }
+      sendAuthJson(res, 200, { ok: true, message: 'If the address can receive mail, a verification code has been sent.' });
+    } catch (err) {
+      console.error('[auth] request-code failed:', err && err.code ? err.code : 'error');
+      sendAuthJson(res, 503, { error: "We couldn't send a code right now. Please try again in a few minutes." });
+    }
+    return true;
+  }
+
+  if (pathname === '/api/auth/verify-code' && method === 'POST') {
+    const ip = getAuthClientIp(req);
+    if (!authRateAllowed('verify_ip', ip)) {
+      sendAuthJson(res, 429, { error: 'Too many attempts. Please wait and try again.' });
+      return true;
+    }
+    authRateRecord('verify_ip', ip);
+    const body = await readAuthJsonBody(req);
+    if (!body) { sendAuthJson(res, 400, { error: AUTH_GENERIC_CODE_ERROR }); return true; }
+    const email = normalizeUserEmail(typeof body.email === 'string' ? body.email : '');
+    const code = typeof body.code === 'string' ? body.code.trim() : '';
+    try {
+      const user = looksLikeEmail(email) ? await getUserByNormalizedEmail(email) : null;
+      const row = user && user.status === 'active' ? await getLatestLoginVerification(user.id) : null;
+      const result = checkEmailVerificationCode(row, code);
+      if (!result.ok) {
+        if (result.reason === 'mismatch') await incrementEmailVerificationAttempts(row.id);
+        sendAuthJson(res, 400, { error: AUTH_GENERIC_CODE_ERROR });
+        return true;
+      }
+      if (!(await markEmailVerificationUsed(row.id))) { // lost a concurrent-use race
+        sendAuthJson(res, 400, { error: AUTH_GENERIC_CODE_ERROR });
+        return true;
+      }
+      await markUserLoggedIn(user.id);
+      const token = createSessionToken();
+      await createUserSession({ userId: user.id, tokenHash: hashAuthToken(token) });
+      const link = await getUserProfileLink(user.id);
+      sendAuthJson(res, 200, { ok: true, needs_username: !user.username_normalized, has_profile: !!link }, { 'Set-Cookie': buildUserSessionCookie(token) });
+    } catch (err) {
+      console.error('[auth] verify-code failed:', err && err.code ? err.code : 'error');
+      sendAuthJson(res, 400, { error: AUTH_GENERIC_CODE_ERROR });
+    }
+    return true;
+  }
+
+  if (pathname === '/api/auth/me' && method === 'GET') {
+    const user = await getCurrentUser(req);
+    if (!user) { sendAuthJson(res, 200, { authenticated: false }); return true; }
+    let hasProfile = false;
+    try { hasProfile = !!(await getUserProfileLink(user.id)); } catch {}
+    sendAuthJson(res, 200, {
+      authenticated: true,
+      user: {
+        username: user.username || null,
+        display_name: user.display_name || '',
+        email: user.email,
+        email_verified: !!user.email_verified_at,
+        trust_level: user.trust_level,
+      },
+      has_profile: hasProfile,
+    });
+    return true;
+  }
+
+  if (pathname === '/api/auth/logout' && method === 'POST') {
+    const token = getCookieValue(req, USER_SESSION_COOKIE);
+    if (token && token.length <= 200) {
+      try {
+        const session = await getUserSessionByTokenHash(hashAuthToken(token));
+        if (session) await revokeUserSession(session.id);
+      } catch (err) {
+        console.error('[auth] logout revoke failed:', err && err.code ? err.code : 'error');
+      }
+    }
+    sendAuthJson(res, 200, { ok: true }, { 'Set-Cookie': buildUserSessionLogoutCookie() });
+    return true;
+  }
+
+  if (pathname === '/api/account/username' && method === 'POST') {
+    const user = await requireVerifiedUserJson(req, res);
+    if (!user) return true;
+    if (user.username_normalized) {
+      sendAuthJson(res, 409, { error: 'Your @username is already set. Username changes are not available yet.' });
+      return true;
+    }
+    const body = await readAuthJsonBody(req);
+    if (!body) { sendAuthJson(res, 400, { error: 'Invalid request.' }); return true; }
+    const username = typeof body.username === 'string' ? body.username.trim().replace(/^@/, '') : '';
+    if (!isValidUsername(normalizeUsername(username))) {
+      sendAuthJson(res, 400, { error: 'Usernames are 3–24 characters: letters, numbers or underscore, starting with a letter or number.' });
+      return true;
+    }
+    const displayName = typeof body.display_name === 'string' ? body.display_name.trim().replace(/\s+/g, ' ') : '';
+    if (displayName.length < 1 || displayName.length > 50 || /[\u0000-\u001f\u007f<>]/.test(displayName)) {
+      sendAuthJson(res, 400, { error: 'Display name must be 1–50 characters.' });
+      return true;
+    }
+    try {
+      if (!(await setUserUsernameOnce(user.id, username, displayName))) {
+        sendAuthJson(res, 409, { error: 'Your @username is already set. Username changes are not available yet.' });
+        return true;
+      }
+      sendAuthJson(res, 200, { ok: true, username });
+    } catch (err) {
+      if (err.code === 'USERNAME_TAKEN') { sendAuthJson(res, 409, { error: 'That @username is taken. Try another.' }); return true; }
+      console.error('[auth] username update failed:', err && err.code ? err.code : 'error');
+      sendAuthJson(res, 500, { error: 'Could not save your username. Please try again.' });
+    }
+    return true;
+  }
+
+  if (pathname === '/api/account/profile-candidates' && method === 'GET') {
+    const user = await requireVerifiedUserJson(req, res);
+    if (!user) return true;
+    try {
+      const link = await getUserProfileLink(user.id);
+      if (link) {
+        const profile = await getPlayerSubmissionSummaryById(link.player_submission_id);
+        sendAuthJson(res, 200, { ok: true, linked: true, profile: profile ? safeProfileSummary(profile) : null, candidates: [] });
+        return true;
+      }
+      sendAuthJson(res, 200, { ok: true, linked: false, candidates: await getClaimableProfilesForUser(user) });
+    } catch (err) {
+      console.error('[auth] profile-candidates failed:', err && err.code ? err.code : 'error');
+      sendAuthJson(res, 500, { error: 'Could not load profiles. Please try again.' });
+    }
+    return true;
+  }
+
+  if (pathname === '/api/account/claim-profile' && method === 'POST') {
+    const user = await requireVerifiedUserJson(req, res);
+    if (!user) return true;
+    if (!user.username_normalized) { sendAuthJson(res, 403, { error: 'Choose your @username first.' }); return true; }
+    const body = await readAuthJsonBody(req);
+    const psid = body && typeof body.player_submission_id === 'string' ? body.player_submission_id.trim() : '';
+    if (!psid) { sendAuthJson(res, 400, { error: 'Choose a profile to claim.' }); return true; }
+    try {
+      if (await getUserProfileLink(user.id)) { sendAuthJson(res, 409, { error: 'You already have a linked poker profile.' }); return true; }
+      // Ownership re-check right before linking: must match the VERIFIED account email.
+      const matches = await findPlayerSubmissionsByNormalizedEmail(user.email_normalized);
+      if (!matches.some((m) => m.id === psid)) { sendAuthJson(res, 404, { error: 'That profile could not be claimed.' }); return true; }
+      if (await getProfileOwnerLink(psid)) { sendAuthJson(res, 409, { error: 'That profile has already been claimed.' }); return true; }
+      await createUserProfileLink(user.id, psid);
+      sendAuthJson(res, 200, { ok: true });
+    } catch (err) {
+      if (err.code === 'PROFILE_LINK_EXISTS') { sendAuthJson(res, 409, { error: 'That profile could not be claimed.' }); return true; }
+      console.error('[auth] claim-profile failed:', err && err.code ? err.code : 'error');
+      sendAuthJson(res, 500, { error: 'Could not claim that profile. Please try again.' });
+    }
+    return true;
+  }
+
+  if (method !== 'GET' && method !== 'HEAD') return false;
+
+  if (pathname === '/login') {
+    if (await getCurrentUser(req)) { sendAuthRedirect(res, '/account'); return true; }
+    sendAuthHtml(res, renderLoginPage());
+    return true;
+  }
+
+  if (pathname === '/account/setup') {
+    const user = await getCurrentUser(req);
+    if (!user || !user.email_verified_at) { sendAuthRedirect(res, '/login'); return true; }
+    if (user.username_normalized) { sendAuthRedirect(res, '/account'); return true; }
+    sendAuthHtml(res, renderAccountSetupPage());
+    return true;
+  }
+
+  if (pathname === '/account') {
+    const user = await getCurrentUser(req);
+    if (!user || !user.email_verified_at) { sendAuthRedirect(res, '/login'); return true; }
+    if (!user.username_normalized) { sendAuthRedirect(res, '/account/setup'); return true; }
+    let linkedProfile = null;
+    let candidates = [];
+    try {
+      const link = await getUserProfileLink(user.id);
+      if (link) linkedProfile = await getPlayerSubmissionSummaryById(link.player_submission_id);
+      else candidates = await getClaimableProfilesForUser(user);
+    } catch (err) {
+      console.error('[auth] account profile lookup failed:', err && err.code ? err.code : 'error');
+    }
+    sendAuthHtml(res, renderAccountPage(user, linkedProfile, candidates));
+    return true;
+  }
+
+  return false;
+}
+
 const server = http.createServer(async (req, res) => {
   const parsed = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsed.pathname;
+
+  if (await handleAuthRoutes(req, res, pathname)) return;
 
   if (pathname === '/api/admin/login' && req.method === 'POST') {
     try {
@@ -9796,6 +10547,8 @@ Return ONLY valid JSON (no markdown fences) with EXACTLY these fields:
       all.unshift(submission);
       await saveSubmissions(all);
       console.log('[submit] saved OK, total now', all.length);
+      // Additive: signed-in verified user whose email matches → owns the new profile.
+      await autoLinkNewProfileForUser(req, submission);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         message: 'Story submitted! Complete your poker profile, then submit it for review. It stays private until an admin approves it — then it goes live on the Community Wall and your own player page.',
@@ -10483,6 +11236,7 @@ module.exports = {
   getEmailVerificationById,
   incrementEmailVerificationAttempts,
   markEmailVerificationUsed,
+  deleteEmailVerification,
   getUserProfileLink,
   getProfileOwnerLink,
   createUserProfileLink,
@@ -10490,4 +11244,7 @@ module.exports = {
   buildUserSessionCookie,
   buildUserSessionLogoutCookie,
   sendVerificationEmail,
+  getCurrentUser,
+  resetAuthRateLimits,
+  server,
 };
