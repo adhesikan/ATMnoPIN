@@ -10032,7 +10032,7 @@ async function handleAuthRoutes(req, res, pathname) {
       profile = await generatePokerProfileDraft(clues);
     } catch (err) {
       authRateRelease('profile_ai_user', user.id, hit);
-      console.error('[account-profile] generation failed');
+      console.error('[account-profile] generation failed:', err && err.message ? err.message : String(err));
       sendAuthJson(res, 502, { error: "AI couldn't finish your profile right now. Please try again." });
       return true;
     }
