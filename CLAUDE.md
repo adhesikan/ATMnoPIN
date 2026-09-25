@@ -179,6 +179,19 @@ Helpers follow `sendVerificationEmail()`; routes/pages live in `handleAuthRoutes
 - **Nav**: no SIGN IN / MY ATM link yet (nav is duplicated across `renderLayout`, `index.html`, `shop.html`) — deferred.
 - Smoke test: `node scripts/smoke-auth-flow.js` (in-process server, temp SQLite, Resend stubbed).
 
+## AI-First Poker Profile (Sprint 1B.2)
+
+`GET /ai-profile-generator` branches: signed-in + verified + @username → `renderAIFirstProfilePage()` (or `renderPokerProfileExistsPage()` if already linked); everyone else → the **legacy** generator + `POST /request-feature` (temporarily kept, unchanged). Helpers sit just before `handleAuthRoutes()`; routes are inside it.
+
+- **Minimal inputs**: optional nickname, game type (cash|tournaments|both), style (aggressive|tight|loose|tricky|no_idea), optional clue (≤500), explicit consent checkbox. Never asks for name/email — those come from the session (`display_name`, verified `email`) and body identity fields are never read.
+- **Gate** (`requireProfileCreatorJson`): verified user, username set, no `user_profile_links` row (409). JSON-only, `no-store`.
+- `POST /api/account/generate-poker-profile` → AI **draft** only (8 fields: nickname, tagline, playing_style, biggest_strength, biggest_weakness, funniest_habit, table_reputation, bio; limits in `POKER_PROFILE_FIELDS`). Prompt forbids invented wins/casinos/money/events. Output is tag-stripped and clamped; malformed → 502. Creates nothing. Rate limit `profile_ai_user` 5/hour per user (incl. regenerate) in `AUTH_RATE_LIMITS`; a hit is released only if the OpenAI call throws.
+- **Preview** is client-side (KEEP IT / REGENERATE / EDIT); edits are re-validated at save.
+- **Poker Wildlife Alter Ego** (optional; step skipped when nothing is published): `POST /api/account/wildlife-alter-ego` with `mode: surprise|choose`. Species come only from `getPublishedWildlifeForProfiles()` (published, by `display_order`; drafts never shown). AI-returned slugs are checked against that list (invalid → 502). "Choose" falls back to `defaultWildlifeExplanation()` if AI is unavailable. Limit `wildlife_ai_user` 10/hour.
+- `POST /api/account/save-poker-profile` → one legacy-compatible `player_submissions` row (`status: pending`, consent_* fields as in `/request-feature` plus `consent_source: 'account_ai_profile'`, legacy story/casino/goal fields left empty, extra `tagline`/`table_reputation`/`bio`, and `wildlife_alter_ego: { species_slug, species_name, explanation }` only when chosen — slug re-checked against the current published list). Written with a **single-row INSERT** (`insertPlayerSubmissionRow`), not `saveSubmissions()`, then linked; if linking fails the row is deleted. An in-process per-user lock blocks concurrent saves. Returns only `{ ok, profile_url }`.
+- Auto-submitted: saving the reviewed AI profile sets `submitted_for_review: true` (+ `submitted_at`) with `status` still `pending`, so it lands in the admin Ready for Review queue and stays private until an admin approves it. `/profile/setup/<edit_token>` remains available for optional enrichment (photo, casino, stories) while pending. The legacy unauthenticated `/request-feature` flow keeps its existing behavior (not auto-submitted).
+- Smoke test: `node scripts/smoke-ai-profile.js` (temp SQLite, OpenAI + geo fetch stubbed).
+
 ## Firebase Configuration
 
 Firebase is client-side only. The config is hardcoded in `visitor-tracker.js` and `chat.html` (public API keys — this is intentional for Firebase web apps; security is enforced via Firestore rules).
