@@ -9284,7 +9284,8 @@ function renderAccountPage(user, linkedProfile, candidates) {
     profileBlock = `
       <p><span class="atm-cand-name">${escapeHtml(linkedProfile.name || 'Your profile')}</span>${nick}</p>
       ${linkedProfile.status === 'approved' && linkedProfile.slug
-        ? `<a class="atm-btn" href="/players/${escapeHtml(linkedProfile.slug)}">VIEW MY PROFILE</a>`
+        ? `<p>Your Poker Profile is live.</p>
+      <a class="atm-btn" href="/players/${escapeHtml(linkedProfile.slug)}">VIEW MY POKER PROFILE</a>`
         : `<p class="muted">Your profile stays private until an admin approves it — then it goes live on the Community Wall and your own player page.</p>`}`;
   } else if (candidates.length) {
     profileBlock = `
@@ -9550,8 +9551,9 @@ function buildAccountPlayerSubmission(user, profile, gameType, wildlife, consent
     consent_region: consent.geo.region || 'unknown',
     consent_country: consent.geo.country || 'unknown',
     consent_source: 'account_ai_profile',
-    status: 'pending',
-    // Player reviewed + accepted the AI draft → straight into admin Ready for Review (still private).
+    // Verified account + reviewed AI draft → live immediately (Sprint 1B.3). Kept submitted_for_review
+    // so it matches the normal submit → approve lifecycle; Ready for Review excludes approved rows.
+    status: 'approved',
     submitted_for_review: true,
     submitted_at: now,
     badge: '',
@@ -9566,7 +9568,7 @@ function buildAccountPlayerSubmission(user, profile, gameType, wildlife, consent
     completion_score: 0,
     created_at: now,
     updated_at: now,
-    approved_at: null,
+    approved_at: now,
   };
   if (wildlife) submission.wildlife_alter_ego = wildlife;
   submission.completion_score = computeCompletionScore(submission);
@@ -9661,7 +9663,7 @@ function renderAIFirstProfilePage(species) {
         <textarea id="aipClue" name="player_clue" maxlength="500" placeholder="I bluff too much, hate folding and somehow always blame the river..."></textarea>
         <p class="hint">A habit, story, strength, weakness, bad beat, accomplishment — anything.</p>
         <label class="aip-consent"><input type="checkbox" id="aipConsent" name="permission" /><span>I understand AI will create an entertaining poker profile from the information I provide. I can review it before anything is published.</span></label>
-        <p class="muted">Nothing goes public until an admin approves your profile.</p>
+        <p class="muted">Nothing goes public until you save it.</p>
         <button class="atm-btn" type="submit" id="generateBtn">✨ CREATE MY POKER PROFILE</button>
       </form>
     </div>
@@ -9704,11 +9706,11 @@ function renderAIFirstProfilePage(species) {
     </div>
 
     <div class="atm-auth-card" id="stepDone" hidden>
-      <p class="eyebrow">Sent for review</p>
+      <p class="eyebrow">You're live</p>
       <h1>PROFILE CREATED</h1>
-      <p>Your Poker Profile has been created and sent for review. You can still add more details while it is pending.</p>
-      <p class="muted">It stays private until an admin approves it — then it goes live on the Community Wall and your own player page.</p>
-      <a class="atm-btn" id="profileLink" href="/account">ADD MORE DETAILS (OPTIONAL)</a>
+      <p>Your Poker Profile is live. It's on the Community Wall and has its own player page.</p>
+      <a class="atm-btn" id="publicLink" href="/account">VIEW MY POKER PROFILE</a>
+      <a class="atm-btn atm-btn-ghost" id="profileLink" href="/account">ADD MORE DETAILS (OPTIONAL)</a>
       <a class="atm-btn atm-btn-ghost" href="/account">GO TO MY ATM</a>
     </div>
     <p class="atm-status" id="authStatus" role="status" aria-live="polite"></p>
@@ -9805,6 +9807,7 @@ function renderAIFirstProfilePage(species) {
         busy(false);
         if (!res.ok) { atmSay(res.data.error || 'Could not save your profile. Please try again.'); return; }
         $('profileLink').href = res.data.profile_url;
+        if (res.data.public_url) $('publicLink').href = res.data.public_url;
         show('stepDone');
       }).catch(function () { busy(false, 'Network error. Please try again.'); });
     }
@@ -10126,7 +10129,7 @@ async function handleAuthRoutes(req, res, pathname) {
         throw err;
       }
       console.log('[account-profile] created submission id=' + submission.id);
-      sendAuthJson(res, 200, { ok: true, profile_url: `/profile/setup/${submission.edit_token}` });
+      sendAuthJson(res, 200, { ok: true, profile_url: `/profile/setup/${submission.edit_token}`, public_url: `/players/${submission.slug}` });
     } catch (err) {
       console.error('[account-profile] save failed:', err && err.code ? err.code : 'error');
       sendAuthJson(res, 500, { error: 'Could not save your profile. Please try again.' });

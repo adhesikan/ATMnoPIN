@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * AI-first Poker Profile smoke test (Sprint 1B.2).
+ * AI-first Poker Profile smoke test (Sprint 1B.2 + 1B.3 instant activation).
  *
  * Self-contained: loads server.js as a module against a throwaway SQLite
  * database, listens on an ephemeral port, and drives /ai-profile-generator and
@@ -27,6 +27,9 @@ delete process.env.RAILWAY_PROJECT_ID;
 delete process.env.RAILWAY_SERVICE_ID;
 delete process.env.NODE_ENV;
 process.env.OPENAI_API_KEY = 'sk-test-SUPERSECRET';
+process.env.ADMIN_EMAIL = 'smoke-admin@example.com';
+process.env.ADMIN_PASSWORD = 'smoke-admin-pw';
+delete process.env.ADMIN_PASSWORD_HASH;
 
 const Database = require('better-sqlite3');
 const app = require(path.join(__dirname, '..', 'server.js'));
@@ -141,7 +144,8 @@ async function main() {
   check('Wildlife step: SURPRISE ME / LET ME CHOOSE / SKIP', ['YOUR POKER WILDLIFE ALTER EGO', '>SURPRISE ME<', '>LET ME CHOOSE<', '>SKIP<'].every((s) => page.includes(s)));
   check('Let Me Choose lists published species', page.includes('data-species-slug="test-shark"') && page.includes('The Test Owl'));
   check('draft species never on page', !page.includes('Secret Draftling') && !page.includes('secret-draft'));
-  check('success copy: sent for review, not public', page.includes('Your Poker Profile has been created and sent for review. You can still add more details while it is pending.') && !page.includes('hit Submit for Review'));
+  check('success copy: profile is live', page.includes('Your Poker Profile is live.') && page.includes('VIEW MY POKER PROFILE') && !page.includes('hit Submit for Review'));
+  check('no review/pending copy on AI-first page', !/sent for review|while it is pending|until an admin approves/i.test(page));
   check('only safe species images rendered', page.includes('src="https://res.cloudinary.com/demo/shark.jpg"') && !page.includes('javascript:alert'));
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -267,7 +271,8 @@ async function main() {
     cookie: main.cookie,
     body: { ...saveBody, email: 'attacker@evil.test', name: 'Mallory', status: 'approved', edit_token: 'mine', id: 'forced-id', user_id: other.user.id },
   });
-  check('save → 200 with private profile_url only', r.status === 200 && r.json.ok === true && /^\/profile\/setup\/[0-9a-f-]{36}$/.test(r.json.profile_url) && Object.keys(r.json).sort().join() === 'ok,profile_url', r.text);
+  check('save → 200 with profile_url + public_url only', r.status === 200 && r.json.ok === true && /^\/profile\/setup\/[0-9a-f-]{36}$/.test(r.json.profile_url) && /^\/players\/[a-z0-9-]+$/.test(r.json.public_url) && Object.keys(r.json).sort().join() === 'ok,profile_url,public_url', r.text);
+  const saveTime = Date.now();
   check('save response is no-store', r.headers['cache-control'] === 'no-store');
   check('exactly one submission created', subCount() === before + 1);
   const link = await app.getUserProfileLink(main.user.id);
@@ -275,17 +280,20 @@ async function main() {
   const sub = subById(link.player_submission_id);
   const token = r.json.profile_url.split('/').pop();
   check('name/email derived from session', sub.name === 'Main Player' && sub.email === 'Main.Player@Example.com');
-  check('browser identity/status/id ignored', sub.status === 'pending' && sub.id !== 'forced-id' && sub.edit_token === token && sub.approved_at === null);
+  check('browser identity/status/id ignored', sub.id !== 'forced-id' && sub.edit_token === token && r.json.public_url === `/players/${sub.slug}`);
   check('edited fields persisted + sanitized', sub.nickname === 'Edited Blamer' && sub.tagline === 'Edited tagline' && sub.bio === gen.bio);
   check('legacy fields mapped', sub.favorite_game === 'Cash Games & Tournaments' && sub.playing_style === gen.playing_style && sub.biggest_strength === gen.biggest_strength && sub.funniest_habit === gen.funniest_habit);
   check('consent recorded in existing format', sub.permission_granted === true && !!sub.consent_at && sub.consent_ip === '10.1.2.3' && sub.consent_city === 'unknown');
   check('no fabricated legacy facts', ['biggest_accomplishment', 'biggest_goal', 'funny_story', 'bad_beat_story', 'favorite_casino', 'social_link', 'city', 'photo_url'].every((k) => sub[k] === ''));
   check('legacy shape intact', Array.isArray(sub.badges) && Array.isArray(sub.ai_chronicles) && sub.ai_personality === null && typeof sub.completion_score === 'number' && !!sub.slug);
   check('AI-first profile is submitted_for_review === true', sub.submitted_for_review === true && !!sub.submitted_at);
-  check('AI-first profile stays status === pending (not public)', sub.status === 'pending' && sub.approved_at === null);
+  check('AI-first profile is instantly status === approved', sub.status === 'approved');
+  check('approved_at populated by server (not browser)', typeof sub.approved_at === 'string' && Math.abs(Date.parse(sub.approved_at) - saveTime) < 60000);
   check('profile linked to the authenticated user', link.player_submission_id === sub.id && (await app.getProfileOwnerLink(sub.id)).user_id === main.user.id);
   r = await request('GET', `/players/${sub.slug}`);
-  check('pending AI-first profile not publicly visible', !r.text.includes('Edited Blamer'));
+  check('approved AI-first profile publicly visible at /players/<slug>', r.status === 200 && r.text.includes('Edited Blamer'));
+  r = await request('GET', '/community-wall');
+  check('approved AI-first profile on Community Wall', r.status === 200 && r.text.includes('Edited Blamer') && r.text.includes(`/players/${sub.slug}`));
   check('Wildlife alter ego persisted', sub.wildlife_alter_ego && sub.wildlife_alter_ego.species_slug === 'test-shark' && sub.wildlife_alter_ego.species_name === 'The Test Shark' && sub.wildlife_alter_ego.explanation.includes('bite first'));
   check('user id not stored on submission', !JSON.stringify(sub).includes(main.user.id));
 
@@ -296,7 +304,8 @@ async function main() {
   r = await request('GET', '/ai-profile-generator', { cookie: main.cookie });
   check('page with existing profile → YOU ALREADY HAVE A POKER PROFILE', r.text.includes('YOU ALREADY HAVE A POKER PROFILE') && r.text.includes('href="/account"') && !r.text.includes('CREATE YOUR POKER IDENTITY'));
   r = await request('GET', '/account', { cookie: main.cookie });
-  check('/account shows linked pending profile', r.status === 200 && r.text.includes('Main Player') && r.text.includes('stays private until an admin approves'));
+  check('/account shows linked profile as live', r.status === 200 && r.text.includes('Main Player') && r.text.includes('Your Poker Profile is live.') && !r.text.includes('stays private until an admin approves'));
+  check('/account links to /players/<slug>', r.text.includes(`href="/players/${sub.slug}"`) && r.text.includes('VIEW MY POKER PROFILE'));
 
   // Concurrent saves: only one profile.
   const racer = await makeUser('racer@example.com', { username: 'racer', display_name: 'Racer' });
@@ -326,10 +335,15 @@ async function main() {
   r = await request('POST', `/api/profile/${token}`, { body: { favorite_casino: 'Added Later Casino' } });
   const enriched = subById(sub.id);
   check('optional enrichment saves and keeps AI fields + Wildlife', r.status === 200 && enriched.favorite_casino === 'Added Later Casino' && enriched.bio === sub.bio && enriched.wildlife_alter_ego && enriched.tagline === 'Edited tagline');
+  r = await request('GET', `/profile/setup/${token}`);
+  check('setup page shows approved AI-first profile as live (no submit button)', r.text.includes('Live ✓') && !r.text.includes('id="submitFinalBtn"'));
+  // The legacy /submit endpoint is still reachable by token; it must not demote an already-live profile.
   r = await request('POST', `/api/profile/${token}/submit`);
-  check('Submit for Review still works', r.status === 200 && subById(sub.id).submitted_for_review === true);
   const afterSetup = subById(sub.id);
-  check('setup edits keep it pending + linked', afterSetup.status === 'pending' && (await app.getUserProfileLink(main.user.id)).player_submission_id === sub.id);
+  check('re-submit on a live profile is harmless', r.status === 200 && afterSetup.status === 'approved' && afterSetup.approved_at === sub.approved_at);
+  check('setup edits keep it approved + linked + Wildlife', afterSetup.status === 'approved' && !!afterSetup.wildlife_alter_ego && (await app.getUserProfileLink(main.user.id)).player_submission_id === sub.id);
+  r = await request('GET', `/players/${sub.slug}`);
+  check('still public after setup enrichment', r.status === 200 && r.text.includes('Edited Blamer'));
 
   // ─────────────────────────────────────────────────────────────────────────
   console.log('\nLegacy /request-feature (unchanged)');
@@ -345,6 +359,36 @@ async function main() {
   check('legacy submit → 200 + profile_url', r.status === 200 && /^\/profile\/setup\//.test(r.json && r.json.profile_url) && subCount() === nLegacy + 1, r.text);
   check('legacy profile pending, NOT auto-submitted for review', legacySub && legacySub.status === 'pending' && !legacySub.submitted_for_review && !('submitted_at' in legacySub));
   check('legacy keeps browser-supplied fields', legacySub && legacySub.name === 'Legacy Larry' && legacySub.favorite_casino === 'Legacy Casino' && !('wildlife_alter_ego' in legacySub));
+  check('legacy profile NOT auto-approved', legacySub && legacySub.status !== 'approved' && !legacySub.approved_at);
+  r = await request('GET', `/players/${legacySub.slug}`);
+  check('pending legacy profile not publicly visible', r.status === 404 && !r.text.includes('Old School'));
+  r = await request('POST', `/api/profile/${legacySub.edit_token}/submit`);
+  const legacySubmitted = subById(legacySub.id);
+  check('legacy Submit for Review still works (stays pending)', r.status === 200 && legacySubmitted.submitted_for_review === true && legacySubmitted.status === 'pending');
+
+  // Claimed legacy profile still pending → /account keeps the pending/private copy.
+  const legacyOwner = await makeUser('legacy@example.com', { username: 'legacylarry', display_name: 'Legacy Larry' });
+  r = await request('POST', '/api/account/claim-profile', { cookie: legacyOwner.cookie, body: { player_submission_id: legacySub.id } });
+  check('legacy profile claimable', r.status === 200, r.text);
+  r = await request('GET', '/account', { cookie: legacyOwner.cookie });
+  check('/account keeps pending copy for pending legacy profile', r.text.includes('stays private until an admin approves') && !r.text.includes('Your Poker Profile is live.'));
+
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log('\nAdmin review (unchanged)');
+  r = await request('POST', '/api/admin/login', { body: { email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD } });
+  const adminCookie = (r.headers['set-cookie'] || []).map((c) => c.split(';')[0]).join('; ');
+  if (r.status === 200 && adminCookie) {
+    r = await request('PUT', `/api/admin/submissions/${legacySub.id}`, { cookie: adminCookie, body: { status: 'approved' } });
+    const adminApproved = subById(legacySub.id);
+    check('admin approve still publishes a legacy profile', r.status === 200 && adminApproved.status === 'approved' && !!adminApproved.approved_at);
+    r = await request('GET', `/players/${legacySub.slug}`);
+    check('admin-approved legacy profile publicly visible', r.status === 200 && r.text.includes('Old School'));
+    r = await request('GET', '/admin', { cookie: adminCookie });
+    check('admin page lists AI-first profile as approved, not Ready for Review', r.status === 200 && r.text.includes(`id="sc-${sub.id}" data-status="approved" data-ready="false"`));
+    check('admin page keeps the Ready for Review filter', r.text.includes('Ready for Review'));
+  } else {
+    bad('admin login for review checks', `${r.status} ${r.text.slice(0, 120)}`);
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   console.log('\nRate limiter cleanup');
