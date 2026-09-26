@@ -528,6 +528,42 @@ async function main() {
   check('/api/auth/me shape unchanged (no avatar internals)', r.status === 200 && Object.keys(r.json.user).sort().join() === 'display_name,email,email_verified,trust_level,username');
 
   // ─────────────────────────────────────────────────────────────────────────
+  console.log('\nIdentity strip (Sprint 1C.4)');
+  const stripOf = (html) => { const m = html.match(/<section class="cm-me"[\s\S]*?<\/section>/); return m ? m[0] : ''; };
+  await setAvatar(alice.cookie, { avatar_type: 'profile_photo' });
+  r = await request('GET', '/community', { cookie: alice.cookie });
+  let strip = stripOf(r.text);
+  check('signed-in writer sees identity strip', r.status === 200 && strip.includes('aria-label="Your Fish Tank identity"'));
+  check('strip sits between channel pills and composer', r.text.indexOf('class="cm-tabs"') < r.text.indexOf('class="cm-me"') && r.text.indexOf('class="cm-me"') < r.text.indexOf('data-cm-form="/api/community/posts"'));
+  check('strip shows correct @username + display name', strip.includes('<span class="cm-handle">@AceAlice</span>') && strip.includes('<span class="cm-name">Alice Aces</span>'));
+  check('strip uses resolved ATM avatar (same resolver as feed)', strip.includes(`<img class="atm-av" src="${ALICE_PHOTO}"`) && (await feedAuthor('AceAlice')).avatar.url === ALICE_PHOTO);
+  check('strip links Your ATM → /account', strip.includes('<a href="/account">Your ATM</a>'));
+  check('linked approved profile gets View Profile', strip.includes('<a href="/players/ace-alice-1a2b3c">View Profile</a>'));
+  check('Edit Profile goes through /account/profile', strip.includes('<a href="/account/profile">Edit Profile</a>') && !strip.includes('Create Poker Profile'));
+  check('no edit_token anywhere in Fish Tank HTML', !r.text.includes('EDITTOKEN_') && !r.text.includes('/profile/setup/') && !/edit_token/i.test(r.text));
+  check('no email / verification / trust / status in strip', !/@example\.com|verified|trust|suspended|status/i.test(strip.replace(/role="status"/g, '')) && !r.text.toLowerCase().includes('alice.private@example.com'));
+  check('strip CSS uses theme tokens only (no hex)', /\.cm-me-sub \{[^}]*var\(--gray\)/.test(r.text) && /\.cm-me a \{[^}]*var\(--green\)/.test(r.text) && !/\.cm-me[^{]*\{[^}]*#[0-9a-f]{3,6}/i.test(r.text));
+  check('strip compact on mobile (flex row, min-width 0)', /\.cm-me \{[^}]*display: flex;[^}]*min-width: 0;/.test(r.text));
+  r = await request('GET', '/account/profile', { cookie: alice.cookie });
+  check('/account/profile → owner setup page (server-side token)', r.status === 302 && r.headers.location === '/profile/setup/EDITTOKEN_SHOULD_NEVER_LEAK_123' && r.headers['cache-control'] === 'no-store');
+  r = await request('GET', '/account/profile');
+  check('/account/profile signed out → /login?next=/account/profile', r.status === 302 && r.headers.location === '/login?next=/account/profile');
+  r = await request('GET', '/account/profile', { cookie: bob.cookie });
+  check('/account/profile without linked profile → /account', r.status === 302 && r.headers.location === '/account');
+  r = await request('GET', '/community', { cookie: bob.cookie });
+  strip = stripOf(r.text);
+  const bobAv = (await feedAuthor('bob_nuts')).avatar;
+  check('no profile: strip shows handle + same resolved avatar as feed', strip.includes('@bob_nuts') && (bobAv.url ? strip.includes(`<img class="atm-av" src="${bobAv.url}"`) : strip.includes('atm-av-default')));
+  check('no profile: no View/Edit Profile links, offers Create Poker Profile', !strip.includes('View Profile') && !strip.includes('Edit Profile') && !strip.includes('/players/') && strip.includes('<a href="/ai-profile-generator">Create Poker Profile</a>'));
+  r = await request('GET', '/community', { cookie: carol.cookie });
+  strip = stripOf(r.text);
+  check('pending profile: no View Profile, Edit Profile via /account/profile', !strip.includes('View Profile') && !strip.includes('carol-pending') && strip.includes('href="/account/profile"') && !r.text.includes('EDITTOKEN_PENDING'));
+  r = await request('GET', '/community');
+  check('logged out: no identity strip, Create My ATM / Sign In remain', !r.text.includes('class="cm-me"') && r.text.includes('>Create My ATM</a>') && r.text.includes('>Sign In</a>'));
+  r = await request('GET', '/community', { cookie: noName.cookie });
+  check('no username: no identity strip (setup invite instead)', !r.text.includes('class="cm-me"') && r.text.includes('Finish Account Setup'));
+
+  // ─────────────────────────────────────────────────────────────────────────
   console.log('\nPrivacy');
   const surfaces = [
     await request('GET', '/api/community/posts', { cookie: alice.cookie }),

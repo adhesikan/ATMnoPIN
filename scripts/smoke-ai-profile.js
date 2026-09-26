@@ -146,7 +146,11 @@ async function main() {
   check('Wildlife step: SURPRISE ME / LET ME CHOOSE / SKIP', ['YOUR POKER WILDLIFE ALTER EGO', '>SURPRISE ME<', '>LET ME CHOOSE<', '>SKIP<'].every((s) => page.includes(s)));
   check('Let Me Choose lists published species', page.includes('data-species-slug="test-shark"') && page.includes('The Test Owl'));
   check('draft species never on page', !page.includes('Secret Draftling') && !page.includes('secret-draft'));
-  check('success copy: profile is live', page.includes('Your Poker Profile is live.') && page.includes('VIEW MY POKER PROFILE') && !page.includes('hit Submit for Review'));
+  check('success copy: profile is live', page.includes("You're live") && page.includes('PROFILE CREATED') && page.includes('Your Poker Profile is live. You now have your own ATM player page.') && !page.includes('hit Submit for Review'));
+  const done = (page.match(/<div class="atm-auth-card" id="stepDone"[\s\S]*?<\/div>/) || [''])[0];
+  check('completion primary CTA: ENTER THE FISH TANK → /community (1C.4)', done.includes('<a class="atm-btn" id="fishTankLink" href="/community">ENTER THE FISH TANK</a>') && done.indexOf('ENTER THE FISH TANK') < done.indexOf('VIEW MY PROFILE'));
+  check('completion secondary: VIEW MY PROFILE (public link set after save)', done.includes('<a class="atm-btn atm-btn-ghost" id="publicLink" href="/account">VIEW MY PROFILE</a>') && page.includes("$('publicLink').href = res.data.public_url"));
+  check('completion: GO TO MY ATM no longer a prominent button; My ATM still linked', !done.includes('GO TO MY ATM') && done.includes('<a href="/account">My ATM</a>'));
   check('no review/pending copy on AI-first page', !/sent for review|while it is pending|until an admin approves/i.test(page));
   check('only safe species images rendered', page.includes('src="https://res.cloudinary.com/demo/shark.jpg"') && !page.includes('javascript:alert'));
 

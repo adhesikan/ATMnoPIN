@@ -403,7 +403,19 @@ async function main() {
   check('/login accessible inputs', r.text.includes('autocomplete="email"') && r.text.includes('autocomplete="one-time-code"') && r.text.includes('inputmode="numeric"') && r.text.includes('<label for="authEmail">') && r.text.includes('role="status"'));
   check('/login is no-store', r.headers['cache-control'] === 'no-store');
   r = await request('GET', '/login', { cookie: claimCookie });
-  check('/login redirects signed-in user to /account', r.status === 302 && r.headers.location === '/account');
+  check('/login: returning user with linked profile defaults to /community (1C.4)', r.status === 302 && r.headers.location === '/community');
+  r = await request('GET', '/login?next=/account', { cookie: claimCookie });
+  check('/login: explicit next=/account still respected', r.status === 302 && r.headers.location === '/account');
+  r = await request('GET', '/login?next=' + encodeURIComponent('/players/ps-claim-slug'), { cookie: claimCookie });
+  check('/login: explicit next=/players/<slug> respected', r.status === 302 && r.headers.location === '/players/ps-claim-slug');
+  r = await request('GET', '/login?next=' + encodeURIComponent('/community/post/abc'), { cookie: claimCookie });
+  check('/login: explicit next=/community/post/… respected', r.status === 302 && r.headers.location === '/community/post/abc');
+  r = await request('GET', '/login?next=' + encodeURIComponent('//evil.example'), { cookie: claimCookie });
+  check('/login: unsafe next ignored → default /community', r.status === 302 && r.headers.location === '/community');
+  app.resetAuthRateLimits();
+  await request('POST', '/api/auth/request-code', { body: { email: 'claimer@example.com' } });
+  r = await request('POST', '/api/auth/verify-code', { body: { email: 'claimer@example.com', code: lastCodeFor('claimer@example.com') } });
+  check('returning verify → has_profile true, needs_username false (client → /community)', r.status === 200 && r.json.has_profile === true && r.json.needs_username === false);
   r = await request('GET', '/account');
   check('/account redirects unauthenticated → /login', r.status === 302 && r.headers.location === '/login');
   r = await request('GET', '/account/setup');
@@ -415,7 +427,8 @@ async function main() {
   r = await request('GET', '/account/setup', { cookie: claimCookie });
   check('/account/setup with username → /account', r.status === 302 && r.headers.location === '/account');
   r = await request('GET', '/account', { cookie: claimCookie });
-  check('/account renders linked profile', r.status === 200 && r.text.includes('MY ATM') && r.text.includes('@carl') && r.text.includes('Claimer Carl') && r.text.includes('Your Poker Profile is live.') && r.text.includes('VIEW MY POKER PROFILE') && r.text.includes('href="/players/ps-claim-slug"') && r.text.includes('LOG OUT') && r.text.includes('Join the conversation in The Fish Tank.') && r.text.includes('GO TO THE FISH TANK'));
+  check('/account renders linked profile', r.status === 200 && r.text.includes('MY ATM') && r.text.includes('@carl') && r.text.includes('Claimer Carl') && r.text.includes('Your Poker Profile is live.') && r.text.includes('VIEW MY POKER PROFILE') && r.text.includes('href="/players/ps-claim-slug"') && r.text.includes('LOG OUT') && r.text.includes('Join the conversation in The Fish Tank.') && r.text.includes('<a class="atm-btn" href="/community">GO TO THE FISH TANK</a>'));
+  check('/account stays My ATM (no redirect to Fish Tank)', r.status === 200 && !r.headers.location);
   check('/account leaks no edit_token and is no-store', !/SECRET-|edit_token/.test(r.text) && r.headers['cache-control'] === 'no-store');
   r = await request('GET', '/account', { cookie: vCookie });
   check('/account with no profile offers CREATE', r.text.includes('CREATE MY POKER PROFILE') && r.text.includes('href="/ai-profile-generator"'));
@@ -472,7 +485,7 @@ async function main() {
   const GEN = '/ai-profile-generator';
   r = await request('GET', '/login?next=/ai-profile-generator');
   check('/login?next= renders and embeds the safe next', r.status === 200 && r.text.includes('var next = "/ai-profile-generator";'));
-  check('verify step: username needed → /account/setup?next=…, else next || /account', r.text.includes("'/account/setup' + (next ? '?next=' + encodeURIComponent(next) : '')") && r.text.includes("(next || '/account')"));
+  check('verify step: username needed → /account/setup?next=…, else next || (profile ? /community : /account)', r.text.includes("'/account/setup' + (next ? '?next=' + encodeURIComponent(next) : '')") && r.text.includes("(next || (res.data.has_profile ? '/community' : '/account'))"));
   r = await request('GET', '/login');
   check('/login without next embeds next = null (default → /account)', r.status === 200 && r.text.includes('var next = null;'));
   r = await request('GET', '/account/setup?next=/ai-profile-generator');
@@ -494,6 +507,8 @@ async function main() {
   check('/account/setup with username + next → generator', r.status === 302 && r.headers.location === GEN);
   r = await request('GET', '/login?next=/ai-profile-generator', { cookie: nextCookie });
   check('signed-in /login?next= → generator', r.status === 302 && r.headers.location === GEN);
+  r = await request('GET', '/login', { cookie: nextCookie });
+  check('signed-in /login, username but no profile → /account (profile step still offered)', r.status === 302 && r.headers.location === '/account');
   r = await request('GET', GEN, { cookie: nextCookie });
   check('verified + username → AI-first generator', r.status === 200 && r.text.includes('CREATE YOUR POKER IDENTITY') && !r.text.includes('Start My Poker Profile'));
   r = await request('GET', GEN);

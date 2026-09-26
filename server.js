@@ -1125,6 +1125,19 @@ function publicCommunityAuthor(row) {
   };
 }
 
+// Signed-in viewer's own Fish Tank identity (compact strip above the composer).
+// Reuses the community author columns + resolver; only has_profile is added —
+// never email, ids or edit_token.
+async function getCommunityViewerIdentity(userId) {
+  const from = `FROM (SELECT id AS user_id FROM users WHERE id = %P) x ${COMMUNITY_AUTHOR_JOINS}`;
+  const row = await identityGet(
+    `SELECT ${COMMUNITY_AUTHOR_PG}, upl.player_submission_id AS linked_profile_id ${from.replace('%P', '$1')}`,
+    `SELECT ${COMMUNITY_AUTHOR_SQLITE}, upl.player_submission_id AS linked_profile_id ${from.replace('%P', '?')}`,
+    [String(userId)]
+  );
+  return row ? { author: publicCommunityAuthor(row), has_profile: !!row.linked_profile_id } : null;
+}
+
 function publicCommunityPost(row) {
   return {
     id: row.id,
@@ -10257,6 +10270,18 @@ function safeLocalNextPath(raw) {
   }
 }
 
+// Default post-login destination when there is no safe explicit `next`:
+// returning users with a linked Poker Profile land in The Fish Tank;
+// everyone else continues through My ATM (which routes to setup if needed).
+async function defaultPostLoginPath(user) {
+  if (!user || !user.username_normalized) return '/account';
+  try {
+    return (await getUserProfileLink(user.id)) ? '/community' : '/account';
+  } catch (_) {
+    return '/account';
+  }
+}
+
 function getSafeNextFromReq(req) {
   try {
     return safeLocalNextPath(new URL(req.url, 'http://atm.local').searchParams.get('next'));
@@ -10366,7 +10391,7 @@ function renderLoginPage(next) {
         if (!res.ok) { btn.disabled = false; atmSay(res.data.error || 'Invalid or expired verification code.'); return; }
         window.location.href = res.data.needs_username
           ? '/account/setup' + (next ? '?next=' + encodeURIComponent(next) : '')
-          : (next || '/account');
+          : (next || (res.data.has_profile ? '/community' : '/account'));
       }).catch(function () { btn.disabled = false; atmSay('Network error. Please try again.'); });
     });
   })();
@@ -10948,10 +10973,10 @@ function renderAIFirstProfilePage(species) {
     <div class="atm-auth-card" id="stepDone" hidden>
       <p class="eyebrow">You're live</p>
       <h1>PROFILE CREATED</h1>
-      <p>Your Poker Profile is live. It's on the Community Wall and has its own player page.</p>
-      <a class="atm-btn" id="publicLink" href="/account">VIEW MY POKER PROFILE</a>
-      <a class="atm-btn atm-btn-ghost" id="profileLink" href="/account">ADD MORE DETAILS (OPTIONAL)</a>
-      <a class="atm-btn atm-btn-ghost" href="/account">GO TO MY ATM</a>
+      <p>Your Poker Profile is live. You now have your own ATM player page.</p>
+      <a class="atm-btn" id="fishTankLink" href="/community">ENTER THE FISH TANK</a>
+      <a class="atm-btn atm-btn-ghost" id="publicLink" href="/account">VIEW MY PROFILE</a>
+      <p class="muted"><a id="profileLink" href="/account">Add more details (optional)</a> · <a href="/account">My ATM</a></p>
     </div>
     <p class="atm-status" id="authStatus" role="status" aria-live="polite"></p>
   </section>
@@ -11058,7 +11083,7 @@ function renderAIFirstProfilePage(species) {
 // Returns true when the request was handled.
 async function handleAuthRoutes(req, res, pathname) {
   const isAuthPath = pathname.startsWith('/api/auth/') || pathname.startsWith('/api/account/')
-    || pathname === '/login' || pathname === '/account' || pathname === '/account/setup' || pathname === '/account/profile-photo';
+    || pathname === '/login' || pathname === '/account' || pathname === '/account/setup' || pathname === '/account/profile' || pathname === '/account/profile-photo';
   if (!isAuthPath) return false;
   const method = req.method;
 
@@ -11415,7 +11440,8 @@ async function handleAuthRoutes(req, res, pathname) {
 
   if (pathname === '/login') {
     const next = getSafeNextFromReq(req);
-    if (await getCurrentUser(req)) { sendAuthRedirect(res, next || '/account'); return true; }
+    const signedIn = await getCurrentUser(req);
+    if (signedIn) { sendAuthRedirect(res, next || await defaultPostLoginPath(signedIn)); return true; }
     sendAuthHtml(res, renderLoginPage(next));
     return true;
   }
@@ -11454,11 +11480,13 @@ async function handleAuthRoutes(req, res, pathname) {
     return true;
   }
 
-  // Hands the signed-in owner to the existing profile-photo uploader on their
-  // linked profile's setup page (no new uploader; token never rendered into /account).
-  if (pathname === '/account/profile-photo' && method === 'GET') {
+  // Hands the signed-in owner to their linked profile's existing setup page
+  // (profile editing + photo uploader). The edit_token is resolved server-side
+  // via user_profile_links and only ever appears in this redirect's Location —
+  // never in /account or Fish Tank HTML/JSON. No linked profile → My ATM.
+  if ((pathname === '/account/profile' || pathname === '/account/profile-photo') && method === 'GET') {
     const user = await getCurrentUser(req);
-    if (!user || !user.email_verified_at) { sendAuthRedirect(res, '/login?next=/account'); return true; }
+    if (!user || !user.email_verified_at) { sendAuthRedirect(res, pathname === '/account/profile' ? '/login?next=/account/profile' : '/login?next=/account'); return true; }
     try {
       const link = await getUserProfileLink(user.id);
       const row = link ? await identityGet(
@@ -11572,6 +11600,13 @@ const COMMUNITY_CSS = `<style>
   .cm-post { border-bottom: 1px solid rgba(255,255,255,.08); padding: .8rem .1rem; }
   .cm-with-av { display: flex; align-items: flex-start; gap: .65rem; }
   .cm-main { flex: 1 1 auto; min-width: 0; }
+  .cm-me { display: flex; align-items: center; gap: .65rem; margin: 0 0 .6rem; min-width: 0; }
+  .cm-me p { margin: 0; line-height: 1.35; }
+  .cm-me .cm-author { font-size: .8rem; max-width: 100%; }
+  .cm-me-sub { font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gray); }
+  .cm-me-links { font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gray); }
+  .cm-me a { color: var(--green); text-decoration: none; }
+  .cm-me a:hover, .cm-me a:focus-visible { text-decoration: underline; }
   .cm-av-link { flex: 0 0 auto; line-height: 0; }
   .cm-post-head { display: flex; align-items: baseline; gap: .35rem; font-size: .75rem; min-width: 0; }
   .cm-author { display: inline-flex; align-items: baseline; gap: .35rem; min-width: 0; overflow: hidden; }
@@ -11738,7 +11773,25 @@ function renderCommunityInvite(state, next) {
     </div>`;
 }
 
-function renderCommunityPage({ channels, activeChannel, posts, viewer }) {
+// "This is who I am in The Fish Tank." Identity + profile shortcuts only;
+// editing goes through /account/profile (server-side token resolution).
+function renderCommunityIdentityStrip(identity) {
+  if (!identity || !identity.author.username) return '';
+  const a = identity.author;
+  const links = [];
+  if (a.profile_url) links.push(`<a href="${escapeHtml(a.profile_url)}">View Profile</a>`);
+  links.push(identity.has_profile ? '<a href="/account/profile">Edit Profile</a>' : '<a href="/ai-profile-generator">Create Poker Profile</a>');
+  return `<section class="cm-me" aria-label="Your Fish Tank identity" data-cm-me>
+      ${renderAtmAvatar(a.avatar, { size: 40 })}
+      <div class="cm-main">
+        <p>${renderCommunityAuthor({ ...a, profile_url: null })}</p>
+        <p class="cm-me-sub"><a href="/account">Your ATM</a></p>
+        <p class="cm-me-links">${links.join(' · ')}</p>
+      </div>
+    </section>`;
+}
+
+function renderCommunityPage({ channels, activeChannel, posts, viewer, viewerIdentity = null }) {
   const state = communityViewerState(viewer);
   const next = activeChannel ? `/community?channel=${activeChannel.slug}` : '/community';
   const tabs = [`<a class="cm-tab" href="/community"${activeChannel ? '' : ' aria-current="page"'}>All</a>`]
@@ -11767,6 +11820,7 @@ function renderCommunityPage({ channels, activeChannel, posts, viewer }) {
   <section class="cm">
     <header class="cm-head"><h1>The Fish Tank</h1><p class="cm-tagline">Table Talk from ATMwithNoPIN.</p><p>What's happening at the table?</p></header>
     <nav class="cm-tabs" aria-label="Channels">${tabs}</nav>
+    ${state === 'writer' ? renderCommunityIdentityStrip(viewerIdentity) : ''}
     ${composer}
     <div class="cm-feed">${feed}</div>
     <p class="cm-foot">Newest first. Be decent: <a href="/community-guidelines">Community Guidelines</a> · Looking for players? <a href="/community-wall">Community Wall</a></p>
@@ -11927,7 +11981,13 @@ async function handleCommunityRoutes(req, res, pathname) {
       const slug = url.searchParams.get('channel') || '';
       const activeChannel = channels.find((c) => c.slug === slug) || null;
       const posts = await loadCommunityFeed({ channelSlug: activeChannel ? activeChannel.slug : '', viewerId: viewer ? viewer.id : '' });
-      sendAuthHtml(res, renderCommunityPage({ channels, activeChannel, posts, viewer }));
+      let viewerIdentity = null;
+      if (communityViewerState(viewer) === 'writer') {
+        try { viewerIdentity = await getCommunityViewerIdentity(viewer.id); } catch (err) {
+          console.error('[community] viewer identity failed:', err && err.code ? err.code : 'error');
+        }
+      }
+      sendAuthHtml(res, renderCommunityPage({ channels, activeChannel, posts, viewer, viewerIdentity }));
       logPageVisit(req, pathname);
     } catch (err) {
       console.error('[community] page failed:', err && err.code ? err.code : (err && err.message) || 'error');
